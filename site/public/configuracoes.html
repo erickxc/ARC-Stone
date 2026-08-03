@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ConfiguraÃ§Ãµes da Conta | ARC</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#434843",
+                        "primary": "#536255",
+                        "on-primary-fixed-variant": "#3c4a3e",
+                        "surface-container": "#f1edeb",
+                        "outline": "#747872",
+                        "background": "#fdf8f7",
+                        "surface-dim": "#ddd9d8",
+                        "on-secondary-fixed-variant": "#484645",
+                        "surface-tint": "#536255",
+                        "on-secondary-container": "#666463",
+                        "on-background": "#1c1b1b",
+                        "primary-fixed": "#d6e7d6",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "surface-container-low": "#f7f3f1",
+                        "tertiary-container": "#d6b6bb",
+                        "on-surface": "#1c1b1b",
+                        "on-primary-container": "#425044",
+                        "error": "#ba1a1a",
+                        "on-error": "#ffffff",
+                        "surface-container-highest": "#e6e2e0",
+                        "tertiary": "#71585c",
+                        "surface-bright": "#fdf8f7",
+                        "inverse-primary": "#bacbbb",
+                        "inverse-surface": "#31302f",
+                        "on-primary-fixed": "#111f14",
+                        "outline-variant": "#c3c8c1",
+                        "on-tertiary-container": "#5e474a",
+                        "tertiary-fixed-dim": "#dfbfc3",
+                        "secondary-container": "#e6e2e0",
+                        "secondary": "#605e5d",
+                        "surface-variant": "#e6e2e0",
+                        "primary-fixed-dim": "#bacbbb",
+                        "inverse-on-surface": "#f4f0ee",
+                        "surface-container-high": "#ece7e6",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-fixed": "#29161a",
+                        "on-tertiary-fixed-variant": "#584145",
+                        "surface-container-lowest": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "primary-container": "#b2c2b2",
+                        "on-secondary-fixed": "#1c1b1b",
+                        "tertiary-fixed": "#fcdadf",
+                        "surface": "#fdf8f7",
+                        "secondary-fixed-dim": "#c9c6c4",
+                        "secondary-fixed": "#e6e2e0"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-page": "2rem",
+                        "section-gap": "3rem",
+                        "gutter": "1rem",
+                        "element-gap": "1rem"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Source Sans 3"],
+                        "headline-sm": ["Source Sans 3"],
+                        "body-lg": ["Source Sans 3"],
+                        "body-sm": ["Source Sans 3"],
+                        "headline-md": ["Source Sans 3"],
+                        "headline-lg": ["Source Sans 3"],
+                        "button": ["Source Sans 3"],
+                        "body-md": ["Source Sans 3"]
+                    },
+                    "fontSize": {
+                        "label-md": ["14px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "headline-sm": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "body-sm": ["14px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                        "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "700"}],
+                        "headline-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                        "button": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #fdf8f7; /* Background token */
+            color: #1c1b1b; /* On-background token */
+            font-family: 'Source Sans 3', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-nav {
+            background-color: rgba(83, 98, 85, 0.9); /* Primary color with opacity */
+            backdrop-filter: blur(12px);
+        }
+        .organic-shadow {
+            box-shadow: 0 4px 20px -4px rgba(46, 45, 44, 0.08);
+        }
+        .input-focus:focus {
+            border-color: #536255;
+            box-shadow: 0 0 0 2px rgba(83, 98, 85, 0.2);
+            outline: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+<!-- TopNavBar -->
+<nav class="sticky top-0 w-full z-50 glass-nav flex justify-between items-center px-margin-page py-4 border-b border-outline-variant/20 shadow-sm transition-all duration-200">
+<div class="flex items-center gap-8">
+<span class="font-headline-lg text-headline-lg font-bold text-on-primary">ARC</span>
+<div class="hidden md:flex gap-6 items-center">
+<a class="font-label-md text-label-md text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 px-3 py-2 rounded-lg transition-colors cursor-pointer active:scale-95" href="#">Vendas</a>
+<a class="font-label-md text-label-md text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 px-3 py-2 rounded-lg transition-colors cursor-pointer active:scale-95" href="#">GalpÃ£o</a>
+<a class="font-label-md text-label-md text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 px-3 py-2 rounded-lg transition-colors cursor-pointer active:scale-95" href="#">GestÃ£o</a>
+<a class="font-label-md text-label-md text-on-primary border-b-2 border-on-primary pb-1 px-3 py-2 cursor-pointer transition-all duration-200 active:scale-95" href="#">ConfiguraÃ§Ãµes</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="font-label-md text-label-md text-on-primary/70 hover:text-on-primary transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined">logout</span>
+                Logout
+            </button>
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold overflow-hidden">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="A professional headshot of a mature male executive with a kind expression, wearing a tailored charcoal suit and a soft white shirt. The background is a blurred architectural studio with warm wooden textures and soft natural light, maintaining a premium and trustworthy aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBS4g-DYbnMjJmkRA0BTHrCOHW5OL9Z7kRhA4CI4tEQJL-OaMV18tW6pUn0W7meOPuyVqF5lFJNFUezPOBtgw1DLtJU1-0W-O_HEuZQfC0r0ES29G21KyRVvMX4WFl-8c2kypYcD5Chm7NlhBe6zrUB_Cy0eKXlOohEEJ7rz6PNEGqj9jV_9ub4zJRw74Rc6hDXAJTbOQW_KafDgKj3cKV5lAU8QC3T5fjZbxuQNE1P0Nbw_a_gC9b3fGbjRIOtTj2ZYSlLFe_UU0hk"/>
+</div>
+</div>
+</nav>
+<main class="max-w-7xl mx-auto px-margin-page py-section-gap">
+<!-- Title Section -->
+<header class="mb-element-gap">
+<h1 class="font-headline-lg text-headline-lg font-bold text-on-surface">ConfiguraÃ§Ãµes da Conta</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Gerencie suas informaÃ§Ãµes pessoais e preferÃªncias de seguranÃ§a.</p>
+</header>
+<!-- 2-Column Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Left Column: Profile Card -->
+<aside class="lg:col-span-4 space-y-gutter">
+<div class="bg-surface-container-low rounded-xl p-8 flex flex-col items-center text-center organic-shadow border border-outline-variant/30">
+<div class="relative mb-6">
+<div class="w-32 h-32 rounded-full bg-primary flex items-center justify-center text-white text-4xl font-bold border-4 border-white shadow-md">
+                            RA
+                        </div>
+<button class="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-lg border border-outline-variant/30 hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-primary text-sm">photo_camera</span>
+</button>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-1">Ricardo Alencar</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">ricardo.alencar@arc-erp.local</p>
+<span class="px-4 py-1.5 rounded-full bg-primary/10 text-primary font-label-md text-label-md uppercase tracking-wider">
+                        Admin
+                    </span>
+<div class="w-full mt-8 pt-8 border-t border-outline-variant/20 flex flex-col gap-2">
+<button class="w-full text-left px-4 py-3 rounded-lg bg-primary-container text-on-primary-container font-medium flex items-center gap-3">
+<span class="material-symbols-outlined">person</span>
+                            Perfil e Dados
+                        </button>
+<button class="w-full text-left px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors flex items-center gap-3">
+<span class="material-symbols-outlined">security</span>
+                            SeguranÃ§a
+                        </button>
+<button class="w-full text-left px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors flex items-center gap-3">
+<span class="material-symbols-outlined">notifications</span>
+                            NotificaÃ§Ãµes
+                        </button>
+</div>
+</div>
+</aside>
+<!-- Right Column: Details -->
+<section class="lg:col-span-8 space-y-gutter">
+<!-- Panel 1: Dados Pessoais -->
+<div class="bg-surface-container-lowest rounded-xl p-8 organic-shadow border border-outline-variant/20">
+<div class="flex items-center gap-3 mb-8">
+<span class="material-symbols-outlined text-primary">badge</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Dados Pessoais</h3>
+</div>
+<form class="space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-col gap-2">
+<label class="font-label-md text-label-md text-on-surface-variant ml-1">Nome Completo</label>
+<input class="w-full bg-transparent border border-outline-variant rounded-full px-6 py-3 text-body-md input-focus transition-all" placeholder="Digite seu nome" type="text" value="Ricardo Alencar"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-label-md text-label-md text-on-surface-variant ml-1">E-mail Corporativo</label>
+<input class="w-full bg-transparent border border-outline-variant rounded-full px-6 py-3 text-body-md input-focus transition-all" placeholder="seu@email.com" type="email" value="ricardo.alencar@arc-erp.local"/>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-label-md text-label-md text-on-surface-variant ml-1">Cargo / FunÃ§Ã£o</label>
+<input class="w-full bg-transparent border border-outline-variant rounded-full px-6 py-3 text-body-md input-focus transition-all" type="text" value="Diretor de OperaÃ§Ãµes"/>
+</div>
+<div class="flex justify-end gap-4 pt-4">
+<button class="px-8 py-3 rounded-full font-button text-on-surface-variant hover:bg-surface-container-high transition-all" type="button">
+                                Cancelar
+                            </button>
+<button class="px-8 py-3 rounded-full font-button bg-primary text-white hover:bg-primary-container hover:text-on-primary-container transition-all shadow-sm" type="submit">
+                                Salvar AlteraÃ§Ãµes
+                            </button>
+</div>
+</form>
+</div>
+<!-- Panel 2: SeguranÃ§a -->
+<div class="bg-surface-container-lowest rounded-xl p-8 organic-shadow border border-outline-variant/20">
+<div class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">verified_user</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">SeguranÃ§a (2FA / MFA)</h3>
+</div>
+<span class="flex items-center gap-2 px-3 py-1 bg-error-container text-on-error-container rounded-full text-xs font-bold uppercase">
+<span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+                            MFA Desativado
+                        </span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+<div class="space-y-4">
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+                                A autenticaÃ§Ã£o de dois fatores adiciona uma camada extra de seguranÃ§a Ã  sua conta ARC. Para ativar, escaneie o cÃ³digo QR ao lado com seu aplicativo autenticador (Google Authenticator ou Microsoft Authenticator).
+                            </p>
+<button class="w-full md:w-auto px-8 py-3 rounded-full font-button border border-primary text-primary hover:bg-primary hover:text-white transition-all flex items-center justify-center gap-2" id="enable-2fa">
+<span class="material-symbols-outlined text-sm">lock_open</span>
+                                Habilitar 2FA
+                            </button>
+</div>
+<div class="opacity-40 pointer-events-none transition-all duration-500 bg-surface-container rounded-xl p-6 flex flex-col items-center gap-6" id="qr-container">
+<div class="w-40 h-40 bg-white p-2 rounded-lg shadow-inner flex items-center justify-center relative group">
+<img alt="QR Code Placeholder" class="w-full h-full grayscale opacity-30" data-alt="A clean, minimalist square QR code graphic displayed on a white high-gloss card. The lighting is soft and even, highlighting the geometric pattern. The overall style is modern and secure, integrated into an interface with soft shadows and organic material textures." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcCzQA3assI4MQfdgfXYdZTgtfRaYQ5GkmIRWAHWNcqfGc44mqZwdvV5nFN74EztM0gcELYCarCJIFvkoH2bwehOdH6VJzuGEcrM3u_tD7YvDdDmiDKazrzmXVrW_MyCIBGxcQJfP0sYHQowcTF6fcdrrA9q3scYcLyTgBJIoLQOoLETERwOUjGuQ9-HX5AO-Jdi9L-dt_j8HqglQd0pQP45FRjZYCF3XZ5jEuS_FN_2CcvFW8rlpINnT5CmaVgTFvopMYXV-XW5-G"/>
+<div class="absolute inset-0 flex items-center justify-center bg-surface-dim/20 backdrop-blur-sm rounded-lg">
+<span class="material-symbols-outlined text-on-surface-variant text-4xl">qr_code_2</span>
+</div>
+</div>
+<div class="w-full space-y-3">
+<label class="font-label-md text-label-md text-center block text-on-surface-variant">Insira o cÃ³digo de 6 dÃ­gitos</label>
+<div class="flex justify-center gap-2">
+<input class="w-10 h-12 text-center bg-white border border-outline-variant rounded-lg text-headline-sm font-bold input-focus" disabled="" maxlength="1" type="text"/>
+<input class="w-10 h-12 text-center bg-white border border-outline-variant rounded-lg text-headline-sm font-bold input-focus" disabled="" maxlength="1" type="text"/>
+<input class="w-10 h-12 text-center bg-white border border-outline-variant rounded-lg text-headline-sm font-bold input-focus" disabled="" maxlength="1" type="text"/>
+<span class="flex items-center text-outline">-</span>
+<input class="w-10 h-12 text-center bg-white border border-outline-variant rounded-lg text-headline-sm font-bold input-focus" disabled="" maxlength="1" type="text"/>
+<input class="w-10 h-12 text-center bg-white border border-outline-variant rounded-lg text-headline-sm font-bold input-focus" disabled="" maxlength="1" type="text"/>
+<input class="w-10 h-12 text-center bg-white border border-outline-variant rounded-lg text-headline-sm font-bold input-focus" disabled="" maxlength="1" type="text"/>
+</div>
+<button class="w-full mt-4 py-2 text-primary font-button hover:underline text-xs">Verificar e Ativar</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Subtle Info Banner -->
+<div class="p-6 bg-primary/5 rounded-xl border border-primary/10 flex gap-4 items-start">
+<span class="material-symbols-outlined text-primary">info</span>
+<div>
+<h4 class="font-label-md text-label-md text-primary font-bold">Por que o MFA Ã© obrigatÃ³rio?</h4>
+<p class="font-body-sm text-body-sm text-on-primary-container/80 mt-1">Como administrador, o acesso multifator Ã© necessÃ¡rio para garantir a integridade dos orÃ§amentos e dados sensÃ­veis dos clientes da ARC MÃ³veis.</p>
+</div>
+</div>
+</section>
+</div>
+</main>
+<script>
+        // Micro-interaction for 2FA Enable
+        const enableBtn = document.getElementById('enable-2fa');
+        const qrContainer = document.getElementById('qr-container');
+        
+        enableBtn.addEventListener('click', () => {
+            qrContainer.classList.remove('opacity-40', 'pointer-events-none');
+            qrContainer.querySelectorAll('input').forEach(input => input.disabled = false);
+            enableBtn.innerHTML = '<span class="material-symbols-outlined text-sm">hourglass_empty</span> Aguardando VerificaÃ§Ã£o...';
+            enableBtn.classList.add('bg-primary/10');
+            
+            // Focus first input
+            qrContainer.querySelector('input').focus();
+        });
+
+        // Simple input auto-advance
+        const inputs = qrContainer.querySelectorAll('input');
+        inputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                if (e.target.value.length === 1 && index < inputs.length - 1) {
+                    inputs[index + 1].focus();
+                }
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    inputs[index - 1].focus();
+                }
+            });
+        });
+    </script>
+</body></html>

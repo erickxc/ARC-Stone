@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+
+<html class="light" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Audit Logs | ARC MÃ³veis</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container": "#f1edeb",
+                    "surface-container-low": "#f7f3f1",
+                    "primary-fixed-dim": "#bacbbb",
+                    "on-surface": "#1c1b1b",
+                    "surface": "#fdf8f7",
+                    "tertiary-fixed-dim": "#dfbfc3",
+                    "on-tertiary-fixed-variant": "#584145",
+                    "primary-container": "#b2c2b2",
+                    "inverse-on-surface": "#f4f0ee",
+                    "on-surface-variant": "#434843",
+                    "on-tertiary-fixed": "#29161a",
+                    "outline-variant": "#c3c8c1",
+                    "surface-bright": "#fdf8f7",
+                    "on-secondary-container": "#666463",
+                    "on-primary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "surface-container-high": "#ece7e6",
+                    "on-primary-fixed-variant": "#3c4a3e",
+                    "secondary-container": "#e6e2e0",
+                    "background": "#fdf8f7",
+                    "secondary-fixed-dim": "#c9c6c4",
+                    "on-secondary-fixed-variant": "#484645",
+                    "tertiary-fixed": "#fcdadf",
+                    "surface-container-highest": "#e6e2e0",
+                    "surface-dim": "#ddd9d8",
+                    "surface-tint": "#536255",
+                    "primary": "#536255",
+                    "on-secondary-fixed": "#1c1b1b",
+                    "error": "#ba1a1a",
+                    "on-primary-fixed": "#111f14",
+                    "on-error": "#ffffff",
+                    "primary-fixed": "#d6e7d6",
+                    "surface-variant": "#e6e2e0",
+                    "on-primary-container": "#425044",
+                    "inverse-primary": "#bacbbb",
+                    "tertiary-container": "#d6b6bb",
+                    "error-container": "#ffdad6",
+                    "on-tertiary": "#ffffff",
+                    "on-background": "#1c1b1b",
+                    "secondary": "#605e5d",
+                    "outline": "#747872",
+                    "on-tertiary-container": "#5e474a",
+                    "inverse-surface": "#31302f",
+                    "tertiary": "#71585c",
+                    "secondary-fixed": "#e6e2e0",
+                    "on-secondary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "1rem",
+                    "section-gap": "3rem",
+                    "element-gap": "1rem",
+                    "margin-page": "2rem"
+            },
+            "fontFamily": {
+                    "headline-lg": ["\"Source Sans 3\""],
+                    "headline-md": ["\"Source Sans 3\""],
+                    "label-md": ["\"Source Sans 3\""],
+                    "headline-sm": ["\"Source Sans 3\""],
+                    "body-md": ["\"Source Sans 3\""],
+                    "button": ["\"Source Sans 3\""],
+                    "body-lg": ["\"Source Sans 3\""],
+                    "body-sm": ["\"Source Sans 3\""]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "700"}],
+                    "label-md": ["14px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "headline-sm": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "button": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "body-sm": ["14px", {"lineHeight": "1.4", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: "Source Sans 3", sans-serif;
+            background-color: #fdf8f7; /* Lino background as requested */
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-nav {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="text-on-background">
+<!-- TopNavBar -->
+<header class="sticky top-0 w-full z-50 bg-primary/90 text-on-primary backdrop-blur-md shadow-sm flex justify-between items-center px-margin-page py-4">
+<div class="flex items-center gap-8">
+<span class="text-headline-md font-headline-md font-bold text-on-primary">ARC MÃ³veis</span>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-label-md font-label-md text-on-primary/70 hover:text-on-primary transition-colors" href="#">Vendas</a>
+<a class="text-label-md font-label-md text-on-primary/70 hover:text-on-primary transition-colors" href="#">GalpÃ£o</a>
+<a class="text-label-md font-label-md text-on-primary border-b-2 border-on-primary pb-1" href="#">GestÃ£o</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg bg-on-primary/10 hover:bg-on-primary/20 transition-all text-label-md font-label-md">
+<span class="material-symbols-outlined text-[20px]">sync</span>
+                Sincronizado
+            </button>
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-on-primary/10 rounded-full transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-secondary-container border border-on-primary/20 overflow-hidden">
+<img alt="User profile avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuByLCSuNbRtmw03bxuQqYfAvDLybc9VRbKOPfL3qAJrg5Pnxay-Mmwly3VFOJGIBwSwBIf36uu3P72VPiHnf4f9nmllgAtmQsVYOoxYpLMmk56qlGtqWjmzq1ENpHfjpu9kp_du3vGD4CTQreezSYdoyW_UBj8eHMUKEpYbN8f3C6cK0fu4V7zNLrQiAx3kdeyh9T9G99h6CqCa00Hh3viDGbArIW1VgYfdZC1TDETjPLvKcrvC6EjCAWmlabzdP2FgDWeuFjcoTjx7"/>
+</div>
+</div>
+</div>
+</header>
+<main class="max-w-7xl mx-auto px-margin-page py-12">
+<!-- Page Header -->
+<div class="mb-section-gap">
+<h1 class="text-headline-lg font-headline-lg text-secondary mb-6">Logs de Auditoria</h1>
+<div class="relative w-full max-w-2xl">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-12 pr-4 py-3 bg-surface-container-low border border-outline/30 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-body-md" placeholder="Pesquisar por descriÃ§Ã£o, aÃ§Ã£o ou usuÃ¡rio..." type="text"/>
+</div>
+</div>
+<!-- Primary Content: Audit Logs -->
+<div class="space-y-4">
+<!-- Log Entry 1: Status Change -->
+<div class="bg-surface-container-lowest border border-surface-container-high rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+<div class="flex items-center gap-3">
+<span class="text-label-md font-label-md text-secondary tracking-wider opacity-60 uppercase">15 Jun 2026 14:20</span>
+<span class="px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-label-md font-bold uppercase tracking-tight">Status</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden bg-surface-container">
+<img alt="Maria Costa Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCE1WWwXUW81TODwaH5ZSd7rVLW2LUdFK_E2JL3dFfMwNN6n89FwyHZKTFpeBh5GBtTC75bl4Uq4KixgXVXBTbPZtPfNbWe2qD0dMg7sg763SoB5AOcgnLlP__NpiXPAnLGFgQ9Z_KkFVEJ9yfEZs9z1-ddGHyX414tIhFuGbq-PUR7i5NADFz1oqQT6iAIcVyN-0DUMuFu4MbIeDSFVRFV41rz_h1i2H9Ub5AJhw9xJuzeL755acBDKPSpEAwZ0BuhOA9GkqsfXKPX"/>
+</div>
+<span class="text-body-sm font-medium">Feito por: <span class="text-on-surface">Maria Costa</span></span>
+</div>
+</div>
+<div class="border-l-4 border-blue-500 pl-4">
+<p class="text-label-md font-bold text-secondary mb-1">Entidade: OrÃ§amento #ORC-0019</p>
+<p class="text-body-md text-on-surface-variant">Proposta enviada por e-mail para o cliente Yann Cruz.</p>
+</div>
+</div>
+<!-- Log Entry 2: Edition -->
+<div class="bg-surface-container-lowest border border-surface-container-high rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+<div class="flex items-center gap-3">
+<span class="text-label-md font-label-md text-secondary tracking-wider opacity-60 uppercase">14 Jun 2026 09:15</span>
+<span class="px-3 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant text-label-md font-bold uppercase tracking-tight">EdiÃ§Ã£o</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden bg-surface-container">
+<img alt="Ricardo Alencar Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAwu-BkoCQO5j4KT5x5AJjs52zOvPXwkFPEpcWXv-5wSrZVuQ0GgFcYZea65taRYJ0qhLlBNzHSHk35-GtQKGg7UU1kRK6TDAI4g4ceF3TOKpmHG1O0ToD_D9yu9ZCROS0twPKSGZkbHt_aK4iBUeKLi2VKJ0TjGt_6WX5Sdk2bC_hA43XUCSFA8BkizLfBEk5xh2ApjIdUmDBUcyYBY0-xw3FqgJ9jiZRNbxVM5aQJIjYvYTOvjWwJdHhlTxqi6kSXvwRbEf2g2uXA"/>
+</div>
+<span class="text-body-sm font-medium">Feito por: <span class="text-on-surface">Ricardo Alencar</span></span>
+</div>
+</div>
+<div class="border-l-4 border-tertiary pl-4">
+<p class="text-label-md font-bold text-secondary mb-1">Entidade: Produto: ArmÃ¡rio Eucalipto Zen</p>
+<p class="text-body-md text-on-surface-variant">PreÃ§o de venda alterado de <span class="line-through opacity-50">R$ 4.000</span> para <span class="font-bold text-primary">R$ 4.250</span>.</p>
+</div>
+</div>
+<!-- Log Entry 3: Creation -->
+<div class="bg-surface-container-lowest border border-surface-container-high rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+<div class="flex items-center gap-3">
+<span class="text-label-md font-label-md text-secondary tracking-wider opacity-60 uppercase">13 Jun 2026 16:45</span>
+<span class="px-3 py-1 rounded-full bg-primary-container text-on-primary-container text-label-md font-bold uppercase tracking-tight">CriaÃ§Ã£o</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden bg-surface-container">
+<img alt="Carlos M. Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGx7uskBbLE083ymIHDbDhfAB0tmSAwTEeQ_6iV9iNeUULci4Hk7Yr1cWTDqlVEjpVkBHe7_qpcwo_pHLCAn3oPBxQbBuZlpQugFeHP_ZBO4VMRYpxbINbQwxIXODL-VaYaoH9yi9naEb-akDayJB-t8V_N-tfpJWxhPlopJiItyZD8yXJQoD5NKpu5qbxv9oQJf_eNo4kHSoKGMWv_6sxc-GzafwUlcTKI6QsY3wQY3mJ3pyGC5cmYNEE2O9pq8313sv2euK5xw-Q"/>
+</div>
+<span class="text-body-sm font-medium">Feito por: <span class="text-on-surface">Carlos M.</span></span>
+</div>
+</div>
+<div class="border-l-4 border-primary pl-4">
+<p class="text-label-md font-bold text-secondary mb-1">Entidade: Fornecedor: WoodArt Inc.</p>
+<p class="text-body-md text-on-surface-variant">Novo fornecedor cadastrado na base.</p>
+</div>
+</div>
+<!-- Log Entry 4: Deletion -->
+<div class="bg-surface-container-lowest border border-surface-container-high rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+<div class="flex items-center gap-3">
+<span class="text-label-md font-label-md text-secondary tracking-wider opacity-60 uppercase">12 Jun 2026 11:30</span>
+<span class="px-3 py-1 rounded-full bg-error-container text-on-error-container text-label-md font-bold uppercase tracking-tight">ExclusÃ£o</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden bg-surface-container">
+<img alt="Ricardo Alencar Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfXjNfzaMLupmkcbE3od0bH36olbEekIRcE8AMA4Pawkn-IFKYAVRZETq8pjjdTWRNMrujy8XPBGiA69kIYqGmoKJv4QZ_gHsYfeYSzKOhcO952K9JoU79iMUdunaBkBuN4n3cJZWe2AzkM6DGod_uTc0kBtODNAxPq9yWx5muB5V0lR9HvWQsgoqbxYM3NfbwQXEdmtx2JlttIjwTM--gc2f_GW5--k8e6m3ErdSCWqysc_dT13DGtYrgw5enkd0iworlPUJnUa1s"/>
+</div>
+<span class="text-body-sm font-medium">Feito por: <span class="text-on-surface">Ricardo Alencar</span></span>
+</div>
+</div>
+<div class="border-l-4 border-error pl-4">
+<p class="text-label-md font-bold text-secondary mb-1">Entidade: OrÃ§amento #ORC-0005</p>
+<p class="text-body-md text-on-surface-variant">OrÃ§amento removido por duplicidade.</p>
+</div>
+</div>
+<!-- Additional Decorative Element: Stats/Summary Aside -->
+<div class="mt-section-gap grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<div class="bg-surface-container-low p-6 rounded-2xl flex flex-col gap-2">
+<span class="text-label-md font-label-md text-secondary opacity-60 uppercase">AÃ§Ãµes Hoje</span>
+<span class="text-headline-md font-headline-md text-primary">124</span>
+<p class="text-body-sm text-secondary">+12% em relaÃ§Ã£o a ontem</p>
+</div>
+<div class="bg-surface-container-low p-6 rounded-2xl flex flex-col gap-2">
+<span class="text-label-md font-label-md text-secondary opacity-60 uppercase">UsuÃ¡rio Ativo</span>
+<span class="text-headline-md font-headline-md text-secondary">Ricardo Alencar</span>
+<p class="text-body-sm text-secondary">42 aÃ§Ãµes realizadas</p>
+</div>
+<div class="bg-surface-container-low p-6 rounded-2xl flex flex-col gap-2">
+<span class="text-label-md font-label-md text-secondary opacity-60 uppercase">Uptime Sistema</span>
+<span class="text-headline-md font-headline-md text-tertiary">99.9%</span>
+<p class="text-body-sm text-secondary">OperaÃ§Ã£o normal em todos galpÃµes</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Side Decoration (Subtle Brand Imagery) -->
+<div class="fixed right-0 bottom-0 opacity-5 pointer-events-none p-12">
+<span class="material-symbols-outlined text-[200px] text-primary rotate-12">architecture</span>
+</div>
+<!-- Floating Action for Quick Filter (Contextual) -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-transform">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+<footer class="mt-section-gap py-12 px-margin-page border-t border-surface-container-highest">
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 opacity-60">
+<div class="flex items-center gap-4">
+<span class="text-label-md font-label-md font-bold text-primary">ARC MÃ³veis</span>
+<span class="text-body-sm">Â© 2026 Auditoria Segura</span>
+</div>
+<div class="flex gap-8">
+<a class="text-label-md font-label-md hover:text-primary transition-colors" href="#">Termos</a>
+<a class="text-label-md font-label-md hover:text-primary transition-colors" href="#">Privacidade</a>
+<a class="text-label-md font-label-md hover:text-primary transition-colors" href="#">Suporte</a>
+</div>
+</div>
+</footer>
+<script>
+        // Simple search feedback interaction
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('input', (e) => {
+            const logs = document.querySelectorAll('.bg-surface-container-lowest');
+            const term = e.target.value.toLowerCase();
+            
+            logs.forEach(log => {
+                const text = log.innerText.toLowerCase();
+                if (text.includes(term)) {
+                    log.style.display = 'block';
+                } else {
+                    log.style.display = 'none';
+                }
+            });
+        });
+
+        // Hover effects for log items
+        document.querySelectorAll('.bg-surface-container-lowest').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-2px)';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0)';
+            });
+        });
+    </script>
+</body></html>

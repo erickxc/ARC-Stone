@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+
+<html class="light" lang="pt-br"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Painel de Controle ADM | Dilegno Móveis</title>
+<!-- Google Fonts: Source Sans 3 -->
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,200..900;1,200..900&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#f4f0ee",
+                        "on-secondary-fixed": "#1c1b1b",
+                        "on-background": "#1c1b1b",
+                        "primary-fixed": "#d6e7d6",
+                        "surface-variant": "#e6e2e0",
+                        "on-primary-container": "#425044",
+                        "surface-container-high": "#ece7e6",
+                        "secondary-container": "#e6e2e0",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed-dim": "#c9c6c4",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#31302f",
+                        "surface-bright": "#fdf8f7",
+                        "on-tertiary-container": "#5e474a",
+                        "on-secondary-fixed-variant": "#484645",
+                        "on-primary-fixed": "#111f14",
+                        "secondary": "#605e5d",
+                        "primary-container": "#b2c2b2",
+                        "surface-container-low": "#f7f3f1",
+                        "on-primary-fixed-variant": "#3c4a3e",
+                        "on-error": "#ffffff",
+                        "on-surface-variant": "#434843",
+                        "tertiary-container": "#d6b6bb",
+                        "tertiary": "#71585c",
+                        "primary-fixed-dim": "#bacbbb",
+                        "on-secondary-container": "#666463",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed": "#fcdadf",
+                        "surface-container-highest": "#e6e2e0",
+                        "on-tertiary-fixed-variant": "#584145",
+                        "surface-container": "#f1edeb",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-primary": "#bacbbb",
+                        "error-container": "#ffdad6",
+                        "background": "#fdf8f7",
+                        "outline-variant": "#c3c8c1",
+                        "surface": "#fdf8f7",
+                        "surface-tint": "#536255",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed": "#29161a",
+                        "on-surface": "#1c1b1b",
+                        "surface-dim": "#ddd9d8",
+                        "outline": "#747872",
+                        "secondary-fixed": "#e6e2e0",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed-dim": "#dfbfc3",
+                        "primary": "#536255"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "section-gap": "3rem",
+                        "margin-page": "2rem",
+                        "gutter": "1rem",
+                        "element-gap": "1rem"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Source Sans 3"],
+                        "label-md": ["Source Sans 3"],
+                        "body-md": ["Source Sans 3"],
+                        "button": ["Source Sans 3"],
+                        "body-lg": ["Source Sans 3"],
+                        "headline-sm": ["Source Sans 3"],
+                        "headline-md": ["Source Sans 3"],
+                        "body-sm": ["Source Sans 3"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                        "label-md": ["14px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "button": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "700"}],
+                        "body-sm": ["14px", {"lineHeight": "1.4", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Source Sans 3', sans-serif;
+            background-color: #f7f3f1; 
+            color: #1c1b1b;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .nav-dropdown:hover .dropdown-content {
+            display: block;
+        }
+    </style>
+</head>
+<body class="min-h-screen overflow-x-hidden">
+<!-- TopNavBar (Upbar) -->
+<header class="fixed top-0 w-full z-50 bg-primary/90 backdrop-blur-md h-16 px-margin-page flex justify-between items-center shadow-sm">
+<div class="flex items-center gap-10">
+<span class="font-headline-md text-headline-md font-bold text-on-primary tracking-tight shrink-0">Dilegno Móveis</span>
+<nav class="hidden lg:flex items-center gap-4">
+<!-- PAINÉIS -->
+<div class="relative nav-dropdown group h-16 flex items-center">
+<button class="flex items-center gap-1 text-on-primary/90 hover:text-on-primary font-bold font-label-md text-label-md transition-colors px-2 py-1 rounded">
+                    PAINÉIS
+                    <span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+<div class="dropdown-content hidden absolute top-full left-0 w-48 bg-white shadow-xl rounded-b-lg border border-outline-variant overflow-hidden">
+<a class="block px-4 py-3 text-secondary hover:bg-surface-container-low transition-colors font-label-md text-label-md border-b border-outline-variant/30" href="#">Painel Geral</a>
+<a class="block px-4 py-3 text-secondary hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">Painel Financeiro</a>
+</div>
+</div>
+<!-- ORÇAMENTOS -->
+<div class="relative nav-dropdown group h-16 flex items-center">
+<button class="flex items-center gap-1 text-on-primary/90 hover:text-on-primary font-bold font-label-md text-label-md transition-colors px-2 py-1 rounded">
+                    ORÇAMENTOS
+                    <span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+<div class="dropdown-content hidden absolute top-full left-0 w-56 bg-white shadow-xl rounded-b-lg border border-outline-variant overflow-hidden">
+<a class="block px-4 py-3 text-secondary hover:bg-surface-container-low transition-colors font-label-md text-label-md border-b border-outline-variant/30" href="#">Meus Orçamentos</a>
+<a class="block px-4 py-3 text-secondary hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">Calendário de Entregas</a>
+</div>
+</div>
+<!-- CADASTROS -->
+<div class="relative nav-dropdown group h-16 flex items-center">
+<button class="flex items-center gap-1 text-on-primary/90 hover:text-on-primary font-bold font-label-md text-label-md transition-colors px-2 py-1 rounded">
+                    CADASTROS
+                    <span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+<div class="dropdown-content hidden absolute top-full left-0 w-56 bg-white shadow-xl rounded-b-lg border border-outline-variant overflow-hidden">
+<a class="block px-4 py-3 text-secondary hover:bg-surface-container-low transition-colors font-label-md text-label-md border-b border-outline-variant/30" href="#">Clientes CRM</a>
+<a class="block px-4 py-3 text-secondary hover:bg-surface-container-low transition-colors font-label-md text-label-md border-b border-outline-variant/30" href="#">Estoque do Galpão</a>
+<a class="block px-4 py-3 text-secondary hover:bg-surface-container-low transition-colors font-label-md text-label-md border-b border-outline-variant/30" href="#">Catálogo</a>
+<a class="block px-4 py-3 text-secondary hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">Fornecedores</a>
+</div>
+</div>
+<!-- GESTÃO -->
+<div class="relative nav-dropdown group h-16 flex items-center">
+<button class="flex items-center gap-1 text-on-primary/90 hover:text-on-primary font-bold font-label-md text-label-md transition-colors px-2 py-1 rounded">
+                    GESTÃO
+                    <span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+<div class="dropdown-content hidden absolute top-full left-0 w-48 bg-white shadow-xl rounded-b-lg border border-outline-variant overflow-hidden">
+<a class="block px-4 py-3 text-secondary hover:bg-surface-container-low transition-colors font-label-md text-label-md border-b border-outline-variant/30" href="#">Equipe e Acessos</a>
+<a class="block px-4 py-3 text-secondary hover:bg-surface-container-low transition-colors font-label-md text-label-md" href="#">Alterações</a>
+</div>
+</div>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined text-on-primary cursor-pointer active:scale-95 transition-transform hover:bg-on-primary/10 p-2 rounded-full">search</span>
+</div>
+<span class="material-symbols-outlined text-on-primary cursor-pointer active:scale-95 transition-transform hover:bg-on-primary/10 p-2 rounded-full">sync</span>
+<div class="relative">
+<span class="material-symbols-outlined text-on-primary cursor-pointer active:scale-95 transition-transform hover:bg-on-primary/10 p-2 rounded-full">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-on-primary/30 overflow-hidden ml-2 cursor-pointer active:scale-95 transition-transform">
+<img alt="User profile photo" data-alt="A professional headshot of a middle-aged male architect" src="https://lh3.googleusercontent.com/aida-public/AB6AXuApjNU0NQh6QoTVvu2NtTnf_AAQon9YIiKubFGM0YnYW3RfWYpvhJTNvA7UiZVQnQBrOeEbSyWar1a9Q1mRq9LDLZAkJpEG-MkpCkZlXvo3FGhl8XPoosGywKiLd807DZfX-YYaaNMya4vJofULzuteu6TZ_QLJoV8e2MZxiG7SK21oJQBLQleQantLya6QK4NuY3HRujWUlH9kcF60u5-WlYnkDS9VQIq96gcH-jsQXzxIlxXIXyd0RwNipUgP3UqgMq5-J50OZ4aR"/>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="w-full pt-24 px-margin-page pb-12 transition-all">
+<!-- Header -->
+<header class="mb-10">
+<h1 class="font-headline-lg text-headline-lg text-on-surface">Painel de Controle ADM</h1>
+<p class="font-body-lg text-body-lg text-secondary">Gerenciamento Dilegno Móveis</p>
+</header>
+<!-- Top Row: KPI Cards -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter mb-section-gap">
+<!-- Card 1 -->
+<div class="bg-white p-6 rounded-xl shadow-sm border border-outline-variant flex flex-col justify-between hover-card">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-primary/10 rounded-lg">
+<span class="material-symbols-outlined text-primary">analytics</span>
+</div>
+<span class="text-xs font-bold text-primary bg-primary-fixed px-2 py-1 rounded-full">+12%</span>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-secondary uppercase tracking-wider mb-1">Orçamentos Globais</h3>
+<p class="font-headline-md text-headline-md font-bold">R$ 1.284.000</p>
+</div>
+<div class="mt-4 w-full bg-surface-container-low h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[75%] rounded-full"></div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-white p-6 rounded-xl shadow-sm border border-outline-variant flex flex-col justify-between hover-card">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-tertiary/10 rounded-lg">
+<span class="material-symbols-outlined text-tertiary">group</span>
+</div>
+<span class="text-xs font-bold text-tertiary bg-tertiary-fixed px-2 py-1 rounded-full">+48</span>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-secondary uppercase tracking-wider mb-1">Clientes na Base</h3>
+<p class="font-headline-md text-headline-md font-bold">4.821</p>
+</div>
+<div class="mt-4 w-full bg-surface-container-low h-1.5 rounded-full overflow-hidden">
+<div class="bg-tertiary h-full w-[88%] rounded-full"></div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-white p-6 rounded-xl shadow-sm border border-outline-variant flex flex-col justify-between hover-card">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-secondary/10 rounded-lg">
+<span class="material-symbols-outlined text-secondary">inventory_2</span>
+</div>
+<span class="text-xs font-bold text-secondary bg-secondary-fixed px-2 py-1 rounded-full">Check ok</span>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-secondary uppercase tracking-wider mb-1">Itens no Galpão</h3>
+<p class="font-headline-md text-headline-md font-bold">142</p>
+</div>
+<div class="mt-4 w-full bg-surface-container-low h-1.5 rounded-full overflow-hidden">
+<div class="bg-secondary h-full w-[45%] rounded-full"></div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-white p-6 rounded-xl shadow-sm border border-outline-variant flex flex-col justify-between hover-card">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-primary/10 rounded-lg">
+<span class="material-symbols-outlined text-primary">local_shipping</span>
+</div>
+<span class="text-xs font-bold text-primary bg-primary-fixed px-2 py-1 rounded-full">Ativo</span>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-secondary uppercase tracking-wider mb-1">Fornecedores</h3>
+<p class="font-headline-md text-headline-md font-bold">28</p>
+</div>
+<div class="mt-4 w-full bg-surface-container-low h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[100%] rounded-full"></div>
+</div>
+</div>
+</section>
+<!-- Second Row -->
+<section class="grid grid-cols-12 gap-gutter mb-section-gap">
+<!-- Funil de Orçamentos (60%) -->
+<div class="col-span-12 lg:col-span-7 bg-white p-8 rounded-xl shadow-sm border border-outline-variant">
+<div class="flex justify-between items-center mb-8">
+<h2 class="font-headline-sm text-headline-sm">Funil de Orçamentos</h2>
+<span class="material-symbols-outlined text-secondary cursor-pointer">more_vert</span>
+</div>
+<div class="space-y-6">
+<div class="space-y-2">
+<div class="flex justify-between font-label-md text-label-md">
+<span>Gerando</span>
+<span class="font-bold">R$ 420k (18)</span>
+</div>
+<div class="w-full bg-surface-container h-4 rounded-full overflow-hidden">
+<div class="bg-primary-container h-full w-[95%] rounded-r-lg"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between font-label-md text-label-md">
+<span>Planejando</span>
+<span class="font-bold">R$ 310k (12)</span>
+</div>
+<div class="w-full bg-surface-container h-4 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[75%] rounded-r-lg"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between font-label-md text-label-md">
+<span>Enviados</span>
+<span class="font-bold">R$ 285k (10)</span>
+</div>
+<div class="w-full bg-surface-container h-4 rounded-full overflow-hidden">
+<div class="bg-tertiary-container h-full w-[60%] rounded-r-lg"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between font-label-md text-label-md">
+<span>Aprovados</span>
+<span class="font-bold">R$ 190k (06)</span>
+</div>
+<div class="w-full bg-surface-container h-4 rounded-full overflow-hidden">
+<div class="bg-primary/80 h-full w-[40%] rounded-r-lg"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between font-label-md text-label-md">
+<span>Perdidos</span>
+<span class="font-bold">R$ 79k (03)</span>
+</div>
+<div class="w-full bg-surface-container h-4 rounded-full overflow-hidden">
+<div class="bg-error/30 h-full w-[15%] rounded-r-lg"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Visão da Semana (40%) -->
+<div class="col-span-12 lg:col-span-5 bg-white p-8 rounded-xl shadow-sm border border-outline-variant">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-headline-sm text-headline-sm">Visão da Semana</h2>
+<div class="flex gap-2">
+<button class="p-1 hover:bg-surface-container rounded transition-colors">
+<span class="material-symbols-outlined text-secondary">chevron_left</span>
+</button>
+<button class="p-1 hover:bg-surface-container rounded transition-colors">
+<span class="material-symbols-outlined text-secondary">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-7 gap-1 text-center mb-4">
+<span class="text-[10px] font-bold text-secondary/60">DOM</span>
+<span class="text-[10px] font-bold text-secondary/60">SEG</span>
+<span class="text-[10px] font-bold text-secondary/60">TER</span>
+<span class="text-[10px] font-bold text-secondary/60">QUA</span>
+<span class="text-[10px] font-bold text-secondary/60">QUI</span>
+<span class="text-[10px] font-bold text-secondary/60">SEX</span>
+<span class="text-[10px] font-bold text-secondary/60">SÁB</span>
+<div class="p-2 text-label-md text-secondary/40">12</div>
+<div class="p-2 text-label-md text-secondary/40">13</div>
+<div class="p-2 text-label-md font-bold text-on-surface ring-1 ring-primary/20 rounded">14</div>
+<div class="p-2 text-label-md text-on-surface">15</div>
+<div class="p-2 text-label-md text-on-surface">16</div>
+<div class="p-2 text-label-md text-on-surface">17</div>
+<div class="p-2 text-label-md text-on-surface">18</div>
+</div>
+<div class="mt-8 space-y-4">
+<div class="bg-primary/5 p-4 rounded-lg border-l-4 border-primary">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-bold text-label-md">Reunião Geral de Fábrica</h4>
+<p class="text-xs text-secondary">10:00 - 11:30 | Galpão Central</p>
+</div>
+<span class="material-symbols-outlined text-primary text-sm">schedule</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-lg border-l-4 border-secondary/30">
+<h4 class="font-bold text-label-md opacity-60">Visita Técnica: Cond. Aurora</h4>
+<p class="text-xs text-secondary">14:00 - 15:30</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Third Row -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-gutter mb-section-gap lg:grid-cols-3">
+<!-- Próximos Eventos -->
+<div class="bg-white p-8 rounded-xl shadow-sm border border-outline-variant">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-headline-sm text-headline-sm">Próximos Eventos</h2>
+<button class="text-primary font-bold font-label-md flex items-center gap-1">Ver todos <span class="material-symbols-outlined text-sm">arrow_forward</span></button>
+</div>
+<div class="divide-y divide-outline-variant">
+<div class="py-4 flex justify-between items-center">
+<div>
+<p class="font-bold text-on-surface">Finalização Projeto Mansão Alpha</p>
+<p class="text-xs text-secondary">Amanhã, às 09:00</p>
+</div>
+<span class="px-3 py-1 bg-error/10 text-error text-[10px] font-bold rounded-full uppercase">Urgente</span>
+</div>
+<div class="py-4 flex justify-between items-center">
+<div>
+<p class="font-bold text-on-surface">Check-in Fornecedor Madeiras</p>
+<p class="text-xs text-secondary">16 Ago, 14:00</p>
+</div>
+<span class="px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed-variant text-[10px] font-bold rounded-full uppercase">Pendente</span>
+</div>
+<div class="py-4 flex justify-between items-center">
+<div>
+<p class="font-bold text-on-surface">Apresentação Closet Master</p>
+<p class="text-xs text-secondary">17 Ago, 10:30</p>
+</div>
+<span class="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full uppercase">Agendado</span>
+</div>
+<div class="py-4 flex justify-between items-center">
+<div>
+<p class="font-bold text-on-surface">Alinhamento Equipe CRM</p>
+<p class="text-xs text-secondary">18 Ago, 08:30</p>
+</div>
+<span class="px-3 py-1 bg-secondary-container text-secondary text-[10px] font-bold rounded-full uppercase">Normal</span>
+</div>
+</div>
+</div>
+<!-- Produções Ativas -->
+<div class="bg-white p-8 rounded-xl shadow-sm border border-outline-variant">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-headline-sm text-headline-sm">Produções Ativas</h2>
+<span class="material-symbols-outlined text-secondary">factory</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div class="group cursor-pointer">
+<div class="relative h-40 rounded-lg overflow-hidden mb-3">
+<img alt="Living Premium Design" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuByg9VaAgJUHJz8rQBXSlsQ_JikY6LafXaKt2zkjFtcquBztABSTHU0AFBuyO54Si3xH6QFb8ft8CpWOSrwPhD1ZTPTm-klNjcZd_p6zGPRLhLFmYVC6I9JaFuFL58bLSLMZuhH6Wfj8BAqzEF3nznyA15Uqpn1L5Lqj3uh6TPKb8tXj6tVAmfOeHyGPXPNx9ANJQIUejJh4efCDp4Mtv1YW7wpqhVz205IXNix-GqTVYuA0ruZuxFCo4TVVi9Hx5xEpUpQToS9li7x"/>
+<div class="absolute top-2 right-2 px-2 py-1 bg-primary text-on-primary text-[10px] font-bold rounded">85%</div>
+</div>
+<h4 class="font-bold text-label-md">Living Premium</h4>
+<p class="text-xs text-secondary">Fase: Acabamento</p>
+</div>
+<div class="group cursor-pointer">
+<div class="relative h-40 rounded-lg overflow-hidden mb-3">
+<img alt="Closet Master Design" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCOm5RVkY7AYK_GK-1i3ZSbK-8HUuAyXn89KL-CAya8ZV6ZmR38169HPxRlyfxPAqxh3q8ZKmjqXR3ZoMa7Bc15T14UOjzEl2M_gXH7zqW9qay7edmW5-cYoz9EkEI7GSzwXMxG9YyndCOQVM5t6YYrb2ZsleBWedEMktkieyiQwzgDRn2Zlsl2S84YORNe_p9j4rUDocWJ9-WlveEvviUDgywDQfnmhkLd1GSEtxVG2yewfOmxXkAfTjiXdsh-q2fbBPQGhOqFKbbH"/>
+<div class="absolute top-2 right-2 px-2 py-1 bg-tertiary text-on-primary text-[10px] font-bold rounded">42%</div>
+</div>
+<h4 class="font-bold text-label-md">Closet Master</h4>
+<p class="text-xs text-secondary">Fase: Corte &amp; Furação</p>
+</div>
+</div>
+</div>
+<!-- Locações Ativas -->
+<div class="bg-white p-8 rounded-xl shadow-sm border border-outline-variant md:col-span-2 lg:col-span-1">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-headline-sm text-headline-sm">Locações Ativas</h2>
+<span class="material-symbols-outlined text-secondary">event_repeat</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+<div class="group cursor-pointer border border-outline-variant p-3 rounded-lg hover:bg-surface-container-low transition-colors">
+<div class="relative h-32 rounded-lg overflow-hidden mb-3 bg-secondary-container">
+<div class="w-full h-full flex items-center justify-center text-secondary/40">
+<span class="material-symbols-outlined text-4xl">chair</span>
+</div>
+<div class="absolute top-2 right-2 px-2 py-1 bg-primary text-on-primary text-[10px] font-bold rounded">12 dias</div>
+</div>
+<h4 class="font-bold text-label-md">Mesa Orgânica</h4>
+<p class="text-xs text-secondary">Mansão Alpha</p>
+</div>
+<div class="group cursor-pointer border border-outline-variant p-3 rounded-lg hover:bg-surface-container-low transition-colors">
+<div class="relative h-32 rounded-lg overflow-hidden mb-3 bg-secondary-container">
+<div class="w-full h-full flex items-center justify-center text-secondary/40">
+<span class="material-symbols-outlined text-4xl">weekend</span>
+</div>
+<div class="absolute top-2 right-2 px-2 py-1 bg-tertiary text-on-primary text-[10px] font-bold rounded">05 dias</div>
+</div>
+<h4 class="font-bold text-label-md">Sofá Moss</h4>
+<p class="text-xs text-secondary">Cond. Aurora</p>
+</div>
+<div class="group cursor-pointer border border-outline-variant p-3 rounded-lg hover:bg-surface-container-low transition-colors">
+<div class="relative h-32 rounded-lg overflow-hidden mb-3 bg-secondary-container">
+<div class="w-full h-full flex items-center justify-center text-secondary/40">
+<span class="material-symbols-outlined text-4xl">light</span>
+</div>
+<div class="absolute top-2 right-2 px-2 py-1 bg-error text-on-primary text-[10px] font-bold rounded">02 dias</div>
+</div>
+<h4 class="font-bold text-label-md">Luminária Bauhaus</h4>
+<p class="text-xs text-secondary">Loft Jardins</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Bottom Row: Equipe Comercial -->
+<section class="bg-white p-8 rounded-xl shadow-sm border border-outline-variant">
+<h2 class="font-headline-sm text-headline-sm mb-8">Equipe Comercial</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- Ricardo Alencar -->
+<div class="flex gap-6 p-6 bg-surface-container-low rounded-xl border border-outline-variant">
+<img alt="Ricardo Alencar" class="w-20 h-20 rounded-full object-cover border-2 border-primary" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2s1clkyRP8sTt3fxMgTfLH8Fr6K5v2vdjzpkrbMnMxg901DISeTCde1MWunuhPhrQ_DeYNEbmKbkIAAf8YHeqAJWar1hwAZ8EJlX50VXbQ_Lj97bD75_whQngkLZxgSuAkDZpR3j2785UuQJe8ff51I2BSM06C6YzvQVVm1Xw80pnIcjhxLIu_o4RYqXcDADQjIXdF17PfZwYVCK30T44CNlv1Cc2MoZX7FaIII9Jmp6XVZ-NR0fU3ykRNTHnpPLsbRFZ8ZVpi4bI"/>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h3 class="font-headline-sm text-[18px] font-bold">Ricardo Alencar</h3>
+<p class="text-xs text-primary font-bold">Consultor Senior</p>
+</div>
+<div class="text-right">
+<span class="text-headline-sm font-bold text-primary">92%</span>
+<p class="text-[10px] text-secondary font-bold uppercase">Meta Batida</p>
+</div>
+</div>
+<div class="space-y-3 mt-4">
+<div class="flex items-center gap-2">
+<span class="text-[10px] w-20 text-secondary font-bold">FUNIL:</span>
+<div class="flex-1 flex h-2 rounded-full overflow-hidden bg-white">
+<div class="bg-primary h-full w-[40%]"></div>
+<div class="bg-primary/60 h-full w-[30%]"></div>
+<div class="bg-primary/30 h-full w-[20%]"></div>
+</div>
+</div>
+<p class="text-xs text-secondary italic">"Foco total no fechamento da Mansão Alpha esta semana."</p>
+</div>
+</div>
+</div>
+<!-- Mariana Costa -->
+<div class="flex gap-6 p-6 bg-surface-container-low rounded-xl border border-outline-variant">
+<img alt="Mariana Costa" class="w-20 h-20 rounded-full object-cover border-2 border-tertiary" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2TVHphWv6uI1DoRda84WrYj4TOCGFs38Tm4nshhEsCozoxaKiEliw2_sMqg6Qu9aJy3r7yNkjZMUiuq1E7YOS7k3ZxOky_4QuPan50AJvzKTzXRghN0ruTWSqCVvJ3swNGnftupoqnij259UI2t-jK9Aqqrp1T6KjmQuDak7D-IgdE3nHBuvQqwPT-XBG-t7HUG3Jyq0ms5OuBPuQco5BwaoMwJGOMFzHexWkbEqyqtxJ5Kq1WeoBdrjmtyrAEsRL7fm7P0dVtoSG"/>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h3 class="font-headline-sm text-[18px] font-bold">Mariana Costa</h3>
+<p class="text-xs text-tertiary font-bold">Design de Vendas</p>
+</div>
+<div class="text-right">
+<span class="text-headline-sm font-bold text-tertiary">78%</span>
+<p class="text-[10px] text-secondary font-bold uppercase">Atingido</p>
+</div>
+</div>
+<div class="space-y-3 mt-4">
+<div class="flex items-center gap-2">
+<span class="text-[10px] w-20 text-secondary font-bold">FUNIL:</span>
+<div class="flex-1 flex h-2 rounded-full overflow-hidden bg-white">
+<div class="bg-tertiary h-full w-[30%]"></div>
+<div class="bg-tertiary/60 h-full w-[40%]"></div>
+<div class="bg-tertiary/30 h-full w-[10%]"></div>
+</div>
+</div>
+<p class="text-xs text-secondary italic">"Novos prospects no Condomínio Aurora entrando no funil."</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<script>
+    document.querySelectorAll('.hover-card').forEach(card => {
+        card.addEventListener('mouseenter', () => {
+            card.style.transform = 'translateY(-4px)';
+            card.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        });
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = 'translateY(0)';
+        });
+    });
+
+    // Optional: Add click handling to toggle dropdowns for mobile/touch
+    document.querySelectorAll('.nav-dropdown').forEach(dropdown => {
+        dropdown.addEventListener('click', (e) => {
+            if (window.innerWidth < 1024) {
+                const content = dropdown.querySelector('.dropdown-content');
+                content.classList.toggle('hidden');
+            }
+        });
+    });
+</script>
+</body></html>

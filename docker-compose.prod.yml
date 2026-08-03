@@ -1,0 +1,69 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: arc_db
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Sem ports no host — acesso apenas pela rede Docker interna
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./backend
+    container_name: arc_api
+    restart: always
+    # Sem ports no host — frontend/cloudflared acessam via rede interna
+    expose:
+      - "8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - SECRET_KEY=${SECRET_KEY}
+      - COOKIE_SECURE=true
+      # Origem do frontend em producao (pode sobrescrever via .env)
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8080}
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"] # Sem flag --reload para produção
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - arc_uploads:/app/uploads # Fotos/PDFs
+      - arc_anexos:/app/uploads_private # Anexos de orçamento (somente via API autenticada)
+
+  frontend:
+    build: ./frontend
+    container_name: arc_frontend
+    restart: always
+    # porta 80 exportada, mas a Cloudflare irá apontar para ela. 
+    # Em VPS segura, não exponha "80:80" externamente, deixe o tunnel conectar pela rede interna.
+    expose:
+      - "80"
+    depends_on:
+      - api
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: always
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - frontend
+      - api
+
+volumes:
+  postgres_data:
+  arc_uploads:
+  arc_anexos:

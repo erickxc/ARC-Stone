@@ -1,0 +1,63 @@
+# Ambiente Virtual e Segredos
+venv/
+.venv/
+env/
+.env
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+
+# Banco de Dados SQLite e Backups
+backend/dilegno.db
+*.sqlite3
+*.db
+backup.sql
+
+# Arquivos de Upload Din√¢micos
+backend/uploads/*
+!backend/uploads/.gitkeep
+!backend/uploads/cache/
+backend/uploads_private/*
+!backend/uploads_private/.gitkeep
+!backend/uploads_private/anexos/
+backend/uploads_private/anexos/*
+!backend/uploads_private/anexos/.gitkeep
+
+# OS e IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Vari·veis de Ambiente
+.env
+
+# Documentos Internos Sensiveis (nao expor no GitHub)
+PROJECT_OVERVIEW.md
+producao.md
+DEPLOY_VPS.md
+documentacao_tecnica.md
+
+# Banco SQLite de desenvolvimento (nao commitar)
+*.db
+backend/dilegno.db

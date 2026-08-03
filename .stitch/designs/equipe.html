@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+
+<html class="light" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gestão da Equipe | Dilegno Móveis</title>
+<!-- Fontes e Ícones -->
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "on-tertiary": "#ffffff",
+                "on-tertiary-fixed": "#29161a",
+                "surface-dim": "#ddd9d8",
+                "outline": "#747872",
+                "on-surface": "#1c1b1b",
+                "tertiary-fixed-dim": "#dfbfc3",
+                "primary": "#536255",
+                "error": "#ba1a1a",
+                "secondary-fixed": "#e6e2e0",
+                "error-container": "#ffdad6",
+                "inverse-primary": "#bacbbb",
+                "surface-container-lowest": "#ffffff",
+                "background": "#fdf8f7",
+                "outline-variant": "#c3c8c1",
+                "surface-tint": "#536255",
+                "surface": "#fdf8f7",
+                "surface-container-low": "#f7f3f1",
+                "on-primary-fixed-variant": "#3c4a3e",
+                "on-error": "#ffffff",
+                "primary-container": "#b2c2b2",
+                "secondary": "#605e5d",
+                "on-primary-fixed": "#111f14",
+                "tertiary": "#71585c",
+                "primary-fixed-dim": "#bacbbb",
+                "on-secondary-container": "#666463",
+                "on-secondary": "#ffffff",
+                "tertiary-container": "#d6b6bb",
+                "on-surface-variant": "#434843",
+                "surface-container-highest": "#e6e2e0",
+                "tertiary-fixed": "#fcdadf",
+                "surface-container": "#f1edeb",
+                "on-tertiary-fixed-variant": "#584145",
+                "primary-fixed": "#d6e7d6",
+                "on-secondary-fixed": "#1c1b1b",
+                "on-background": "#1c1b1b",
+                "inverse-on-surface": "#f4f0ee",
+                "surface-container-high": "#ece7e6",
+                "secondary-container": "#e6e2e0",
+                "on-primary": "#ffffff",
+                "surface-variant": "#e6e2e0",
+                "on-primary-container": "#425044",
+                "inverse-surface": "#31302f",
+                "on-error-container": "#93000a",
+                "secondary-fixed-dim": "#c9c6c4",
+                "surface-bright": "#fdf8f7",
+                "on-tertiary-container": "#5e474a",
+                "on-secondary-fixed-variant": "#484645"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "spacing": {
+                "section-gap": "3rem",
+                "margin-page": "2rem",
+                "gutter": "1rem",
+                "element-gap": "1rem"
+            },
+            "fontFamily": {
+                "headline-lg": ["Source Sans 3"],
+                "label-md": ["Source Sans 3"],
+                "body-md": ["Source Sans 3"],
+                "button": ["Source Sans 3"],
+                "body-lg": ["Source Sans 3"],
+                "headline-sm": ["Source Sans 3"],
+                "headline-md": ["Source Sans 3"],
+                "body-sm": ["Source Sans 3"]
+            },
+            "fontSize": {
+                "headline-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                "label-md": ["14px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                "button": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                "headline-sm": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "700"}],
+                "body-sm": ["14px", {"lineHeight": "1.4", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #fdf8f7; /* Lino */
+            color: #1c1b1b; /* Sombra dark */
+            font-family: 'Source Sans 3', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        /* Glassmorphism utility */
+        .glass-panel {
+            background: rgba(253, 248, 247, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-background min-h-screen">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 backdrop-blur-md bg-surface/90 border-b border-outline-variant shadow-sm flex justify-between items-center px-margin-page h-16 w-full">
+<div class="flex items-center gap-8">
+<span class="font-headline-md text-headline-md font-bold text-on-surface">Dilegno Móveis</span>
+<div class="hidden md:flex gap-6 items-center h-full">
+<a class="text-secondary hover:text-primary transition-colors font-body-md text-body-md" href="#">Vendas</a>
+<a class="text-secondary hover:text-primary transition-colors font-body-md text-body-md" href="#">Galpão</a>
+<a class="text-primary border-b-2 border-primary font-bold pb-1 font-body-md text-body-md" href="#">Gestão</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="bg-primary text-on-primary px-6 py-2 rounded-full font-button text-button active:scale-95 duration-200 transition-all hover:brightness-110 shadow-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                Novo Orçamento
+            </button>
+<div class="flex items-center gap-2">
+<button class="p-2 rounded-full hover:bg-surface-container-low transition-all">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="notifications">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+<img alt="Admin Profile" class="w-full h-full object-cover" data-alt="A professional close-up portrait of a mid-40s male administrator in a clean, minimalist office environment. He has a friendly, professional demeanor, wearing a neutral-toned linen shirt that reflects the organic minimalism of the brand. The background is softly blurred with warm wooden textures and bright, natural sunlight filtering through, creating a high-end, boutique atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBaahOatyMcbOupyk4M9vdwctG0XPbEyBzxwKiADxxChlyZcN2kMewCRS86SqJDzWDmgqOlaVwHReQlqh-wqh5Kdl5r7b4ShgZki2x0ZNuVgG_aLiOFWkRPxbKNCQj-qTQ2Fqf18DowYvBThnjIZGpdKkiG0mOQAtS27tS8eA4JnIamDRY9uSa2EWW0_XNUZOXdApJl1xBrM8avM5S1E9m4kbQJ6hT1DAlUZjNmHjwto9pO7R_V-pPh-dyR4t2upWiDC2LooOMdJjcq"/>
+</div>
+</div>
+</div>
+</nav>
+<div class="flex min-h-screen pt-16">
+<!-- SideNavBar -->
+<aside class="h-full w-64 fixed left-0 top-0 hidden lg:flex flex-col border-r border-outline-variant bg-surface-container-low pt-20 pb-8">
+<div class="px-6 mb-8">
+<h2 class="font-headline-sm text-headline-sm text-primary">Gestão</h2>
+<p class="text-on-surface-variant font-label-md text-label-md opacity-70">Administrador</p>
+</div>
+<nav class="flex-1 flex flex-col gap-1">
+<a class="text-on-surface-variant hover:bg-surface-container-highest rounded-full mx-2 my-1 px-4 py-3 flex items-center gap-3 transition-all cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="bg-primary-container text-on-primary-container rounded-full mx-2 my-1 px-4 py-3 flex items-center gap-3 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="group" style="font-variation-settings: 'FILL' 1;">group</span>
+<span class="font-label-md text-label-md">Equipe</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-highest rounded-full mx-2 my-1 px-4 py-3 flex items-center gap-3 transition-all cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-label-md text-label-md">Finanças</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-highest rounded-full mx-2 my-1 px-4 py-3 flex items-center gap-3 transition-all cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span class="font-label-md text-label-md">Estoque</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-highest rounded-full mx-2 my-1 px-4 py-3 flex items-center gap-3 transition-all cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Configurações</span>
+</a>
+</nav>
+<div class="px-4 mt-auto space-y-2">
+<button class="w-full bg-secondary-container text-on-secondary-container py-3 rounded-full font-button text-button hover:brightness-95 transition-all">
+                    Gerar Relatório
+                </button>
+<div class="border-t border-outline-variant/30 my-4"></div>
+<a class="text-on-surface-variant hover:bg-surface-container-highest rounded-full px-4 py-3 flex items-center gap-3 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="font-label-md text-label-md">Suporte</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-highest rounded-full px-4 py-3 flex items-center gap-3 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-label-md text-label-md">Sair</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 lg:ml-64 p-margin-page bg-background">
+<!-- Header Section -->
+<header class="flex flex-col md:flex-row md:items-end justify-between gap-element-gap mb-section-gap">
+<div>
+<nav class="flex items-center gap-2 text-on-surface-variant font-label-md text-label-md mb-2">
+<span>Gestão</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary font-bold">Equipe</span>
+</nav>
+<h1 class="font-headline-lg text-headline-lg text-on-surface">Gestão da Equipe</h1>
+</div>
+<button class="bg-on-surface text-surface px-8 py-3 rounded-full font-button text-button flex items-center gap-2 hover:bg-opacity-90 transition-all shadow-md active:scale-95">
+<span class="material-symbols-outlined">person_add</span>
+                    Conceder Novo Acesso
+                </button>
+</header>
+<!-- Filters / Actions Row -->
+<div class="mb-gutter flex flex-wrap gap-4 items-center justify-between">
+<div class="flex gap-2">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant/40 rounded-full font-body-sm text-body-sm w-72 focus:outline-none focus:ring-1 focus:ring-primary" placeholder="Buscar por nome ou e-mail..." type="text"/>
+</div>
+<button class="px-4 py-2 border border-outline-variant/40 rounded-full font-body-sm text-body-sm flex items-center gap-2 hover:bg-surface-container-low transition-all">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                        Filtros
+                    </button>
+</div>
+<div class="text-on-surface-variant font-label-md text-label-md">
+                    Exibindo <span class="font-bold">3</span> membros da equipe
+                </div>
+</div>
+<!-- Team Table -->
+<div class="bg-white rounded-xl shadow-sm overflow-hidden border border-outline-variant/30">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant/30">
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Nome / E-mail</th>
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Cargo</th>
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Status do Token</th>
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right">Ações</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/20">
+<!-- User 1: Ricardo -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-5">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold overflow-hidden">
+<img alt="Ricardo Alencar" class="w-full h-full object-cover" data-alt="Close-up headshot of Ricardo Alencar, a professional man in his late 30s with short hair and a neat beard. He is wearing a dark brown cotton shirt, smiling confidently against a minimalist background of warm white walls and high-quality wooden furniture. The aesthetic is clean and high-end, emphasizing the premium nature of Dilegno Móveis." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBw557qBcgENlCvVUgOl1oyfiycKKiO0XLui21Vh0HDst7DHuSnowdvPWaRpK-Pzf929ogy6ByKylNlSZRBgDsj0m4P27pBV_lUsp7P_jsRfw1e-c7AmOLJYYmEggTDmyWS4c_0RnfbyZ76oVFeX2hv4L0v72U2XcAXyp_DISIhLfKPr947Q6jj81qm8yNETpLWomztTrgME3hzgcPSbeJy9Yjm8RiYiaX2RQOs26U4-IeWYgL6m9Tj3LaoKDqEBUx_pwtDCXOBUvDl"/>
+</div>
+<div>
+<div class="font-body-md text-body-md font-bold text-on-surface">Ricardo Alencar</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">ricardo@dilegno.com.br</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-on-surface bg-surface-container-highest font-label-md text-label-md border border-outline-variant/30">
+                                        Admin
+                                    </span>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary font-label-md text-label-md">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                                        Ativo
+                                    </span>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="p-2 rounded-full hover:bg-error/10 text-error/60 hover:text-error transition-all" title="Revogar Acesso">
+<span class="material-symbols-outlined">person_remove</span>
+</button>
+</td>
+</tr>
+<!-- User 2: Mariana -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-5">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-bold overflow-hidden">
+<img alt="Mariana Costa" class="w-full h-full object-cover" data-alt="A portrait of Mariana Costa, a bright and professional saleswoman in her early 30s. She has a welcoming smile and is dressed in a light beige linen blazer. The setting is a bright, modern furniture showroom with soft, diffused lighting and architectural shadows, emphasizing a boutique, sophisticated interior design vibe." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA38Gyj5izbUzW7to3vYogxuJQ1z_SI8Nlnj3ds0WqeRMwLLov9swfq7CIzS2H57_2hZNqHVgkbTm24qVjw81qOpp5_UhtrsAiEwVhvZs0uQBXSfEOiO6k88mvYOJYeiREGQ5wpnSylJ8mD4vXX_4lriYOEeD3YExwoCw9dS3Q39h7P0FxGyzLxJjxi-qcnpZ_Tk9V5t9wK7gsEQWRRNqhFapwY26ILnkyA5cFlBQDnP66Tseu_G9V-yeoijLzT7Pef-9HQkKka_wKC"/>
+</div>
+<div>
+<div class="font-body-md text-body-md font-bold text-on-surface">Mariana Costa</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">mariana@dilegno.com.br</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-on-primary-container bg-primary-container font-label-md text-label-md">
+                                        Vendedor
+                                    </span>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary font-label-md text-label-md">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                                        Ativo
+                                    </span>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="p-2 rounded-full hover:bg-error/10 text-error/60 hover:text-error transition-all" title="Revogar Acesso">
+<span class="material-symbols-outlined">person_remove</span>
+</button>
+</td>
+</tr>
+<!-- User 3: Carlos -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-5">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed-dim flex items-center justify-center text-on-secondary-fixed font-bold overflow-hidden">
+<img alt="Carlos M." class="w-full h-full object-cover" data-alt="A portrait of Carlos, a serious yet reliable stock manager in his late 20s. He is wearing a dark grey apron over a simple neutral t-shirt, appearing in a clean, organized warehouse setting with warm wood panels. The lighting is soft and focused, maintaining the brand's sophisticated and grounded visual language." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAuWgI2pMH9Bsz1E9Vdq_0YUiR1hCX04KYPcKSEbUm6GYbz5wmwq8YfhbyDDIo7n9SHTryLuc0Md9vew_OBLH8bIsAR82bgTnpaCzmDfUjUd32lvk-LVBMperf13YHHx03tyVU3Kas_pch0Z1ce_9MlwGCs4QN2wMvq4vdlc0JIuvTN68Zt2-Ftdh7lDWKl43AAB-E0lfLnADXO2TgRcpIeKioWrNU8FYThsZ-aZoEzY9FOpA2MA_1CuXGUzRHsr_ftbGupa6PchJJz"/>
+</div>
+<div>
+<div class="font-body-md text-body-md font-bold text-on-surface opacity-60">Carlos M.</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant italic">carlos@dilegno.com.br</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-on-secondary-fixed-variant bg-secondary-fixed font-label-md text-label-md">
+                                        Estoquista
+                                    </span>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-error/10 text-error font-label-md text-label-md">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                                        Desligado
+                                    </span>
+</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-1">
+<button class="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-all" title="Ver Histórico">
+<span class="material-symbols-outlined">history</span>
+</button>
+<button class="p-2 rounded-full hover:bg-primary/10 text-primary transition-all" title="Reativar Acesso">
+<span class="material-symbols-outlined">restore</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination Footer -->
+<div class="px-6 py-4 bg-surface-container-low flex items-center justify-between border-t border-outline-variant/20">
+<span class="font-label-md text-label-md text-on-surface-variant">Página 1 de 1</span>
+<div class="flex items-center gap-2">
+<button class="p-2 rounded-full text-outline opacity-30 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-container-high text-on-surface transition-all">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Bento-style Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter mt-section-gap">
+<div class="bg-primary-container/20 p-6 rounded-xl border border-primary/20">
+<div class="flex items-center justify-between mb-4">
+<span class="material-symbols-outlined text-primary text-[32px]">verified_user</span>
+<span class="text-primary font-bold text-headline-md">02</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-1">Acessos Ativos</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Colaboradores com acesso imediato ao sistema.</p>
+</div>
+<div class="bg-surface-container-high p-6 rounded-xl border border-outline-variant/30">
+<div class="flex items-center justify-between mb-4">
+<span class="material-symbols-outlined text-on-surface-variant text-[32px]">lock_reset</span>
+<span class="text-on-surface-variant font-bold text-headline-md">01</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-1">Acessos Revogados</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Histórico de colaboradores que não fazem mais parte da equipe.</p>
+</div>
+<div class="bg-tertiary-container/10 p-6 rounded-xl border border-tertiary-container/30">
+<div class="flex items-center justify-between mb-4">
+<span class="material-symbols-outlined text-tertiary text-[32px]">security</span>
+<span class="text-tertiary font-bold text-headline-md">High</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-1">Segurança de Dados</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Última auditoria de permissões realizada há 2 dias.</p>
+</div>
+</div>
+</main>
+</div>
+<!-- Micro-interaction Script -->
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(btn => {
+                btn.addEventListener('mousedown', () => {
+                    btn.classList.add('scale-95');
+                });
+                btn.addEventListener('mouseup', () => {
+                    btn.classList.remove('scale-95');
+                });
+                btn.addEventListener('mouseleave', () => {
+                    btn.classList.remove('scale-95');
+                });
+            });
+        });
+    </script>
+</body></html>

@@ -1,0 +1,574 @@
+<!DOCTYPE html><html class="light" lang="pt-BR"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Centro de Comando de Vendas - Dilegno Móveis</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error": "#ba1a1a",
+                        "on-error-container": "#93000a",
+                        "tertiary-container": "#d6b6bb",
+                        "tertiary": "#71585c",
+                        "on-surface": "#1c1b1b",
+                        "secondary-container": "#e6e2e0",
+                        "surface-container-highest": "#e6e2e0",
+                        "on-error": "#ffffff",
+                        "surface-bright": "#fdf8f7",
+                        "primary-fixed-dim": "#bacbbb",
+                        "on-tertiary-fixed-variant": "#584145",
+                        "inverse-primary": "#bacbbb",
+                        "on-tertiary-fixed": "#29161a",
+                        "secondary-fixed-dim": "#c9c6c4",
+                        "on-secondary-fixed-variant": "#484645",
+                        "surface-container-high": "#ece7e6",
+                        "on-tertiary-container": "#5e474a",
+                        "on-primary-container": "#425044",
+                        "tertiary-fixed-dim": "#dfbfc3",
+                        "secondary-fixed": "#e6e2e0",
+                        "outline": "#747872",
+                        "tertiary-fixed": "#fcdadf",
+                        "inverse-on-surface": "#f4f0ee",
+                        "on-tertiary": "#ffffff",
+                        "secondary": "#605e5d",
+                        "on-background": "#1c1b1b",
+                        "primary-fixed": "#d6e7d6",
+                        "surface-dim": "#ddd9d8",
+                        "background": "#fdf8f7",
+                        "surface": "#fdf8f7",
+                        "error-container": "#ffdad6",
+                        "primary": "#536255",
+                        "surface-container": "#f1edeb",
+                        "primary-container": "#b2c2b2",
+                        "on-surface-variant": "#434843",
+                        "surface-container-low": "#f7f3f1",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-container": "#666463",
+                        "surface-tint": "#536255",
+                        "inverse-surface": "#31302f",
+                        "surface-variant": "#e6e2e0",
+                        "outline-variant": "#c3c8c1",
+                        "on-primary": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#111f14",
+                        "on-secondary-fixed": "#1c1b1b",
+                        "on-primary-fixed-variant": "#3c4a3e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "1rem",
+                        "margin-page": "2rem",
+                        "element-gap": "1rem",
+                        "section-gap": "3rem"
+                    },
+                    "fontFamily": {
+                        "button": ["\"Source Sans 3\""],
+                        "headline-md": ["\"Source Sans 3\""],
+                        "body-sm": ["\"Source Sans 3\""],
+                        "headline-lg": ["\"Source Sans 3\""],
+                        "body-md": ["\"Source Sans 3\""],
+                        "label-md": ["\"Source Sans 3\""],
+                        "body-lg": ["\"Source Sans 3\""],
+                        "headline-sm": ["\"Source Sans 3\""]
+                    },
+                    "fontSize": {
+                        "button": ["14px", { "lineHeight": "1", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "1.3", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "1.4", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "1.2", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "label-md": ["14px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "headline-sm": ["20px", { "lineHeight": "1.4", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .kanban-col-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .kanban-col-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .kanban-col-scroll::-webkit-scrollbar-thumb {
+            background-color: #c3c8c1;
+            border-radius: 10px;
+        }
+        .glass-header {
+            background: rgba(83, 98, 85, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .glass-panel {
+            background: rgba(253, 248, 247, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .smart-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .smart-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px -8px rgba(28, 27, 27, 0.15);
+        }
+        .smart-card .actions {
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.2s ease;
+        }
+        .smart-card:hover .actions {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="glass-header fixed top-0 w-full z-50 shadow-sm border-b border-outline-variant/40 flex justify-between items-center px-margin-page h-16">
+<div class="flex items-center gap-8">
+<div class="text-on-primary font-headline-md font-bold flex items-center gap-2">
+                Dilegno
+                <span class="text-body-sm text-surface-container-high font-normal tracking-wide hidden md:inline">VESTINDO ESPAÇOS</span>
+</div>
+<nav class="hidden md:flex gap-6 items-center h-full">
+<a class="text-surface-container-high hover:text-on-primary transition-colors flex items-center gap-1 h-full text-label-md font-label-md" href="#">
+                    PAINÉIS <span class="material-symbols-outlined" style="font-size: 16px;">expand_more</span>
+</a>
+<a class="text-on-primary font-bold border-b-2 border-on-primary pb-1 flex items-center gap-1 h-full text-label-md font-label-md opacity-100" href="#">
+                    ORÇAMENTOS <span class="material-symbols-outlined" style="font-size: 16px;">expand_more</span>
+</a>
+<a class="text-surface-container-high hover:text-on-primary transition-colors flex items-center gap-1 h-full text-label-md font-label-md" href="#">
+                    CADASTROS <span class="material-symbols-outlined" style="font-size: 16px;">expand_more</span>
+</a>
+<a class="text-surface-container-high hover:text-on-primary transition-colors flex items-center gap-1 h-full text-label-md font-label-md" href="#">
+                    GESTÃO <span class="material-symbols-outlined" style="font-size: 16px;">expand_more</span>
+</a>
+</nav>
+</div>
+<div class="flex items-center gap-4 text-on-primary">
+<button class="hover:bg-primary-container/20 p-2 rounded-full transition-all flex items-center justify-center">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="hover:bg-primary-container/20 p-2 rounded-full transition-all flex items-center justify-center">
+<span class="material-symbols-outlined">refresh</span>
+</button>
+<button class="hover:bg-primary-container/20 p-2 rounded-full transition-all flex items-center justify-center">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high text-primary flex items-center justify-center font-bold text-label-md ml-2 border border-outline-variant/40">
+                K
+            </div>
+<button class="hover:bg-primary-container/20 p-2 rounded-full transition-all flex items-center justify-center ml-2">
+<span class="material-symbols-outlined">logout</span>
+</button>
+</div>
+</header>
+<!-- Main Content Area with Sidebar -->
+<div class="flex-grow flex pt-16 overflow-hidden">
+<!-- Left Main Section -->
+<main class="flex-grow px-margin-page py-8 flex flex-col overflow-hidden h-[calc(100vh-64px)]">
+<!-- Header & Sales Pulse Bar -->
+<div class="flex flex-col gap-6 mb-6 shrink-0">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+<div>
+<h1 class="text-headline-lg font-headline-lg text-on-surface mb-1">Centro de Comando de Vendas</h1>
+<p class="text-body-md text-secondary">Inteligência de negócios e gestão estratégica do funil.</p>
+</div>
+<!-- Controls -->
+<div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-center">
+<div class="flex bg-surface-container-low rounded-lg p-1 border border-outline-variant/40">
+<button class="px-4 py-1.5 rounded-md bg-surface shadow-sm text-primary font-label-md flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-size: 18px;">view_kanban</span>
+                            Kanban
+                        </button>
+<button class="px-4 py-1.5 rounded-md text-secondary hover:text-on-surface font-label-md flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined" style="font-size: 18px;">table_rows</span>
+                            Lista Estratégica
+                        </button>
+</div>
+<button class="text-secondary hover:text-primary transition-colors flex items-center gap-2 font-label-md border border-outline-variant/40 rounded-lg px-4 py-2 bg-surface-container-lowest">
+<span class="material-symbols-outlined" style="font-size: 18px;">local_fire_department</span>
+                        Heatmap
+                    </button>
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-full font-button text-button hover:bg-on-surface transition-colors flex items-center justify-center gap-2 whitespace-nowrap shadow-md">
+<span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+                        Novo Orçamento
+                    </button>
+</div>
+</div>
+<!-- Pulse Stats -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="glass-panel p-4 rounded-xl flex items-center justify-between shadow-sm">
+<div>
+<div class="text-label-md text-secondary mb-1 uppercase tracking-wider">Valor do Pipeline</div>
+<div class="text-headline-md text-on-surface font-bold">R$ 46.220,00</div>
+</div>
+<div class="w-12 h-12 rounded-full bg-primary-container/30 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">payments</span>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-xl flex items-center justify-between shadow-sm">
+<div class="w-full">
+<div class="flex justify-between items-end mb-2">
+<div class="text-label-md text-secondary uppercase tracking-wider">Progresso da Meta Mensal</div>
+<div class="text-body-md text-primary font-bold">68%</div>
+</div>
+<div class="w-full bg-surface-variant rounded-full h-2.5">
+<div class="bg-primary h-2.5 rounded-full" style="width: 68%"></div>
+</div>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-xl flex items-center justify-between shadow-sm">
+<div>
+<div class="text-label-md text-secondary mb-1 uppercase tracking-wider">Probabilidade de Conversão</div>
+<div class="flex items-center gap-2">
+<span class="text-headline-md text-on-surface font-bold">Alta</span>
+<span class="material-symbols-outlined text-primary">trending_up</span>
+</div>
+</div>
+<!-- Mock AI Visual -->
+<div class="w-16 h-8 flex items-end gap-1">
+<div class="w-3 h-4 bg-tertiary-container rounded-sm"></div>
+<div class="w-3 h-6 bg-primary-container rounded-sm"></div>
+<div class="w-3 h-5 bg-tertiary-container rounded-sm"></div>
+<div class="w-3 h-8 bg-primary rounded-sm"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Kanban Board -->
+<div class="flex-grow flex gap-6 overflow-x-auto pb-4 kanban-col-scroll">
+<!-- Col 1: Gerando Orçamento -->
+<div class="flex-none w-[340px] flex flex-col">
+<div class="mb-4 flex justify-between items-center px-1">
+<div class="flex items-center gap-2 text-secondary">
+<span class="material-symbols-outlined" style="font-size: 20px;">schedule</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Gerando Orçamento</h2>
+</div>
+<span class="bg-surface-container-high text-on-surface px-2.5 py-1 rounded-full text-xs font-bold">3</span>
+</div>
+<div class="flex-grow overflow-y-auto kanban-col-scroll flex flex-col gap-4 pb-12">
+<!-- Smart Card 1 -->
+<div class="smart-card bg-surface-container-lowest rounded-xl p-5 border border-outline-variant/30 shadow-sm relative overflow-hidden group border-l-4 border-l-error">
+<div class="flex justify-between items-start mb-3">
+<div class="flex gap-2 items-center">
+<span class="bg-primary-container/20 text-primary px-2 py-1 rounded text-[10px] font-bold tracking-wider">VENDA</span>
+<!-- Health Indicator -->
+<span class="flex items-center gap-1 text-[10px] text-error font-bold bg-error-container/30 px-2 py-1 rounded">
+<div class="w-1.5 h-1.5 rounded-full bg-error"></div> Urgente
+                                </span>
+</div>
+<button class="text-outline hover:text-on-surface"><span class="material-symbols-outlined" style="font-size: 18px;">more_vert</span></button>
+</div>
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Yann Cruz</h3>
+<span class="text-xs text-outline">#ORC-0019</span>
+</div>
+<div class="flex items-center gap-2 mb-4">
+<div class="w-6 h-6 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center text-xs font-bold">M</div>
+<span class="text-body-sm text-secondary">Maria</span>
+</div>
+<div class="flex justify-between items-end pt-3 border-t border-outline-variant/20">
+<div>
+<div class="text-[10px] text-outline font-bold tracking-wider mb-1 uppercase">Valor</div>
+<div class="text-body-lg font-bold text-on-surface">R$ 4.000,00</div>
+</div>
+<div class="text-right">
+<div class="text-[10px] text-outline font-bold tracking-wider mb-1 uppercase">Itens</div>
+<div class="bg-surface-container px-2 py-1 rounded text-xs text-secondary font-medium">1 unid.</div>
+</div>
+</div>
+<!-- Hover Actions -->
+<div class="actions absolute bottom-0 left-0 w-full bg-surface-container-low/90 backdrop-blur-sm p-3 flex justify-around border-t border-outline-variant/20">
+<button class="text-primary hover:bg-primary-container/30 p-2 rounded-full transition-colors" title="Ligar">
+<span class="material-symbols-outlined" style="font-size: 20px;">call</span>
+</button>
+<button class="text-primary hover:bg-primary-container/30 p-2 rounded-full transition-colors" title="Email">
+<span class="material-symbols-outlined" style="font-size: 20px;">mail</span>
+</button>
+<button class="text-secondary hover:bg-surface-variant p-2 rounded-full transition-colors" title="Editar">
+<span class="material-symbols-outlined" style="font-size: 20px;">edit</span>
+</button>
+</div>
+</div>
+<!-- Smart Card 2 -->
+<div class="smart-card bg-surface-container-lowest rounded-xl p-5 border border-outline-variant/30 shadow-sm relative overflow-hidden group border-l-4 border-l-primary-container">
+<div class="flex justify-between items-start mb-3">
+<div class="flex gap-2 items-center">
+<span class="bg-primary-container/20 text-primary px-2 py-1 rounded text-[10px] font-bold tracking-wider">VENDA</span>
+<!-- Health Indicator -->
+<span class="flex items-center gap-1 text-[10px] text-primary font-bold bg-primary-container/20 px-2 py-1 rounded">
+<div class="w-1.5 h-1.5 rounded-full bg-primary"></div> Saudável
+                                </span>
+</div>
+<button class="text-outline hover:text-on-surface"><span class="material-symbols-outlined" style="font-size: 18px;">more_vert</span></button>
+</div>
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Yann Cruz</h3>
+<span class="text-xs text-outline">#ORC-0018</span>
+</div>
+<div class="flex items-center gap-2 mb-4">
+<div class="w-6 h-6 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center text-xs font-bold">K</div>
+<span class="text-body-sm text-secondary">Karla</span>
+</div>
+<div class="flex justify-between items-end pt-3 border-t border-outline-variant/20">
+<div>
+<div class="text-[10px] text-outline font-bold tracking-wider mb-1 uppercase">Valor</div>
+<div class="text-body-lg font-bold text-on-surface">R$ 8.000,00</div>
+</div>
+<div class="text-right">
+<div class="text-[10px] text-outline font-bold tracking-wider mb-1 uppercase">Itens</div>
+<div class="bg-surface-container px-2 py-1 rounded text-xs text-secondary font-medium">1 unid.</div>
+</div>
+</div>
+<!-- Hover Actions -->
+<div class="actions absolute bottom-0 left-0 w-full bg-surface-container-low/90 backdrop-blur-sm p-3 flex justify-around border-t border-outline-variant/20">
+<button class="text-primary hover:bg-primary-container/30 p-2 rounded-full transition-colors" title="Ligar">
+<span class="material-symbols-outlined" style="font-size: 20px;">call</span>
+</button>
+<button class="text-primary hover:bg-primary-container/30 p-2 rounded-full transition-colors" title="Email">
+<span class="material-symbols-outlined" style="font-size: 20px;">mail</span>
+</button>
+<button class="text-secondary hover:bg-surface-variant p-2 rounded-full transition-colors" title="Editar">
+<span class="material-symbols-outlined" style="font-size: 20px;">edit</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Col 2: Planejando -->
+<div class="flex-none w-[340px] flex flex-col">
+<div class="mb-4 flex justify-between items-center px-1">
+<div class="flex items-center gap-2 text-secondary">
+<span class="material-symbols-outlined" style="font-size: 20px;">design_services</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Planejando</h2>
+</div>
+<span class="bg-surface-container-high text-on-surface px-2.5 py-1 rounded-full text-xs font-bold">1</span>
+</div>
+<div class="flex-grow overflow-y-auto kanban-col-scroll flex flex-col gap-4 pb-12">
+<!-- Smart Card 3 -->
+<div class="smart-card bg-surface-container-lowest rounded-xl p-5 border border-outline-variant/30 shadow-sm relative overflow-hidden group border-l-4 border-l-tertiary-container">
+<div class="flex justify-between items-start mb-3">
+<div class="flex gap-2 items-center">
+<span class="bg-tertiary-container/20 text-tertiary px-2 py-1 rounded text-[10px] font-bold tracking-wider">CONTRATO</span>
+<span class="flex items-center gap-1 text-[10px] text-tertiary font-bold bg-tertiary-container/20 px-2 py-1 rounded">
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div> Normal
+                                </span>
+</div>
+<button class="text-outline hover:text-on-surface"><span class="material-symbols-outlined" style="font-size: 18px;">more_vert</span></button>
+</div>
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Yann Cruz</h3>
+<span class="text-xs text-outline">#ORC-0014</span>
+</div>
+<div class="flex items-center gap-2 mb-4">
+<div class="w-6 h-6 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center text-xs font-bold">M</div>
+<span class="text-body-sm text-secondary">Maria</span>
+</div>
+<div class="flex justify-between items-end pt-3 border-t border-outline-variant/20">
+<div>
+<div class="text-[10px] text-outline font-bold tracking-wider mb-1 uppercase">Valor</div>
+<div class="text-body-lg font-bold text-on-surface">R$ 5.300,00</div>
+</div>
+<div class="text-right">
+<div class="text-[10px] text-outline font-bold tracking-wider mb-1 uppercase">Itens</div>
+<div class="bg-surface-container px-2 py-1 rounded text-xs text-secondary font-medium">2 unid.</div>
+</div>
+</div>
+<!-- Hover Actions -->
+<div class="actions absolute bottom-0 left-0 w-full bg-surface-container-low/90 backdrop-blur-sm p-3 flex justify-around border-t border-outline-variant/20">
+<button class="text-tertiary hover:bg-tertiary-container/30 p-2 rounded-full transition-colors" title="Ligar">
+<span class="material-symbols-outlined" style="font-size: 20px;">call</span>
+</button>
+<button class="text-tertiary hover:bg-tertiary-container/30 p-2 rounded-full transition-colors" title="Email">
+<span class="material-symbols-outlined" style="font-size: 20px;">mail</span>
+</button>
+<button class="text-secondary hover:bg-surface-variant p-2 rounded-full transition-colors" title="Editar">
+<span class="material-symbols-outlined" style="font-size: 20px;">edit</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Col 3: Proposta Enviada -->
+<div class="flex-none w-[340px] flex flex-col">
+<div class="mb-4 flex justify-between items-center px-1">
+<div class="flex items-center gap-2 text-tertiary">
+<span class="material-symbols-outlined" style="font-size: 20px;">event</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Proposta Enviada</h2>
+</div>
+<span class="bg-surface-container-high text-on-surface px-2.5 py-1 rounded-full text-xs font-bold">1</span>
+</div>
+<div class="flex-grow overflow-y-auto kanban-col-scroll flex flex-col gap-4 pb-12">
+<!-- Smart Card 4 -->
+<div class="smart-card bg-surface-container-lowest rounded-xl p-5 border border-outline-variant/30 shadow-sm relative overflow-hidden group border-l-4 border-l-tertiary">
+<div class="flex justify-between items-start mb-3">
+<div class="flex gap-2 items-center">
+<span class="bg-primary-container/20 text-primary px-2 py-1 rounded text-[10px] font-bold tracking-wider">VENDA</span>
+<span class="flex items-center gap-1 text-[10px] text-tertiary font-bold bg-tertiary-container/20 px-2 py-1 rounded">
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div> Aguardando
+                                </span>
+</div>
+<button class="text-outline hover:text-on-surface"><span class="material-symbols-outlined" style="font-size: 18px;">more_vert</span></button>
+</div>
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Yann Cruz</h3>
+<span class="text-xs text-outline">#ORC-0017</span>
+</div>
+<div class="flex items-center gap-2 mb-4">
+<div class="w-6 h-6 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center text-xs font-bold">K</div>
+<span class="text-body-sm text-secondary">Karla</span>
+</div>
+<div class="flex justify-between items-end pt-3 border-t border-outline-variant/20">
+<div>
+<div class="text-[10px] text-outline font-bold tracking-wider mb-1 uppercase">Valor</div>
+<div class="text-body-lg font-bold text-on-surface">R$ 2.000,00</div>
+</div>
+<div class="text-right">
+<div class="text-[10px] text-outline font-bold tracking-wider mb-1 uppercase">Itens</div>
+<div class="bg-surface-container px-2 py-1 rounded text-xs text-secondary font-medium">1 unid.</div>
+</div>
+</div>
+<!-- Hover Actions -->
+<div class="actions absolute bottom-0 left-0 w-full bg-surface-container-low/90 backdrop-blur-sm p-3 flex justify-around border-t border-outline-variant/20">
+<button class="text-primary hover:bg-primary-container/30 p-2 rounded-full transition-colors" title="Follow Up">
+<span class="material-symbols-outlined" style="font-size: 20px;">notification_important</span>
+</button>
+<button class="text-primary hover:bg-primary-container/30 p-2 rounded-full transition-colors" title="Email">
+<span class="material-symbols-outlined" style="font-size: 20px;">mail</span>
+</button>
+<button class="text-secondary hover:bg-surface-variant p-2 rounded-full transition-colors" title="Editar">
+<span class="material-symbols-outlined" style="font-size: 20px;">edit</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Col 4: Aprovado (Galpão) -->
+<div class="flex-none w-[340px] flex flex-col">
+<div class="mb-4 flex justify-between items-center px-1">
+<div class="flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined" style="font-size: 20px;">check_circle</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Aprovado (Galpão)</h2>
+</div>
+<span class="bg-surface-container-high text-on-surface px-2.5 py-1 rounded-full text-xs font-bold">2</span>
+</div>
+<div class="flex-grow overflow-y-auto kanban-col-scroll flex flex-col gap-4 pb-12">
+<!-- Smart Card 5 -->
+<div class="smart-card bg-surface-container-lowest rounded-xl p-5 border border-outline-variant/30 shadow-sm relative overflow-hidden group border-l-4 border-l-primary">
+<div class="flex justify-between items-start mb-3">
+<div class="flex gap-2 items-center">
+<span class="bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-bold tracking-wider">PRODUCAO</span>
+<span class="flex items-center gap-1 text-[10px] text-primary font-bold bg-primary-container/20 px-2 py-1 rounded">
+<div class="w-1.5 h-1.5 rounded-full bg-primary"></div> Ativo
+                                </span>
+</div>
+<button class="text-outline hover:text-on-surface"><span class="material-symbols-outlined" style="font-size: 18px;">more_vert</span></button>
+</div>
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Yann Cruz</h3>
+<span class="text-xs text-outline">#ORC-0020</span>
+</div>
+<div class="flex items-center gap-2 mb-4">
+<div class="w-6 h-6 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center text-xs font-bold">M</div>
+<span class="text-body-sm text-secondary">Maria</span>
+</div>
+<div class="flex justify-between items-end pt-3 border-t border-outline-variant/20">
+<div>
+<div class="text-[10px] text-outline font-bold tracking-wider mb-1 uppercase">Valor</div>
+<div class="text-body-lg font-bold text-on-surface">R$ 1.300,00</div>
+</div>
+<div class="text-right">
+<div class="text-[10px] text-outline font-bold tracking-wider mb-1 uppercase">Itens</div>
+<div class="bg-surface-container px-2 py-1 rounded text-xs text-secondary font-medium">1 unid.</div>
+</div>
+</div>
+</div>
+<!-- Smart Card 6 -->
+<div class="smart-card bg-surface-container-lowest rounded-xl p-5 border border-outline-variant/30 shadow-sm relative overflow-hidden group border-l-4 border-l-secondary">
+<div class="flex justify-between items-start mb-3">
+<div class="flex gap-2 items-center">
+<span class="bg-secondary-container text-on-secondary-container px-2 py-1 rounded text-[10px] font-bold tracking-wider">LOCACAO</span>
+</div>
+<button class="text-outline hover:text-on-surface"><span class="material-symbols-outlined" style="font-size: 18px;">more_vert</span></button>
+</div>
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Yann Cruz</h3>
+<span class="text-xs text-outline">#ORC-0011</span>
+</div>
+<div class="flex items-center gap-2 mb-4">
+<div class="w-6 h-6 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center text-xs font-bold">M</div>
+<span class="text-body-sm text-secondary">Maria</span>
+</div>
+<div class="flex justify-between items-end pt-3 border-t border-outline-variant/20">
+<div>
+<div class="text-[10px] text-outline font-bold tracking-wider mb-1 uppercase">Valor</div>
+<div class="text-body-lg font-bold text-on-surface">R$ 16.420,00</div>
+</div>
+<div class="text-right">
+<div class="text-[10px] text-outline font-bold tracking-wider mb-1 uppercase">Itens</div>
+<div class="bg-surface-container px-2 py-1 rounded text-xs text-secondary font-medium">9 unid.</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Right Sidebar: Activity Timeline -->
+<aside class="w-80 bg-surface-container-low border-l border-outline-variant/40 hidden lg:flex flex-col h-[calc(100vh-64px)] shrink-0">
+<div class="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-lowest">
+<h3 class="font-headline-sm text-body-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" style="font-size: 20px;">history</span>
+                Atividades Recentes
+            </h3>
+<button class="text-outline hover:text-on-surface">
+<span class="material-symbols-outlined" style="font-size: 20px;">filter_list</span>
+</button>
+</div>
+<div class="flex-grow overflow-y-auto p-4 flex flex-col gap-6 kanban-col-scroll">
+<div class="relative pl-6 border-l-2 border-primary-container">
+<div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-primary flex items-center justify-center border-2 border-surface-container-low"></div>
+<div class="text-xs text-secondary mb-1">Há 10 minutos</div>
+<div class="text-body-sm text-on-surface font-medium">Orçamento #ORC-0020 Aprovado</div>
+<div class="text-xs text-outline mt-1">Maria moveu para 'Aprovado (Galpão)'</div>
+</div>
+<div class="relative pl-6 border-l-2 border-surface-variant">
+<div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-tertiary-container flex items-center justify-center border-2 border-surface-container-low"></div>
+<div class="text-xs text-secondary mb-1">Há 1 hora</div>
+<div class="text-body-sm text-on-surface font-medium">Proposta Enviada para Yann Cruz</div>
+<div class="text-xs text-outline mt-1">Karla enviou #ORC-0017 via Email</div>
+</div>
+<div class="relative pl-6 border-l-2 border-surface-variant">
+<div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-surface-variant flex items-center justify-center border-2 border-surface-container-low"></div>
+<div class="text-xs text-secondary mb-1">Hoje, 09:30</div>
+<div class="text-body-sm text-on-surface font-medium">Novo Orçamento Iniciado</div>
+<div class="text-xs text-outline mt-1">Maria criou #ORC-0019 (Yann Cruz)</div>
+</div>
+<div class="relative pl-6 border-l-2 border-surface-variant">
+<div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-error-container flex items-center justify-center border-2 border-surface-container-low"></div>
+<div class="text-xs text-secondary mb-1">Ontem, 16:45</div>
+<div class="text-body-sm text-on-surface font-medium">Alerta de Inatividade</div>
+<div class="text-xs text-error mt-1">#ORC-0014 sem contato há 3 dias</div>
+</div>
+</div>
+</aside>
+</div>
+<!-- FAB -->
+
+
+
+</body></html>

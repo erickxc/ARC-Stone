@@ -1,0 +1,2 @@
+# Checklist de Produção
+Antes de executar qualquer comando `git push` neste repositório, você DEVE OBRIGATORIAMENTE ler, revisar e seguir as instruções e o checklist presentes no arquivo `producao.md`. Nunca realize um push sem garantir que os passos de preparação para produção (segurança, segredos, variáveis de ambiente e deploy) foram rigorosamente cumpridos. Após isso, atualize o md 'PROJECT_OVERVIEW.md' para deixar bem documentado

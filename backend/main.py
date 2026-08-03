@@ -1,0 +1,200 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+import database
+import models # Garante que todos os modelos estão registrados antes do create_all
+from routers import auth as auth_router
+from routers import estoque as estoque_router
+from routers import clientes as clientes_router
+from routers import orcamentos as orcamentos_router
+from routers import uploads as uploads_router
+from routers import usuarios as usuarios_router
+from routers import fornecedores as fornecedores_router
+from routers import calendario as calendario_router
+from routers import logs as logs_router
+from fastapi.middleware.cors import CORSMiddleware
+import auth as auth_module
+import shutil
+
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from rate_limiter import limiter
+
+app = FastAPI(title="ARC ERP")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Uploads: diretórios (NÃO montamos StaticFiles público — serve autenticado abaixo)
+os.makedirs("uploads", exist_ok=True)
+os.makedirs(os.path.join("uploads", "cache"), exist_ok=True)
+os.makedirs(os.path.join("uploads_private", "anexos"), exist_ok=True)
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https:;"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Configuração de CORS restrito para Frontend Docker e Produção
+allowed_origins = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost,http://localhost:3000,http://localhost:5173,http://localhost:8080",
+).split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+
+# Registra as rotas e os módulos
+app.include_router(auth_router.router)
+app.include_router(estoque_router.router)
+app.include_router(clientes_router.router)
+app.include_router(orcamentos_router.router)
+app.include_router(uploads_router.router)
+app.include_router(usuarios_router.router)
+app.include_router(fornecedores_router.router)
+app.include_router(calendario_router.router)
+app.include_router(logs_router.router)
+
+
+@app.get("/static/uploads/{filename:path}")
+def serve_upload_autenticado(
+    filename: str,
+    request: Request,
+    db: Session = Depends(database.get_db),
+):
+    """Serve arquivos de uploads/ apenas para usuários autenticados (Bearer ou cookie)."""
+    # Rejeita path traversal
+    safe_name = os.path.basename(filename)
+    if not safe_name or safe_name != filename.replace("\\", "/").split("/")[-1]:
+        # Permite subpastas controladas (ex.: cache/) sem .. 
+        normalized = os.path.normpath(filename).replace("\\", "/")
+        if normalized.startswith("..") or normalized.startswith("/"):
+            raise HTTPException(status_code=400, detail="Nome de arquivo inválido.")
+        file_path = os.path.join("uploads", normalized)
+    else:
+        file_path = os.path.join("uploads", safe_name)
+
+    uploads_root = os.path.realpath("uploads")
+    real_path = os.path.realpath(file_path)
+    if not real_path.startswith(uploads_root + os.sep) and real_path != uploads_root:
+        raise HTTPException(status_code=400, detail="Caminho inválido.")
+
+    # Auth: Bearer ou cookie access_token
+    auth_header = request.headers.get("Authorization") or ""
+    bearer = auth_header[7:].strip() if auth_header.startswith("Bearer ") else None
+    token = auth_module.extract_bearer_or_cookie(request, bearer)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Autenticação necessária.")
+    auth_module.decode_token(token, expected_types={auth_module.TOKEN_TYPE_ACCESS})
+
+    if not os.path.isfile(real_path):
+        raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
+
+    return FileResponse(real_path)
+
+
+def _migrate_legacy_anexos(db: Session) -> None:
+    """Move anexos legados de uploads/ público para uploads_private/anexos/."""
+    from models import OrcamentoAnexo
+    anexos = db.query(OrcamentoAnexo).all()
+    moved = 0
+    for anexo in anexos:
+        url = anexo.url or ""
+        name = os.path.basename(url)
+        if not name:
+            continue
+        private_path = os.path.join("uploads_private", "anexos", name)
+        legacy_path = os.path.join("uploads", name)
+        # Já migrado
+        if url.startswith("anexos/") and os.path.exists(private_path):
+            continue
+        if os.path.exists(legacy_path):
+            os.makedirs(os.path.join("uploads_private", "anexos"), exist_ok=True)
+            if not os.path.exists(private_path):
+                shutil.move(legacy_path, private_path)
+            anexo.url = f"anexos/{name}"
+            moved += 1
+        elif os.path.exists(private_path) and not url.startswith("anexos/"):
+            anexo.url = f"anexos/{name}"
+            moved += 1
+    if moved:
+        db.commit()
+        print(f"[MIGRATE] {moved} anexo(s) legado(s) movidos para uploads_private.")
+
+
+@app.on_event("startup")
+def on_startup():
+    # Para o MVP, cria as tabelas automaticamente baseadas nos models
+    database.Base.metadata.create_all(bind=database.engine)
+
+    # Migração leve: adiciona colunas novas em tabelas já existentes (create_all não faz ALTER)
+    with database.engine.begin() as conn:
+        conn.execute(text("ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cnpj_faturamento VARCHAR"))
+        conn.execute(text("ALTER TABLE orcamento_config ADD COLUMN IF NOT EXISTS empresa1_nome VARCHAR"))
+        conn.execute(text("ALTER TABLE orcamento_config ADD COLUMN IF NOT EXISTS empresa1_cnpj VARCHAR"))
+        conn.execute(text("ALTER TABLE orcamento_config ADD COLUMN IF NOT EXISTS empresa2_nome VARCHAR"))
+        conn.execute(text("ALTER TABLE orcamento_config ADD COLUMN IF NOT EXISTS empresa2_cnpj VARCHAR"))
+
+    db = database.SessionLocal()
+    try:
+        _migrate_legacy_anexos(db)
+
+        # Seeding: Cria um usuário Admin padrão se o banco estiver vazio
+        from models import Usuario
+        from auth import get_password_hash
+        if db.query(Usuario).count() == 0:
+            admin_email = os.getenv("ADMIN_EMAIL")
+            admin_pass = os.getenv("ADMIN_PASSWORD")
+
+            if not admin_email or not admin_pass:
+                print("WARNING: ADMIN_EMAIL ou ADMIN_PASSWORD não configurados. O Admin não será criado.")
+            else:
+                admin_user = Usuario(
+                    nome="Administrador ARC",
+                    email=admin_email,
+                    hashed_password=get_password_hash(admin_pass),
+                    role="admin",
+                    ativo=True
+                )
+                db.add(admin_user)
+                db.commit()
+    finally:
+        db.close()
+
+@app.get("/")
+def read_root():
+    return {
+        "sistema": "ARC ERP",
+        "status": "Online",
+        "mensagem": "A API está rodando via Docker com sucesso!"
+    }
+
+@app.get("/health")
+def health_check(db: Session = Depends(database.get_db)):
+    try:
+        # Testa a conexão executando uma query simples
+        db.execute(text("SELECT 1"))
+        return {"status": "ok", "database": "conectado ao PostgreSQL"}
+    except Exception as e:
+        return {"status": "error", "database": str(e)}

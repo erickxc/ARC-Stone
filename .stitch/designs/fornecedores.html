@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+
+<html class="light" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gestão de Fornecedores - Dilegno Móveis</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "tertiary-container": "#d6b6bb",
+                "on-secondary-container": "#666463",
+                "on-secondary": "#ffffff",
+                "on-error": "#ffffff",
+                "primary-fixed": "#d6e7d6",
+                "surface-container-lowest": "#ffffff",
+                "surface-variant": "#e6e2e0",
+                "surface-container": "#f1edeb",
+                "outline-variant": "#c3c8c1",
+                "on-primary-fixed-variant": "#3c4a3e",
+                "on-secondary-fixed": "#1c1b1b",
+                "primary-fixed-dim": "#bacbbb",
+                "on-primary": "#ffffff",
+                "background": "#fdf8f7",
+                "surface": "#fdf8f7",
+                "primary-container": "#b2c2b2",
+                "on-tertiary-container": "#5e474a",
+                "on-primary-fixed": "#111f14",
+                "surface-container-high": "#ece7e6",
+                "secondary": "#605e5d",
+                "surface-tint": "#536255",
+                "on-secondary-fixed-variant": "#484645",
+                "surface-bright": "#fdf8f7",
+                "surface-dim": "#ddd9d8",
+                "secondary-container": "#e6e2e0",
+                "secondary-fixed-dim": "#c9c6c4",
+                "error-container": "#ffdad6",
+                "inverse-on-surface": "#f4f0ee",
+                "primary": "#536255",
+                "on-surface-variant": "#434843",
+                "on-tertiary-fixed": "#29161a",
+                "surface-container-highest": "#e6e2e0",
+                "outline": "#747872",
+                "on-error-container": "#93000a",
+                "on-tertiary": "#ffffff",
+                "tertiary-fixed": "#fcdadf",
+                "secondary-fixed": "#e6e2e0",
+                "inverse-primary": "#bacbbb",
+                "tertiary-fixed-dim": "#dfbfc3",
+                "error": "#ba1a1a",
+                "tertiary": "#71585c",
+                "on-tertiary-fixed-variant": "#584145",
+                "surface-container-low": "#f7f3f1",
+                "on-background": "#1c1b1b",
+                "inverse-surface": "#31302f",
+                "on-primary-container": "#425044",
+                "on-surface": "#1c1b1b"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "spacing": {
+                "margin-page": "2rem",
+                "gutter": "1rem",
+                "section-gap": "3rem",
+                "element-gap": "1rem"
+            },
+            "fontFamily": {
+                "headline-md": ["\"Source Sans 3\""],
+                "button": ["\"Source Sans 3\""],
+                "headline-sm": ["\"Source Sans 3\""],
+                "body-md": ["\"Source Sans 3\""],
+                "label-md": ["\"Source Sans 3\""],
+                "headline-lg": ["\"Source Sans 3\""],
+                "body-sm": ["\"Source Sans 3\""],
+                "body-lg": ["\"Source Sans 3\""]
+            },
+            "fontSize": {
+                "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "700"}],
+                "button": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                "headline-sm": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                "label-md": ["14px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                "headline-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                "body-sm": ["14px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #fdf8f7; /* Lino equivalent */
+            font-family: "Source Sans 3", sans-serif;
+            color: #1c1b1b; /* Sombra equivalent */
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .supplier-card:hover .card-actions {
+            opacity: 1;
+        }
+        .backdrop-blur-md {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+<!-- TopNavBar -->
+<header class="bg-primary/90 dark:bg-primary/90 backdrop-blur-md text-on-primary dark:text-on-primary docked full-width top-0 sticky z-50 border-b border-outline/20 shadow-sm">
+<div class="flex justify-between items-center w-full px-margin-page py-4 max-w-full mx-auto">
+<div class="flex items-center gap-8">
+<h1 class="font-headline-lg text-headline-lg font-bold tracking-tight">Dilegno Móveis</h1>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-primary-fixed-dim font-medium hover:text-on-primary transition-colors" href="#">Vendas</a>
+<a class="text-primary-fixed-dim font-medium hover:text-on-primary transition-colors" href="#">Galpão</a>
+<a class="text-primary-fixed font-bold border-b-2 border-primary-fixed pb-1" href="#">Gestão</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full border border-on-primary/30 hover:bg-on-primary/10 transition-all font-label-md text-label-md">
+                    Suporte
+                </button>
+<button class="flex items-center gap-2 bg-on-primary text-primary px-5 py-2 rounded-full font-label-md text-label-md font-bold hover:scale-95 transition-all">
+                    Novo Orçamento
+                </button>
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-on-primary/10 rounded-full transition-all duration-300">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 hover:bg-on-primary/10 rounded-full transition-all duration-300">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border-2 border-on-primary/20">
+<img alt="User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC8vbVQyw1UVTHPLDH9vKjdBdYqrjjJ6gW_g8juoL8PC-WqlnRI-mK7NyK_8pHGz5tbvjvoATHcuUj_hUIXNS-BqV_9NXYkVT71pXe6HFS7AIGa-Q9QyGNU5VebkHQGO5LSCdfG0kaQ8iQE3cDYDHhYnhB7ZDlzDQVA_kYYnE2XMmWDv80yuV9qIIq8gQsHJrKMIdqqBYdiXqRNyJxv_USGKAQ2sBSZGQ8GyteKnzgcRFKh1BaVZALoRtxERstnPzry7-uR-fY2mMwH"/>
+</div>
+</div>
+</div>
+</div>
+</header>
+<main class="max-w-7xl mx-auto px-margin-page py-gutter">
+<!-- Page Title & Controls -->
+<section class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-section-gap">
+<div class="space-y-1">
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Fornecedores</h2>
+<p class="text-on-surface-variant font-body-md text-body-md">Gerencie sua rede de suprimentos e parcerias industriais.</p>
+</div>
+<div class="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+<div class="relative w-full sm:w-80">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" data-icon="search">search</span>
+<input class="w-full pl-10 pr-4 py-3 bg-surface-container rounded-full border-none focus:ring-2 focus:ring-primary/40 font-body-sm text-body-sm transition-all" placeholder="Pesquisar fornecedor (nome, CNPJ, e-mail)" type="text"/>
+</div>
+<button class="w-full sm:w-auto bg-primary text-on-primary px-6 py-3 rounded-full font-label-md text-label-md font-bold shadow-sm hover:bg-primary/90 hover:scale-[0.98] active:scale-95 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="add">add</span>
+                    Novo Fornecedor
+                </button>
+</div>
+</section>
+<!-- Main Content: Bento-ish Supplier Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
+<!-- Fornecedor 1 -->
+<article class="supplier-card group bg-surface-container-low rounded-xl p-6 border border-outline-variant/30 hover:border-primary/40 transition-all hover:shadow-lg relative flex flex-col justify-between">
+<div class="absolute top-4 right-4 card-actions opacity-0 transition-opacity flex gap-1">
+<button class="p-2 bg-surface-bright rounded-full text-secondary hover:text-primary hover:bg-primary-fixed-dim transition-all shadow-sm">
+<span class="material-symbols-outlined text-[20px]" data-icon="edit">edit</span>
+</button>
+<button class="p-2 bg-surface-bright rounded-full text-secondary hover:text-error hover:bg-error-container transition-all shadow-sm">
+<span class="material-symbols-outlined text-[20px]" data-icon="delete">delete</span>
+</button>
+</div>
+<div>
+<div class="flex items-start gap-4 mb-5">
+<div class="w-14 h-14 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center font-bold text-headline-sm">
+                            WA
+                        </div>
+<div class="flex-1 pr-12">
+<h3 class="font-headline-sm text-headline-sm text-on-surface leading-tight">WoodArt Inc.</h3>
+<span class="inline-block px-2 py-0.5 rounded-full bg-primary-container/30 text-on-primary-container text-[12px] font-bold uppercase tracking-wider mt-1">Ativo</span>
+</div>
+</div>
+<div class="space-y-3 border-t border-outline-variant/20 pt-4">
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="corporate_fare">corporate_fare</span>
+<span class="font-body-sm text-body-sm">12.345.678/0001-90</span>
+</div>
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="mail">mail</span>
+<span class="font-body-sm text-body-sm">contato@woodart.com</span>
+</div>
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="call">call</span>
+<span class="font-body-sm text-body-sm">(11) 99999-0001</span>
+</div>
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="location_on">location_on</span>
+<span class="font-body-sm text-body-sm">Rua da Madeira, 100</span>
+</div>
+</div>
+</div>
+<div class="mt-6 pt-4 bg-surface-variant/20 rounded-lg p-3">
+<p class="text-[12px] font-bold text-outline uppercase mb-1">Observações</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant italic leading-relaxed line-clamp-2">
+                        Fornecedor premium de lâminas de carvalho e nogueira. Entrega recorrente às terças.
+                    </p>
+</div>
+</article>
+<!-- Fornecedor 2 -->
+<article class="supplier-card group bg-surface-container-low rounded-xl p-6 border border-outline-variant/30 hover:border-primary/40 transition-all hover:shadow-lg relative flex flex-col justify-between">
+<div class="absolute top-4 right-4 card-actions opacity-0 transition-opacity flex gap-1">
+<button class="p-2 bg-surface-bright rounded-full text-secondary hover:text-primary hover:bg-primary-fixed-dim transition-all shadow-sm">
+<span class="material-symbols-outlined text-[20px]" data-icon="edit">edit</span>
+</button>
+<button class="p-2 bg-surface-bright rounded-full text-secondary hover:text-error hover:bg-error-container transition-all shadow-sm">
+<span class="material-symbols-outlined text-[20px]" data-icon="delete">delete</span>
+</button>
+</div>
+<div>
+<div class="flex items-start gap-4 mb-5">
+<div class="w-14 h-14 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold text-headline-sm">
+                            SD
+                        </div>
+<div class="flex-1 pr-12">
+<h3 class="font-headline-sm text-headline-sm text-on-surface leading-tight">SteelDesign</h3>
+<span class="inline-block px-2 py-0.5 rounded-full bg-primary-container/30 text-on-primary-container text-[12px] font-bold uppercase tracking-wider mt-1">Ativo</span>
+</div>
+</div>
+<div class="space-y-3 border-t border-outline-variant/20 pt-4">
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="corporate_fare">corporate_fare</span>
+<span class="font-body-sm text-body-sm">98.765.432/0001-10</span>
+</div>
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="mail">mail</span>
+<span class="font-body-sm text-body-sm">sac@steeldesign.com.br</span>
+</div>
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="call">call</span>
+<span class="font-body-sm text-body-sm">(47) 98888-2222</span>
+</div>
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="location_on">location_on</span>
+<span class="font-body-sm text-body-sm">Av. Industrial, 500</span>
+</div>
+</div>
+</div>
+<div class="mt-6 pt-4 bg-surface-variant/20 rounded-lg p-3">
+<p class="text-[12px] font-bold text-outline uppercase mb-1">Observações</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant italic leading-relaxed line-clamp-2">
+                        Puxadores e ferragens sob medida. Ótimo acabamento escovado.
+                    </p>
+</div>
+</article>
+<!-- Fornecedor 3 -->
+<article class="supplier-card group bg-surface-container-low rounded-xl p-6 border border-outline-variant/30 hover:border-primary/40 transition-all hover:shadow-lg relative flex flex-col justify-between">
+<div class="absolute top-4 right-4 card-actions opacity-0 transition-opacity flex gap-1">
+<button class="p-2 bg-surface-bright rounded-full text-secondary hover:text-primary hover:bg-primary-fixed-dim transition-all shadow-sm">
+<span class="material-symbols-outlined text-[20px]" data-icon="edit">edit</span>
+</button>
+<button class="p-2 bg-surface-bright rounded-full text-secondary hover:text-error hover:bg-error-container transition-all shadow-sm">
+<span class="material-symbols-outlined text-[20px]" data-icon="delete">delete</span>
+</button>
+</div>
+<div>
+<div class="flex items-start gap-4 mb-5">
+<div class="w-14 h-14 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center font-bold text-headline-sm">
+                            FL
+                        </div>
+<div class="flex-1 pr-12">
+<h3 class="font-headline-sm text-headline-sm text-on-surface leading-tight">FabriLaca</h3>
+<span class="inline-block px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[12px] font-bold uppercase tracking-wider mt-1">Pendente</span>
+</div>
+</div>
+<div class="space-y-3 border-t border-outline-variant/20 pt-4">
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="corporate_fare">corporate_fare</span>
+<span class="font-body-sm text-body-sm">55.444.333/0001-22</span>
+</div>
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="mail">mail</span>
+<span class="font-body-sm text-body-sm">comercial@fabrilaca.com</span>
+</div>
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="call">call</span>
+<span class="font-body-sm text-body-sm">(54) 3333-4444</span>
+</div>
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="location_on">location_on</span>
+<span class="font-body-sm text-body-sm">Polo Moveleiro</span>
+</div>
+</div>
+</div>
+<div class="mt-6 pt-4 bg-surface-variant/20 rounded-lg p-3">
+<p class="text-[12px] font-bold text-outline uppercase mb-1">Observações</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant italic leading-relaxed line-clamp-2">
+                        Aguardando envio das amostras de laca fosca cinza.
+                    </p>
+</div>
+</article>
+<!-- Card Placeholder for New -->
+<button class="flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-outline-variant hover:border-primary/50 hover:bg-primary-fixed/10 transition-all p-12 group">
+<div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center text-outline group-hover:bg-primary group-hover:text-on-primary transition-all">
+<span class="material-symbols-outlined text-[24px]" data-icon="add_business">add_business</span>
+</div>
+<div class="text-center">
+<p class="font-label-md text-label-md text-outline group-hover:text-primary transition-all">Novo Fornecedor</p>
+<p class="text-[12px] text-outline/60 mt-1">Clique para cadastrar uma nova parceria</p>
+</div>
+</button>
+</div>
+<!-- Visual Decorative Area -->
+<div class="mt-section-gap grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+<div class="relative h-64 rounded-2xl overflow-hidden shadow-sm group">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="A high-end woodworking workshop with organized shelves of exotic wood veneers and solid timber. The lighting is warm and natural, filtering through large industrial windows, creating a peaceful and productive atmosphere. The focus is on the textures of the wood grains and the artisanal quality of the materials. The overall aesthetic is clean, professional, and elegant, reflecting the Dilegno brand's commitment to quality craftsmanship." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMwRXTCAzZeeMQwcexplqpzCrKI1To4yd4xeMY8MWQgOWpNt2nTuQeRbDovcU6hYfHgwfN59TzV2V6f291JtjIYi_-fU1QEb2navBXYU-ick8jIHqW9RVuL371RYq17JtzUtIlZ4HTGIZ4XDu_gkPmMrva8FISt8WHe9svRWeH9tG8NV7oprGLM1q-IL24OeV1_PVZQfYWRnRz5Gg-bQbPThX2lafI7-WLoTL9c3_GMBu9MoHpRaR1_DguwtxQB5nD8n7teqioZYl0"/>
+<div class="absolute inset-0 bg-gradient-to-t from-on-background/60 to-transparent flex items-end p-8">
+<div class="text-on-primary">
+<h4 class="font-headline-sm text-headline-sm mb-1">Qualidade na Origem</h4>
+<p class="font-body-sm text-body-sm opacity-90 max-w-sm">Mantemos parcerias com fornecedores que compartilham nosso compromisso com a sustentabilidade e excelência.</p>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-high rounded-2xl p-8 flex flex-col justify-center">
+<div class="flex items-center gap-4 mb-6">
+<div class="p-3 bg-primary-fixed rounded-xl text-primary">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+</div>
+<div>
+<h4 class="font-headline-sm text-headline-sm">Resumo da Rede</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Status geral dos seus parceiros comerciais</p>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-4">
+<div class="bg-surface-bright p-4 rounded-xl text-center shadow-sm">
+<p class="text-[32px] font-bold text-primary">24</p>
+<p class="font-label-md text-label-md text-outline">Ativos</p>
+</div>
+<div class="bg-surface-bright p-4 rounded-xl text-center shadow-sm">
+<p class="text-[32px] font-bold text-secondary">03</p>
+<p class="font-label-md text-label-md text-outline">Pendentes</p>
+</div>
+<div class="bg-surface-bright p-4 rounded-xl text-center shadow-sm">
+<p class="text-[32px] font-bold text-on-tertiary-container">01</p>
+<p class="font-label-md text-label-md text-outline">Bloqueado</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Simple Footer -->
+<footer class="mt-section-gap border-t border-outline-variant/30 py-8 px-margin-page text-center">
+<p class="font-body-sm text-body-sm text-outline">
+            © 2024 Dilegno Móveis. Sistema de Administração Central.
+        </p>
+</footer>
+<script>
+        // Micro-interactions and effects
+        document.querySelectorAll('.supplier-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-4px)';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0)';
+            });
+        });
+
+        // Search highlight mock
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('focus', () => {
+            searchInput.parentElement.classList.add('ring-2', 'ring-primary/40');
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.parentElement.classList.remove('ring-2', 'ring-primary/40');
+        });
+    </script>
+</body></html>

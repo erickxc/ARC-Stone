@@ -1,0 +1,592 @@
+﻿Create the 'Dashboard (/dashboard)' screen based on the following comprehensive functionalities document. Please read the entire document to understand the global context, navigation, roles, and specifically section 3 for the Dashboard. Use 'Organic Minimalism' design system. 
+
+Context from funcionalidades.md:
+# Mapa Completo de Funcionalidades â€“ Dilegno MÃ³veis
+
+> Documento gerado em 13/06/2026. Reflete o estado atual de todas as telas, botÃµes, modais e funÃ§Ãµes do sistema web.
+
+---
+
+## 1. AutenticaÃ§Ã£o (`/` â€“ Login)
+
+| Elemento | Tipo | DescriÃ§Ã£o |
+|---|---|---|
+| Campo E-mail | Input | E-mail corporativo do usuÃ¡rio |
+| Campo Senha | Input (password) | Senha do usuÃ¡rio |
+| Campo CÃ³digo MFA | Input (condicional) | Exibido quando o usuÃ¡rio tem 2FA ativo |
+| BotÃ£o **Entrar** | BotÃ£o | Autentica via `POST /auth/login`, salva `access_token`, `user_role` e `user_nome` no localStorage |
+| IlustraÃ§Ãµes decorativas | Imagem | Elementos visuais (`DILEGNO_ILUS`) posicionados como marca d'Ã¡gua |
+| Selo central | Imagem | Logo `DILEGNO_SELLO.P.png` exibido sobre o formulÃ¡rio |
+
+**Fluxo pÃ³s-login:** Redireciona para `/dashboard`. Rotas protegidas por `PrivateRoute` (verifica `access_token`).
+
+---
+
+## 2. Layout Global (Navbar + Menu)
+
+| Elemento | Tipo | DescriÃ§Ã£o |
+|---|---|---|
+| **Logo Dilegno** | Imagem/Link | `DILEGNO_LOGOTIPO-1.P.png` â€“ ClicÃ¡vel, navega para `/dashboard` |
+| **Navbar superior (Upbar)** | Barra | Fundo `bg-eucalipto/90` com `backdrop-blur-md`, sticky |
+| **Menu Desktop** | Links + Dropdowns | Menus agrupados: Vendas, GalpÃ£o, GestÃ£o â€“ cada um com sub-links |
+| **Menu Mobile (HambÃºrguer)** | Drawer | Abre pela direita, com grupos de navegaÃ§Ã£o e Ã­cones |
+| **Indicador Offline/Sync** | Badge | Mostra status de conexÃ£o e quantidade de itens pendentes para sincronizar |
+| **Avatar do UsuÃ¡rio** | Ãcone circular | Exibe inicial do nome do usuÃ¡rio logado |
+| **BotÃ£o Sair** | BotÃ£o | Remove `access_token` do localStorage e redireciona para `/` |
+
+### Rotas disponÃ­veis no menu:
+
+| Rota | PÃ¡gina | Grupo |
+|---|---|---|
+| `/dashboard` | Dashboard | â€” |
+| `/clientes` | Carteira de Clientes | Vendas |
+| `/orcamentos` | Pipeline de Vendas (CRM) | Vendas |
+| `/orcamentos/novo` | Construtor de OrÃ§amento | Vendas |
+| `/catalogo` | CatÃ¡logo de Produtos | GalpÃ£o |
+| `/estoque` | Controle de Estoque | GalpÃ£o |
+| `/fornecedores` | Fornecedores | GalpÃ£o |
+| `/calendario` | CalendÃ¡rio de Entregas | GestÃ£o |
+| `/financeiro` | Painel Financeiro | GestÃ£o |
+| `/equipe` | GestÃ£o de Equipe | GestÃ£o (Admin) |
+| `/logs` | Logs de Auditoria | GestÃ£o |
+| `/configuracoes` | ConfiguraÃ§Ãµes da Conta | â€” |
+
+---
+
+## 3. Dashboard (`/dashboard`)
+
+### VisÃ£o por Role:
+- **Admin:** "Painel de Controle ADM" â€“ vÃª tudo + Equipe Comercial
+- **Vendedor:** "Painel do Vendedor" â€“ vÃª apenas seus dados
+
+### KPIs (Cards clicÃ¡veis):
+
+| Card | Dado | Navega para | CondiÃ§Ã£o |
+|---|---|---|---|
+| OrÃ§amentos (Globais/Meus) | Contagem total | `/orcamentos` | Sempre visÃ­vel |
+| Clientes (na Base/Meus) | Contagem total | `/clientes` | Sempre visÃ­vel |
+| Itens no GalpÃ£o | Contagem de produtos | `/estoque` | Sempre visÃ­vel |
+| Fornecedores | Contagem total | `/fornecedores` | Somente Admin |
+
+### SeÃ§Ãµes do Dashboard:
+
+| SeÃ§Ã£o | DescriÃ§Ã£o |
+|---|---|
+| **OrÃ§amentos por Status (Funil)** | Barras de progresso: Gerando, Planejando, Enviados, Aprovados, Perdidos |
+| **PrÃ³ximos Eventos** | Lista dos 5 prÃ³ximos eventos (Entrega/Faturamento), com indicador de urgÃªncia por cores |
+| **LocaÃ§Ãµes Ativas** | Lista de locaÃ§Ãµes entregues com countdown de dias restantes |
+| **ProduÃ§Ãµes Ativas** | ProduÃ§Ãµes aprovadas com prazo de faturamento |
+| **VisÃ£o da Semana** | Grade 7 dias (Segâ€“Dom) com eventos clicÃ¡veis. NavegaÃ§Ã£o por semanas (â—€/â–¶) e botÃ£o "Hoje" |
+| **Equipe Comercial** | (Admin) Cards de cada vendedor com miniatura do funil individual |
+
+### BotÃµes do Dashboard:
+
+| BotÃ£o | CondiÃ§Ã£o | AÃ§Ã£o |
+|---|---|---|
+| **RelatÃ³rio Mensal** | Admin | Placeholder visual (sem aÃ§Ã£o implementada) |
+| **Setas â—€/â–¶ da Semana** | Sempre | Navega entre semanas |
+| **BotÃ£o "Hoje"** | Quando `weekOffset â‰  0` | Retorna Ã  semana atual |
+| **Eventos clicÃ¡veis** | Sempre | Navega para `/orcamentos/:id` do respectivo orÃ§amento |
+
+---
+
+## 4. Carteira de Clientes (`/clientes`)
+
+### VisualizaÃ§Ã£o:
+- Grid de cards (1-3 colunas responsivo)
+- Cada card exibe: Avatar (inicial), Nome Fantasia, CPF/CNPJ, ResponsÃ¡vel, E-mail, Telefone, EndereÃ§o
+- Badge "Pendente" para clientes de cadastro rÃ¡pido
+
+### BotÃµes e AÃ§Ãµes:
+
+| BotÃ£o/AÃ§Ã£o | DescriÃ§Ã£o |
+|---|---|
+| **Pesquisar** | Input de busca por nome, CNPJ, email ou responsÃ¡vel |
+| **Cadastro RÃ¡pido** | Abre modal simplificado (sÃ³ Nome + Telefone). Funciona offline |
+| **Novo Cliente** | Abre modal completo (todos os campos). Requer conexÃ£o |
+| **Editar** (Ã­cone lÃ¡pis) | Abre modal de ediÃ§Ã£o com dados prÃ©-preenchidos. Requer conexÃ£o |
+| **Excluir** (Ã­cone lixeira) | ConfirmaÃ§Ã£o + `DELETE /clientes/:id` |
+| **Novo OrÃ§amento** (no card) | Navega para `/orcamentos/novo?cliente=:id` |
+| **Ver Funil** (no card) | Navega para `/orcamentos?cliente=NomeDoCliente` |
+
+### Modal de Cadastro/EdiÃ§Ã£o:
+
+| Campo | ObrigatÃ³rio | Modo Quick | Modo Full |
+|---|---|---|---|
+| Nome Fantasia / Empresa | âœ… | âœ… | âœ… |
+| Telefone / WhatsApp | Sim (full) | âœ… | âœ… |
+| CPF/CNPJ | Sim | âŒ | âœ… |
+| Nome do ResponsÃ¡vel | Sim | âŒ | âœ… |
+| E-mail Seguro | Sim | âŒ | âœ… |
+| EndereÃ§o de Entrega | Sim | âŒ | âœ… |
+| Checkbox "Mesmo endereÃ§o" | â€” | âŒ | âœ… |
+| EndereÃ§o de Faturamento | Condicional | âŒ | âœ… (se desmarcado) |
+
+### Suporte Offline:
+- Cadastro RÃ¡pido funciona offline (salva na fila de sincronizaÃ§Ã£o via IndexedDB)
+- Listagem exibe cache local quando sem conexÃ£o
+
+---
+
+## 5. Pipeline de Vendas â€“ CRM Kanban (`/orcamentos`)
+
+### VisualizaÃ§Ã£o:
+- **Kanban Board** com 6 colunas arrastÃ¡veis (drag & drop)
+- **Tabela colapsÃ¡vel** de orÃ§amentos finalizados
+
+### Colunas do Kanban:
+
+| Coluna | Status ID | Cor |
+|---|---|---|
+| Gerando OrÃ§amento | `Gerando orÃ§amento` | Cinza |
+| Planejando | `Planejando` | Dourado |
+| Proposta Enviada | `OrÃ§amento gerado` | Terracota |
+| Aprovado (GalpÃ£o) | `Aprovado` | Verde (moss) |
+| Entregue | `Entregue` | Azul |
+| Arrastar p/ Finalizar | `FINALIZAR` | Cinza tracejado |
+
+### Cada card exibe:
+- Badge de tipo (Venda / LocaÃ§Ã£o / ProduÃ§Ã£o)
+- ID do orÃ§amento (#ORC-0001)
+- Nome do cliente
+- Avatar do vendedor
+- Valor total e quantidade de itens
+
+### BotÃµes e AÃ§Ãµes:
+
+| AÃ§Ã£o | DescriÃ§Ã£o |
+|---|---|
+| **Pesquisar** | Filtro por cliente ou ID |
+| **Filtro por Vendedor** | Combobox (somente Admin) |
+| **Novo OrÃ§amento** | Link para `/orcamentos/novo` |
+| **Drag & Drop** | Move card entre colunas, atualiza status via `PUT /orcamentos/:id/status` |
+| **Clique no card** | Navega para `/orcamentos/:id` |
+| **Expandir/Colapsar Finalizados** | Toggle da tabela de orÃ§amentos encerrados |
+
+### Modal de FinalizaÃ§Ã£o:
+Acionado ao arrastar card para coluna "Finalizar".
+
+| OpÃ§Ã£o | DescriÃ§Ã£o |
+|---|---|
+| **Perdido / Negado** | Status `OrÃ§amento negado` |
+| **Devolvido ao Estoque** | Status `Devolvido` (sÃ³ ProduÃ§Ã£o/LocaÃ§Ã£o) |
+| **Faturado / Vendido** | Status `Faturado` |
+
+### Suporte Offline:
+- Listagem via cache IndexedDB
+- Drag & Drop bloqueado quando offline
+
+---
+
+## 6. Construtor de OrÃ§amento (`/orcamentos/novo` e `/orcamentos/editar/:id`)
+
+### Layout: Duas colunas (Desktop)
+- **Esquerda:** Documento do orÃ§amento (cabeÃ§alho + itens)
+- **Direita:** Ferramentas (upload de referÃªncia externa + lista de produtos)
+
+### CabeÃ§alho do OrÃ§amento:
+
+| Campo | Tipo | DescriÃ§Ã£o |
+|---|---|---|
+| Cliente | Combobox com busca | Busca por nome, CPF, telefone, e-mail |
+| Cadastro RÃ¡pido de Cliente | BotÃ£o + Modal | Cria cliente com Nome + Telefone (funciona offline) |
+| Tipo de Documento | Combobox | Venda / LocaÃ§Ã£o / ProduÃ§Ã£o |
+| Vendedor ResponsÃ¡vel | Combobox (Admin) | Atribui orÃ§amento a um vendedor |
+| Arquiteto (Opcional) | Input texto | Nome do arquiteto do projeto |
+| Contato do Arquiteto | Input texto | Telefone ou e-mail |
+| Prazo da LocaÃ§Ã£o/ProduÃ§Ã£o | Input numÃ©rico + Combobox | Valor + Unidade (dias/meses). VisÃ­vel sÃ³ para LocaÃ§Ã£o/ProduÃ§Ã£o |
+
+### Itens da Proposta:
+Cada item pode ser **interno** (do GalpÃ£o/CatÃ¡logo) ou **externo** (upload de foto).
+
+| Campo por item | Tipo |
+|---|---|
+| Foto | Imagem (automÃ¡tica do produto ou upload) |
+| Nome | Texto (editÃ¡vel para externos) |
+| Quantidade | NÃºmero (limitado pelo estoque para itens do GalpÃ£o) |
+| PreÃ§o UnitÃ¡rio (R$) | NÃºmero decimal |
+| Local de InstalaÃ§Ã£o | Texto livre |
+| Prazo de Entrega | NÃºmero + Unidade (dias/meses) |
+| PersonalizaÃ§Ã£o | Texto (visÃ­vel se produto permite) |
+| Fornecedor (externo) | Texto com datalist dos fornecedores cadastrados |
+| DescriÃ§Ã£o (externo) | Texto livre |
+
+### Painel de Ferramentas (Direita):
+
+| Ferramenta | DescriÃ§Ã£o |
+|---|---|
+| **Upload de ReferÃªncia** | Upload de foto (clique ou drag & drop) para criar item externo |
+| **Drag & Drop de URL** | Arrasta imagem da web (Google Images, sites) â€“ baixa automaticamente via API |
+| **Abas GalpÃ£o / CatÃ¡logo** | Alterna entre produtos do GalpÃ£o (estoque fÃ­sico) e CatÃ¡logo (sob demanda) |
+| **Busca de Produto** | Filtro por nome ou ID |
+| **Clique no produto** | Adiciona ao orÃ§amento |
+
+### BotÃµes:
+
+| BotÃ£o | AÃ§Ã£o |
+|---|---|
+| **Limpar Todos** | Remove todos os itens (com confirmaÃ§Ã£o) |
+| **Remover item** (lixeira) | Remove item individual |
+| **Emitir OrÃ§amento / Salvar** | `POST /orcamentos/` ou `PUT /orcamentos/:id` |
+
+### Suporte Offline:
+- CriaÃ§Ã£o de orÃ§amento funciona offline (salva na fila de sincronizaÃ§Ã£o)
+- EdiÃ§Ã£o bloqueada offline
+- Upload de foto offline converte para base64
+
+---
+
+## 7. Detalhe do OrÃ§amento (`/orcamentos/:id`)
+
+### Layout: 3 colunas (Desktop)
+- **Esquerda (2 cols):** Itens da proposta com foto, nome, quantidade, preÃ§o, local, personalizaÃ§Ã£o, subtotal
+- **Direita (1 col):** Cards do Cliente, Vendedor, Arquiteto e Controle de LocaÃ§Ã£o
+
+### BotÃµes do Header:
+
+| BotÃ£o | AÃ§Ã£o |
+|---|---|
+| **â† Voltar** | Retorna para `/orcamentos` |
+| **Combobox de Status** | Muda status do orÃ§amento diretamente |
+| **Regerar PDF** | `POST /orcamentos/:id/regenerate-pdf` |
+| **Ver PDF** | Abre o PDF em nova aba |
+| **Editar** | Navega para `/orcamentos/editar/:id` |
+| **Excluir** | Abre modal de confirmaÃ§Ã£o â†’ `DELETE /orcamentos/:id` |
+| **Ver Funil do Cliente** | Navega para CRM filtrado pelo nome do cliente |
+
+### Controle de LocaÃ§Ã£o/ProduÃ§Ã£o (condicional):
+Exibido quando `tipo_orcamento` Ã© LocaÃ§Ã£o ou ProduÃ§Ã£o e status Ã© Aprovado.
+
+| Elemento | DescriÃ§Ã£o |
+|---|---|
+| Data de InÃ­cio | Data da aprovaÃ§Ã£o |
+| Data de Fim | Data de faturamento/devoluÃ§Ã£o |
+| **Estender Prazo** | Input + Combobox + botÃ£o â†’ `POST /orcamentos/:id/renovar` |
+
+### HistÃ³rico e Atividades:
+- Timeline visual com avatar, nome do usuÃ¡rio, aÃ§Ã£o, data/hora e descriÃ§Ã£o detalhada
+- Dados de `GET /orcamentos/:id/historico`
+
+---
+
+## 8. Controle de Estoque (`/estoque`)
+
+### VisualizaÃ§Ã£o:
+- Grid compacto de cards (3-8 colunas responsivo)
+- Cada card exibe: Foto, Nome, PreÃ§o de venda, Tipo, Cor, Material, CÃ´modos, DimensÃµes, Peso, NCM, Fornecedor, PersonalizaÃ§Ã£o, DescriÃ§Ã£o, ObservaÃ§Ãµes
+- Indicadores: Estoque FÃ­sico / Retido / DisponÃ­vel
+- Badge "INATIVO" e Ã­cone de alerta para estoque crÃ­tico
+
+### BotÃµes e AÃ§Ãµes:
+
+| BotÃ£o/AÃ§Ã£o | CondiÃ§Ã£o | DescriÃ§Ã£o |
+|---|---|---|
+| **Indicador Online/Offline** | Sempre | Badge verde (Conectado) ou terracota (Offline) |
+| **Importar Excel** | Admin/Estoquista | Upload de planilha `.xlsx/.xls/.csv` â†’ processamento em lote |
+| **Novo Produto** | Admin/Estoquista | Abre modal de cadastro completo |
+| **Buscar no galpÃ£o** | Sempre | Input de busca textual |
+| **Mostrar Inativos** | Checkbox | Alterna visibilidade de produtos desativados |
+| **Filtros AvanÃ§ados** | Toggle | Exibe filtros: Tipo, Cor, Material, Fornecedor, CÃ´modos |
+| **Editar Produto** (hover) | Admin/Estoquista | Abre modal `EditProdutoModal` |
+| **Baixa (âˆ’)** | Sempre | Abre modal de movimentaÃ§Ã£o tipo SAÃDA |
+| **Entrada (+)** | Sempre | Abre modal de movimentaÃ§Ã£o tipo ENTRADA |
+
+### Modal Criar Produto:
+
+| Campo | ObrigatÃ³rio |
+|---|---|
+| Foto (upload drag & drop) | NÃ£o |
+| Nome do Produto | Sim |
+| Tipo | NÃ£o |
+| Fornecedor | Combobox com busca |
+| Material Predominante | NÃ£o |
+| ClassificaÃ§Ã£o Fiscal (NCM) | NÃ£o |
+| SituaÃ§Ã£o (Ativo/Inativo) | Sim |
+| CÃ´modos | NÃ£o |
+| DimensÃµes (Comp/Larg/Alt/DiÃ¢m cm) | NÃ£o |
+| Peso (LÃ­quido/Bruto kg) | NÃ£o |
+| PersonalizaÃ§Ã£o | NÃ£o |
+| ObservaÃ§Ãµes | NÃ£o |
+| PreÃ§o de Custo (R$) | Sim |
+| PreÃ§o de Venda (R$) | Sim |
+| Estoque Inicial | Sim |
+| Estoque MÃ­nimo | Sim |
+| Onde exibir (CatÃ¡logo/GalpÃ£o) | Radio |
+
+### Modal de MovimentaÃ§Ã£o:
+
+| Campo | DescriÃ§Ã£o |
+|---|---|
+| Quantidade | NÃºmero (mÃ­nimo 1) |
+| Justificativa | Texto opcional (padrÃ£o: "OperaÃ§Ã£o padrÃ£o via sistema") |
+| BotÃ£o Confirmar | `POST /estoque/movimentar/:id` |
+
+### Suporte Offline:
+- Listagem via cache IndexedDB
+- MovimentaÃ§Ãµes offline salvas na fila de sincronizaÃ§Ã£o
+
+---
+
+## 9. CatÃ¡logo de Produtos (`/catalogo`)
+
+Estrutura idÃªntica ao Estoque, porÃ©m:
+- Exibe apenas produtos com `is_catalogo = true`
+- **NÃ£o possui** botÃµes de Entrada/SaÃ­da de estoque
+- Exibe badge "Em Estoque: X" quando tem unidades
+- Campo "Estoque MÃ­nimo" desabilitado (sempre 0) ao cadastrar
+
+### BotÃµes exclusivos:
+
+| BotÃ£o | AÃ§Ã£o |
+|---|---|
+| **Importar Excel** | Placeholder (`alert`) â€“ em desenvolvimento |
+| **Cadastrar Manual** | Modal idÃªntico ao Estoque, com `is_catalogo = true` |
+
+---
+
+## 10. Fornecedores (`/fornecedores`)
+
+### VisualizaÃ§Ã£o:
+- Grid de cards (1-3 colunas)
+- Avatar (inicial), Nome, CNPJ, E-mail, Telefone, EndereÃ§o, ObservaÃ§Ãµes, Badge "Pendente"
+
+### BotÃµes e AÃ§Ãµes:
+
+| BotÃ£o | AÃ§Ã£o |
+|---|---|
+| **Pesquisar** | Filtro por nome, CNPJ ou e-mail |
+| **Novo Fornecedor** | Abre modal de cadastro |
+| **Editar** (Ã­cone lÃ¡pis) | Abre modal de ediÃ§Ã£o |
+| **Desativar** (Ã­cone lixeira) | ConfirmaÃ§Ã£o + `DELETE /fornecedores/:id` |
+
+### Modal de Cadastro/EdiÃ§Ã£o:
+
+| Campo | ObrigatÃ³rio |
+|---|---|
+| Nome / RazÃ£o Social | Sim |
+| CNPJ | NÃ£o |
+| E-mail para Contato | NÃ£o |
+| NÃºmero para Contato | NÃ£o |
+| EndereÃ§o | NÃ£o |
+| ObservaÃ§Ãµes | NÃ£o |
+
+---
+
+## 11. CalendÃ¡rio de Entregas (`/calendario`)
+
+### VisualizaÃ§Ã£o:
+- Grade de calendÃ¡rio mensal completo (Domâ€“SÃ¡b)
+- Sidebar lateral direita (ao clicar num dia)
+
+### Tipos de evento com cores:
+
+| Tipo | Cor | Ãcone |
+|---|---|---|
+| Entrega | Wood/Dourado | Caixa (Package) |
+| Faturamento | Verde (moss) | CifrÃ£o (DollarSign) |
+| Retirada | Terracota | Setas (RefreshCw) |
+
+### BotÃµes e AÃ§Ãµes:
+
+| AÃ§Ã£o | DescriÃ§Ã£o |
+|---|---|
+| **Navegar meses** (â—€/â–¶) | Muda o mÃªs exibido |
+| **Clicar no dia** | Abre sidebar com detalhes dos eventos |
+| **Fechar sidebar** (X) | Fecha o painel lateral |
+| **Abrir OrÃ§amento** | Navega para `/orcamentos/:id` do evento |
+
+### Sidebar de Detalhes:
+- Exibe: Nome do dia/mÃªs, tipo de evento, cliente, vendedor, endereÃ§o
+- Para entregas: lista individual de produtos com foto, quantidade, local de instalaÃ§Ã£o, fornecedor
+- Para retiradas: resumo dos itens a recolher
+
+---
+
+## 12. Painel Financeiro (`/financeiro`)
+
+> **MÃ³dulo em desenvolvimento.** Exibe apenas Ã­cone de construÃ§Ã£o e mensagem placeholder.
+
+---
+
+## 13. GestÃ£o da Equipe (`/equipe`)
+
+### Acesso: Somente Admin (outros roles veem tela de "Acesso Restrito")
+
+### VisualizaÃ§Ã£o:
+- Tabela com: Nome/E-mail, Cargo (role badge), Status do Token (Ativo/Desligado), AÃ§Ãµes
+
+### BotÃµes e AÃ§Ãµes:
+
+| BotÃ£o | AÃ§Ã£o |
+|---|---|
+| **Conceder Novo Acesso** | Abre modal de criaÃ§Ã£o de credencial |
+| **Revogar Acesso** | `DELETE /usuarios/:id` (com confirmaÃ§Ã£o). NÃ£o disponÃ­vel para Admin ou inativos |
+
+### Modal "Emitir Credencial":
+
+| Campo | DescriÃ§Ã£o |
+|---|---|
+| Nome Completo | Texto obrigatÃ³rio |
+| E-mail Corporativo | Email obrigatÃ³rio |
+| NÃ­vel de PermissÃ£o | Combobox: Vendedor / Estoquista / Administrador Master |
+| Senha ProvisÃ³ria | Texto (min 8 chars, 1 maiÃºscula, 1 nÃºmero, 1 especial) |
+
+### Roles do sistema:
+
+| Role | Acesso |
+|---|---|
+| `admin` | Acesso total: Dashboard ADM, Equipe, Fornecedores, todos os orÃ§amentos, Logs completos |
+| `vendedor` | Dashboard do Vendedor, CRM (apenas seus orÃ§amentos), Clientes (sua carteira), CatÃ¡logo |
+| `estoquista` | Estoque (App do GalpÃ£o com suporte offline), movimentaÃ§Ãµes |
+
+---
+
+## 14. Logs de Auditoria (`/logs`)
+
+### VisualizaÃ§Ã£o:
+- Lista cronolÃ³gica de todas as alteraÃ§Ãµes
+- Admin vÃª histÃ³rico completo, vendedores veem apenas seus registros
+
+### Campos de cada log:
+
+| Campo | DescriÃ§Ã£o |
+|---|---|
+| Badge de aÃ§Ã£o | CriaÃ§Ã£o (verde), EdiÃ§Ã£o (dourado), Status (azul), ExclusÃ£o (vermelho) |
+| DescriÃ§Ã£o | Texto detalhado da alteraÃ§Ã£o |
+| Data/Hora | Timestamp formatado |
+| Feito por | Nome do usuÃ¡rio que executou |
+| Entidade | Tipo + ID do registro afetado |
+
+### Busca:
+- Input de texto filtrando por descriÃ§Ã£o, aÃ§Ã£o ou nome de usuÃ¡rio
+
+---
+
+## 15. ConfiguraÃ§Ãµes da Conta (`/configuracoes`)
+
+### Layout: 2 painÃ©is (cartÃ£o de perfil + detalhes)
+
+### CartÃ£o de Perfil:
+- Avatar grande (inicial), Nome, E-mail, Badge do role
+
+### Painel "Dados Pessoais":
+
+| AÃ§Ã£o | DescriÃ§Ã£o |
+|---|---|
+| **Editar** | Habilita ediÃ§Ã£o de Nome e E-mail |
+| **Salvar** | `PUT /usuarios/:id` |
+| **Cancelar** | Descarta alteraÃ§Ãµes |
+
+### Painel "SeguranÃ§a (2FA / MFA)":
+
+| Estado | VisualizaÃ§Ã£o |
+|---|---|
+| MFA Desativado | BotÃ£o "Habilitar" â†’ gera QR Code via `POST /auth/enable-mfa` |
+| QR Code gerado | Exibe QR Code + cÃ³digo secreto manual + input para cÃ³digo de 6 dÃ­gitos |
+| BotÃ£o "Verificar e Ativar" | `POST /auth/verify-mfa?code=XXXXXX` |
+| MFA Ativo | Badge "Ativo" em verde |
+
+---
+
+## 16. Funcionalidades Transversais
+
+### Sistema Offline (PWA):
+- **IndexedDB** (via `dbAPI`) para cache de: Clientes, OrÃ§amentos, Produtos, Fila de SincronizaÃ§Ã£o
+- OperaÃ§Ãµes offline: Cadastro RÃ¡pido de clientes, criaÃ§Ã£o de orÃ§amentos, movimentaÃ§Ã£o de estoque
+- Indicador visual de status online/offline na Navbar e no Estoque
+- SincronizaÃ§Ã£o automÃ¡tica ao reconectar
+
+### Toast Notifications:
+- PosiÃ§Ã£o: Top-right
+- Estilo: Fundo `#FAF9F6`, texto `#4A3B32`, borda dourada `#D4AF37`
+- Tipos: Sucesso, Erro, Loading, Info (com Ã­cone personalizado)
+
+### Componente Combobox:
+- Dropdown reutilizÃ¡vel com busca integrada
+- RenderizaÃ§Ã£o customizada de opÃ§Ãµes (ex: clientes com tags de CPF/Telefone/Email)
+- Modo `disableSearch` para selects simples
+
+### GeraÃ§Ã£o de PDF:
+- AutomÃ¡tica ao criar orÃ§amento
+- RegeneraÃ§Ã£o manual via botÃ£o na tela de detalhe
+- Download via link no detalhe do orÃ§amento
+
+### Upload de Imagens:
+- Upload direto de arquivo (`POST /uploads/`)
+- Upload via URL (`POST /uploads/url`) â€“ para drag & drop da web
+- Suporte a drag & drop em: Estoque, CatÃ¡logo, Construtor de OrÃ§amento
+- ConversÃ£o base64 para modo offline
+
+---
+
+## 17. Endpoints da API Utilizados
+
+| MÃ©todo | Endpoint | Tela(s) |
+|---|---|---|
+| `POST` | `/auth/login` | Login |
+| `POST` | `/auth/enable-mfa` | ConfiguraÃ§Ãµes |
+| `POST` | `/auth/verify-mfa` | ConfiguraÃ§Ãµes |
+| `GET` | `/usuarios/me` | ConfiguraÃ§Ãµes |
+| `GET` | `/usuarios/` | Equipe, Dashboard |
+| `POST` | `/usuarios/` | Equipe |
+| `PUT` | `/usuarios/:id` | ConfiguraÃ§Ãµes, Equipe |
+| `DELETE` | `/usuarios/:id` | Equipe |
+| `GET` | `/clientes/` | Clientes, Dashboard, OrcBuilder |
+| `POST` | `/clientes/` | Clientes, OrcBuilder |
+| `PUT` | `/clientes/:id` | Clientes |
+| `DELETE` | `/clientes/:id` | Clientes |
+| `GET` | `/orcamentos/` | CRM, Dashboard |
+| `POST` | `/orcamentos/` | OrcBuilder |
+| `GET` | `/orcamentos/:id` | OrcDetail, OrcBuilder (ediÃ§Ã£o) |
+| `PUT` | `/orcamentos/:id` | OrcBuilder (ediÃ§Ã£o) |
+| `PUT` | `/orcamentos/:id/status` | CRM, OrcDetail |
+| `POST` | `/orcamentos/:id/regenerate-pdf` | OrcDetail |
+| `POST` | `/orcamentos/:id/renovar` | OrcDetail |
+| `GET` | `/orcamentos/:id/historico` | OrcDetail |
+| `DELETE` | `/orcamentos/:id` | OrcDetail |
+| `GET` | `/estoque/produtos` | Estoque, CatÃ¡logo, Dashboard, OrcBuilder |
+| `POST` | `/estoque/produtos` | Estoque, CatÃ¡logo |
+| `PUT` | `/estoque/produtos/:id` | EditProdutoModal |
+| `POST` | `/estoque/movimentar/:id` | Estoque |
+| `GET` | `/fornecedores/` | Fornecedores, Estoque, CatÃ¡logo, OrcBuilder |
+| `POST` | `/fornecedores/` | Fornecedores |
+| `PUT` | `/fornecedores/:id` | Fornecedores |
+| `DELETE` | `/fornecedores/:id` | Fornecedores |
+| `GET` | `/calendario/entregas` | CalendÃ¡rio, Dashboard |
+| `GET` | `/logs/` | Logs |
+| `POST` | `/uploads/` | Estoque, CatÃ¡logo, OrcBuilder |
+| `POST` | `/uploads/url` | OrcBuilder (drag & drop da web) |
+
+---
+
+## 18. HistÃ³rico de AtualizaÃ§Ãµes Recentes (13/06/2026)
+
+Esta seÃ§Ã£o documenta em detalhes as alteraÃ§Ãµes recentes de infraestrutura, layout e design aplicadas ao projeto:
+
+### 1. CorreÃ§Ã£o de Ambiente IDE (Python)
+- **Problema:** A IDE (ex: VS Code) estava reportando o erro `Cannot find module 'sendgrid.helpers.mail'` (e em outras bibliotecas como `pyotp`) no arquivo `auth.py`. 
+- **Causa:** A IDE estava utilizando o interpretador Python global do Windows em vez do interpretador isolado do ambiente virtual do projeto (`backend/venv`).
+- **ResoluÃ§Ã£o (InstruÃ§Ã£o):** ConfiguraÃ§Ã£o da IDE para apontar para `.\backend\venv\Scripts\python.exe` atravÃ©s da paleta de comandos (`Python: Select Interpreter`), permitindo que a anÃ¡lise estÃ¡tica enxergue corretamente os pacotes locais instalados e o erro desapareÃ§a. O cÃ³digo em si estava Ã­ntegro e rodando normalmente.
+
+### 2. PadronizaÃ§Ã£o e Ajustes de Layout no Dashboard (`/dashboard`)
+- **Fix de URLs de Imagens:** As fotos de produtos nos cards "ProduÃ§Ãµes Ativas" e "LocaÃ§Ãµes Ativas" estavam quebrando (mostrando apenas o Ã­cone ou texto alternativo). A causa era que a API retorna caminhos relativos (ex: `/static/uploads/foto.jpg`), e a pÃ¡gina principal do frontend estava tentando ler do localhost do Vite (5173). 
+  - **CorreÃ§Ã£o:** Adicionada a lÃ³gica condicional (`imgSrc = fotoSrc ? ... : null`) nos cards do Dashboard, anexando corretamente a variÃ¡vel de ambiente `VITE_API_URL` ao caminho da foto, garantindo que elas sejam carregadas do servidor backend.
+- **Redimensionamento dos Minicards (Largura Fixa):** O layout de grid (que esticava os cards para preencherem o container da tela) foi alterado. 
+  - **CorreÃ§Ã£o:** Os minicards agora utilizam uma estrutura `flex flex-wrap gap-4` e possuem largura fixa (`w-48` / 192px), nÃ£o esticando em telas maiores e assumindo o formato de "pequenos blocos".
+- **Ajuste de Preenchimento das Fotos (`object-contain`):**
+  - **CorreÃ§Ã£o:** A classe de estilizaÃ§Ã£o das imagens nos minicards foi alterada de `object-cover` (que causava cortes nas laterais para preencher o fundo) para `object-contain`. 
+  - Adicionado tambÃ©m um preenchimento interno (`p-1`) ao redor da Ã¡rea da imagem para deixÃ¡-la visualmente solta do container cinza, exibindo o produto inteiro de forma elegante.
+- **Alinhamento dos PainÃ©is Principais:**
+  - **Problema:** A caixa branca em volta de "LocaÃ§Ãµes Ativas" nÃ£o alinhava verticalmente com "ProduÃ§Ãµes Ativas" e "PrÃ³ximos Eventos".
+  - **CorreÃ§Ã£o:** Os espaÃ§amentos (`padding`) e margens foram padronizados. O painel "LocaÃ§Ãµes Ativas" passou de `p-8` e `mb-6` para `p-5` e `mb-4`, alÃ©m do tÃ­tulo passar a utilizar `text-lg font-bold`, ficando idÃªntico Ã  caixa vizinha.
+
+### 3. IntegraÃ§Ã£o do Design System com Stitch MCP
+- **AÃ§Ã£o:** O PDF fornecido com o case de Branding da Dilegno (`Dilegno-Branding-Casestudy_V.2.pdf`) foi completamente processado.
+- **Artefato Criado:** Foi criado o arquivo `design_system_stitch.md` na raiz do projeto contendo todas as diretrizes da marca em Markdown estruturado, pronto para ser lido pela ferramenta Stitch MCP (`upload_design_md` e `create_design_system_from_design_md`).
+- **ConteÃºdo ExtraÃ­do:**
+  - MissÃ£o, VisÃ£o e Target (Arquitetos e designers).
+  - Arquetipos: O Criador e o Cuidador.
+  - Tipografia Oficial: Source Sans 3.
+  - Paleta de Cores Mapeada (com RGB, CMYK e HEX): Sombra (`#2E2D2C`), Eucalipto (`#B2C2B2`), Lino (`#F5F3E9`), Lienzo (`#EBEBEB`).
+  - LÃ³gica de ilustraÃ§Ãµes (inspirada em blueprints) e descriÃ§Ã£o formal do Isologo e Tagline ("Vestindo EspaÃ§os").
+

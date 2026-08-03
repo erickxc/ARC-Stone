@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+
+<html class="light" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CatÃ¡logo de Produtos | ARC MÃ³veis</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed-variant": "#584145",
+                    "on-error": "#ffffff",
+                    "primary-fixed-dim": "#bacbbb",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary-container": "#d6b6bb",
+                    "surface-container-low": "#f7f3f1",
+                    "surface-variant": "#e6e2e0",
+                    "outline-variant": "#c3c8c1",
+                    "on-background": "#1c1b1b",
+                    "tertiary-fixed-dim": "#dfbfc3",
+                    "on-secondary-fixed": "#1c1b1b",
+                    "primary": "#536255",
+                    "surface-container-highest": "#e6e2e0",
+                    "on-tertiary": "#ffffff",
+                    "secondary-container": "#e6e2e0",
+                    "background": "#fdf8f7",
+                    "outline": "#747872",
+                    "on-tertiary-container": "#5e474a",
+                    "on-secondary": "#ffffff",
+                    "surface-container": "#f1edeb",
+                    "inverse-on-surface": "#f4f0ee",
+                    "inverse-surface": "#31302f",
+                    "tertiary": "#71585c",
+                    "surface-container-high": "#ece7e6",
+                    "on-surface": "#1c1b1b",
+                    "on-primary-fixed-variant": "#3c4a3e",
+                    "error-container": "#ffdad6",
+                    "secondary-fixed": "#e6e2e0",
+                    "tertiary-fixed": "#fcdadf",
+                    "secondary-fixed-dim": "#c9c6c4",
+                    "surface-tint": "#536255",
+                    "primary-container": "#b2c2b2",
+                    "on-primary": "#ffffff",
+                    "secondary": "#605e5d",
+                    "on-tertiary-fixed": "#29161a",
+                    "on-error-container": "#93000a",
+                    "on-surface-variant": "#434843",
+                    "on-secondary-fixed-variant": "#484645",
+                    "error": "#ba1a1a",
+                    "primary-fixed": "#d6e7d6",
+                    "surface-bright": "#fdf8f7",
+                    "on-secondary-container": "#666463",
+                    "inverse-primary": "#bacbbb",
+                    "surface": "#fdf8f7",
+                    "on-primary-fixed": "#111f14",
+                    "surface-dim": "#ddd9d8",
+                    "on-primary-container": "#425044"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "element-gap": "1rem",
+                    "margin-page": "2rem",
+                    "gutter": "1rem",
+                    "section-gap": "3rem"
+            },
+            "fontFamily": {
+                    "body-sm": ["\"Source Sans 3\""],
+                    "body-md": ["\"Source Sans 3\""],
+                    "headline-md": ["\"Source Sans 3\""],
+                    "headline-lg": ["\"Source Sans 3\""],
+                    "button": ["\"Source Sans 3\""],
+                    "label-md": ["\"Source Sans 3\""],
+                    "headline-sm": ["\"Source Sans 3\""],
+                    "body-lg": ["\"Source Sans 3\""]
+            },
+            "fontSize": {
+                    "body-sm": ["14px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "700"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                    "button": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                    "label-md": ["14px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "headline-sm": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .product-card-hover:hover {
+            transform: translateY(-4px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        body {
+            background-color: #fdf8f7; /* Mapping to Lino #FAF9F6 equivalent in system */
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1edeb;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c3c8c1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-surface/90 dark:bg-surface-container/90 backdrop-blur-md shadow-sm flex justify-between items-center px-margin-page h-16 w-full">
+<div class="flex items-center gap-8">
+<span class="font-headline-sm text-headline-sm font-bold text-primary dark:text-primary-fixed-dim">ARC MÃ³veis</span>
+<div class="hidden md:flex items-center gap-6">
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">Vendas</a>
+<a class="text-primary dark:text-primary-fixed-dim font-bold border-b-2 border-primary dark:border-primary-fixed-dim pb-1 font-body-md text-body-md" href="#">GalpÃ£o</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">GestÃ£o</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border-outline-variant rounded-full text-body-sm focus:ring-2 focus:ring-primary/20 transition-all w-64 border-none outline-none" placeholder="Buscar no galpÃ£o..." type="text"/>
+</div>
+<button class="p-2 text-on-surface-variant hover:bg-surface-variant/50 rounded-full transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-variant/50 rounded-full transition-all">
+<span class="material-symbols-outlined">cloud_off</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-outline-variant cursor-pointer hover:opacity-80 transition-opacity">
+<img alt="User profile avatar with logout option" class="w-full h-full object-cover" data-alt="A professional headshot of a sophisticated interior designer in their 30s, wearing a charcoal minimalist blazer, standing in a brightly lit studio with samples of wood and fabric in the background. The aesthetic is clean, high-end, and follows a light-mode color palette with soft earthy tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6D2FhzWSgNJ4WbYXhn5WrBT4dp1qbIsPoynlonnfEbI6BNormreXfp4FTnAYbXv3u-dTaKQRO7T5PrYsfHmOp6_Yi4jm-q4RrGY_aZ885DJsX3iNX1qJJL7Er4RCZZDLv6evPN5VhAkDIhHgieiW8zaKrQcWFkDXgi4EwP-CSmlOJwHAMO0Ps68Tn-1oNzAiOg4aYskTtZ-ngCoWY2OfghvY3O_QfyNU1j1DyhGnBtKg_CDN5QUQCWkkHeCesXmhawQ25FL-BnioQ"/>
+</div>
+</div>
+</nav>
+<main class="pt-24 pb-16 px-margin-page max-w-[1600px] mx-auto">
+<!-- Page Header -->
+<header class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-section-gap">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-background mb-2">CatÃ¡logo de Produtos</h1>
+<p class="text-on-surface-variant font-body-md">Gerencie e visualize todo o portfÃ³lio de peÃ§as ARC MÃ³veis.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 px-6 py-2.5 border border-outline text-on-surface font-button text-button rounded-full hover:bg-on-surface hover:text-surface transition-all">
+<span class="material-symbols-outlined text-[20px]">upload_file</span>
+                    Importar Excel
+                </button>
+<button class="flex items-center gap-2 px-6 py-2.5 bg-primary text-on-primary font-button text-button rounded-full hover:shadow-lg active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                    Cadastrar Manual
+                </button>
+</div>
+</header>
+<!-- Search & Filters -->
+<section class="mb-gutter space-y-4">
+<div class="flex flex-wrap items-center gap-3">
+<div class="flex-grow max-w-md relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pl-11 pr-4 py-3 bg-surface border border-outline-variant rounded-full text-body-md focus:ring-2 focus:ring-primary/20 transition-all outline-none" placeholder="Buscar produto..." type="text"/>
+</div>
+<div class="flex flex-wrap gap-2">
+<div class="relative group">
+<button class="flex items-center gap-2 px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-full text-label-md font-label-md hover:bg-surface-variant transition-colors">
+                            Tipo
+                            <span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+</div>
+<div class="relative group">
+<button class="flex items-center gap-2 px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-full text-label-md font-label-md hover:bg-surface-variant transition-colors">
+                            Cor
+                            <span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+</div>
+<div class="relative group">
+<button class="flex items-center gap-2 px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-full text-label-md font-label-md hover:bg-surface-variant transition-colors">
+                            Material
+                            <span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+</div>
+<div class="relative group">
+<button class="flex items-center gap-2 px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-full text-label-md font-label-md hover:bg-surface-variant transition-colors">
+                            Fornecedor
+                            <span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+</div>
+<div class="relative group">
+<button class="flex items-center gap-2 px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-full text-label-md font-label-md hover:bg-surface-variant transition-colors">
+                            CÃ´modos
+                            <span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+</div>
+<button class="flex items-center gap-2 px-4 py-2.5 text-primary hover:bg-primary/10 rounded-full text-label-md font-label-md transition-colors">
+<span class="material-symbols-outlined text-[18px]">filter_list_off</span>
+                        Limpar
+                    </button>
+</div>
+</div>
+</section>
+<!-- Product Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+<!-- Product Card 1 -->
+<article class="bg-surface border border-outline-variant rounded-xl overflow-hidden shadow-sm product-card-hover group">
+<div class="relative h-64 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A luxurious minimalist dining table made of warm terracotta wood with eight sleek chairs, set in a spacious sunlit room with floor-to-ceiling windows. The floor is light oak, and the walls are a soft off-white. The lighting is natural and airy, emphasizing the smooth textures of the furniture in a high-end architectural style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCseDOqJ7TZQCvtVGzYutdjEjIwK5NYt3GMEM_y_yszb1vezT_YwGrZDTS0kY67ldIMVZ07qBnmr78eDrs_n7XxaX3bjtpYwivsTDowxVhr9S-HiA4Aa1gZVa4Ybu8v2YfJnEfHG-XxtKTSBhpgwDynmxJxPF4dMNW-SmmztJ3xw5dLMaT-d4JP1D-1418P1iwkOhkuwOWBUI9oNc9AtvMhp725529ela3Ekcore1KH9wj-AiiI-yJLkM5ykDkCmBleIql-rC9cJJFL"/>
+<div class="absolute top-4 left-4">
+<span class="bg-primary text-on-primary text-[11px] font-bold px-3 py-1 rounded-full tracking-wider">ESTOQUE: 12</span>
+</div>
+<button class="absolute top-4 right-4 h-8 w-8 bg-surface/80 backdrop-blur-md rounded-full flex items-center justify-center text-on-surface-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[18px]">favorite</span>
+</button>
+</div>
+<div class="p-6">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Mesa Terracotta 8L</h3>
+<p class="text-on-surface-variant font-body-sm">CÃ³d: DG-MT8-001</p>
+</div>
+<span class="font-headline-sm text-headline-sm text-primary">R$ 7.600</span>
+</div>
+<div class="grid grid-cols-2 gap-y-3 gap-x-4 mb-6 text-body-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">table_restaurant</span>
+<span class="text-on-surface-variant">Tipo: <span class="text-on-surface font-medium">Mesa</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">palette</span>
+<span class="text-on-surface-variant">Cor: <span class="text-on-surface font-medium">Terracotta</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">architecture</span>
+<span class="text-on-surface-variant">Mat: <span class="text-on-surface font-medium">Madeira MaciÃ§a</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">meeting_room</span>
+<span class="text-on-surface-variant">CÃ´modo: <span class="text-on-surface font-medium">Jantar</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">straighten</span>
+<span class="text-on-surface-variant">Dim: <span class="text-on-surface font-medium">240x110cm</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">weight</span>
+<span class="text-on-surface-variant">Peso: <span class="text-on-surface font-medium">85kg</span></span>
+</div>
+</div>
+<div class="space-y-4 pt-4 border-t border-outline-variant">
+<div>
+<p class="text-[11px] font-bold text-outline uppercase tracking-widest mb-1">DescriÃ§Ã£o</p>
+<p class="text-body-sm text-on-surface-variant leading-relaxed">
+                                Mesa de jantar em madeira nobre com acabamento em verniz acetinado terracotta. Design orgÃ¢nico com bordas chanfradas.
+                            </p>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 bg-tertiary/10 px-3 py-1 rounded-full">
+<span class="material-symbols-outlined text-[14px] text-tertiary">tune</span>
+<span class="text-[12px] font-medium text-tertiary">PersonalizÃ¡vel</span>
+</div>
+<span class="text-[12px] text-on-surface-variant italic">Fornecedor: WoodArt Inc.</span>
+</div>
+</div>
+</div>
+</article>
+<!-- Product Card 2 -->
+<article class="bg-surface border border-outline-variant rounded-xl overflow-hidden shadow-sm product-card-hover group">
+<div class="relative h-64 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A modern minimalist lounge chair with deep charcoal velvet upholstery, known as Poltrona Sombra. It is placed in a moody, elegant corner with a dark gray concrete wall and a single warm spotlight. The aesthetic is sophisticated, emphasizing deep shadows and rich textures within an organic minimalist design." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDbkZjzccqnovjOJETd_pTR7voehxcl1IX7S1QirjSg5Cc8Be9gFssM9AqzW6mAiK9dkRRCtS1Dheo_SX-dn3EbN7RBPEaBTW9Dc2nOmQ1TFoq7zXgMJhyq9fkjMplth7B7NF8oPTSLVs_u-u-IsRmTyrvwmUwf0Sl0JSI3Dij4wwXMrcLZilM6NMJFaqQd-qd54jdlT-9IRYh6Xi3yohzjeWo9t8ZjCiGEMfSuzx2Rd237NwZap7GrUhPRR_MpOaaXIW0HI0ALWlT2"/>
+<div class="absolute top-4 left-4">
+<span class="bg-primary text-on-primary text-[11px] font-bold px-3 py-1 rounded-full tracking-wider">ESTOQUE: 04</span>
+</div>
+<button class="absolute top-4 right-4 h-8 w-8 bg-surface/80 backdrop-blur-md rounded-full flex items-center justify-center text-on-surface-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[18px]">favorite</span>
+</button>
+</div>
+<div class="p-6">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Poltrona Sombra</h3>
+<p class="text-on-surface-variant font-body-sm">CÃ³d: DG-PS1-042</p>
+</div>
+<span class="font-headline-sm text-headline-sm text-primary">R$ 4.250</span>
+</div>
+<div class="grid grid-cols-2 gap-y-3 gap-x-4 mb-6 text-body-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">chair</span>
+<span class="text-on-surface-variant">Tipo: <span class="text-on-surface font-medium">Assento</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">palette</span>
+<span class="text-on-surface-variant">Cor: <span class="text-on-surface font-medium">Sombra (Nero)</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">texture</span>
+<span class="text-on-surface-variant">Mat: <span class="text-on-surface font-medium">Veludo / AÃ§o</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">weekend</span>
+<span class="text-on-surface-variant">CÃ´modo: <span class="text-on-surface font-medium">Estar / SuÃ­te</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">straighten</span>
+<span class="text-on-surface-variant">Dim: <span class="text-on-surface font-medium">85x90x75cm</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">weight</span>
+<span class="text-on-surface-variant">Peso: <span class="text-on-surface font-medium">18kg</span></span>
+</div>
+</div>
+<div class="space-y-4 pt-4 border-t border-outline-variant">
+<div>
+<p class="text-[11px] font-bold text-outline uppercase tracking-widest mb-1">ObservaÃ§Ãµes</p>
+<p class="text-body-sm text-on-surface-variant leading-relaxed">
+                                Tecido com tratamento hidrorrepelente. Estrutura metÃ¡lica com pintura eletrostÃ¡tica fosca.
+                            </p>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 bg-tertiary/10 px-3 py-1 rounded-full">
+<span class="material-symbols-outlined text-[14px] text-tertiary">palette</span>
+<span class="text-[12px] font-medium text-tertiary">Cores customizadas</span>
+</div>
+<span class="text-[12px] text-on-surface-variant italic">Fornecedor: SteelDesign</span>
+</div>
+</div>
+</div>
+</article>
+<!-- Product Card 3 -->
+<article class="bg-surface border border-outline-variant rounded-xl overflow-hidden shadow-sm product-card-hover group">
+<div class="relative h-64 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A minimalist low-profile cabinet in a soft moss green color, featuring brass handles. It stands in a minimalist hallway with white walls and a large round mirror above it. The lighting is soft and diffuse, highlighting the satin finish of the green lacquer in an organic minimalist style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJVq4IEfHhfB6EsRzl8jpOOHkxGYKG7DeoBqCDsHqzgSvxXQKUfIyMKajVp-7RQNAEAF0RBPFTktVToaWqWrvFEvd3bQWbTQPgQubNjofcMcn3GURsh-nl_WdANh5CAXbxqiDl8x47Sqim6ZnrPrFoIUpGN3QcGPvmHmSuQMGpy2bsG9vf0ENTLnii9wsKkJu7Zj350txptt1mQKc158dav2TEmHb3aUNM6n8INhMPVyxfCyMiV0Z6Un13RdG7ETnVeMTV0zaaSZJQ"/>
+<div class="absolute top-4 left-4">
+<span class="bg-primary text-on-primary text-[11px] font-bold px-3 py-1 rounded-full tracking-wider">ESTOQUE: 08</span>
+</div>
+<button class="absolute top-4 right-4 h-8 w-8 bg-surface/80 backdrop-blur-md rounded-full flex items-center justify-center text-on-surface-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[18px]">favorite</span>
+</button>
+</div>
+<div class="p-6">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Aparador Eucalipto</h3>
+<p class="text-on-surface-variant font-body-sm">CÃ³d: DG-AP2-009</p>
+</div>
+<span class="font-headline-sm text-headline-sm text-primary">R$ 3.890</span>
+</div>
+<div class="grid grid-cols-2 gap-y-3 gap-x-4 mb-6 text-body-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">inventory_2</span>
+<span class="text-on-surface-variant">Tipo: <span class="text-on-surface font-medium">Aparador</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">palette</span>
+<span class="text-on-surface-variant">Cor: <span class="text-on-surface font-medium">Moss Green</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">forest</span>
+<span class="text-on-surface-variant">Mat: <span class="text-on-surface font-medium">MDF Lacado</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">hallway</span>
+<span class="text-on-surface-variant">CÃ´modo: <span class="text-on-surface font-medium">Entrada</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">straighten</span>
+<span class="text-on-surface-variant">Dim: <span class="text-on-surface font-medium">160x40x80cm</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">weight</span>
+<span class="text-on-surface-variant">Peso: <span class="text-on-surface font-medium">32kg</span></span>
+</div>
+</div>
+<div class="space-y-4 pt-4 border-t border-outline-variant">
+<div>
+<p class="text-[11px] font-bold text-outline uppercase tracking-widest mb-1">DescriÃ§Ã£o</p>
+<p class="text-body-sm text-on-surface-variant leading-relaxed">
+                                Aparador com 3 portas e prateleiras internas ajustÃ¡veis. Puxadores em latÃ£o escovado e acabamento em laca fosca.
+                            </p>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 bg-tertiary/10 px-3 py-1 rounded-full">
+<span class="material-symbols-outlined text-[14px] text-tertiary">tune</span>
+<span class="text-[12px] font-medium text-tertiary">Medidas sob medida</span>
+</div>
+<span class="text-[12px] text-on-surface-variant italic">Fornecedor: FabriLaca</span>
+</div>
+</div>
+</div>
+</article>
+<!-- Product Card 4 -->
+<article class="bg-surface border border-outline-variant rounded-xl overflow-hidden shadow-sm product-card-hover group">
+<div class="relative h-64 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A sleek minimalist sofa upholstered in a light beige linen fabric, known as SofÃ¡ Lienzo. It sits in a spacious living room with polished concrete floors and large tropical plants. The lighting is bright and natural, coming from large windows, creating a serene and premium atmosphere consistent with ARC MÃ³veis branding." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFEgbAk6h3QvXylvTHYVqY1PYBSPJ6sLeksWwgROdMVGZf0XxU1In7QIqca-SpJNcAVpP5cB2iG4nW6h6raKIHCa4eLQG1IMllO_3aQz6nMOQQZB9bkvmI6ThUiFjx0cicCCMsX4oeiSyYxt1HWPJ1bKmrlKMPKLpJ-uEm1CTPcaQkL0DDnz7lZDMBf17LiGBbQk7V3Qgwtj3ymSdO07896KllwrNjSPcWd7jsSceuZ1bBG_JA7fGvo34LzoSn3zM1Li0F4Yj2kSoz"/>
+<div class="absolute top-4 left-4">
+<span class="bg-primary text-on-primary text-[11px] font-bold px-3 py-1 rounded-full tracking-wider">ESTOQUE: 03</span>
+</div>
+<button class="absolute top-4 right-4 h-8 w-8 bg-surface/80 backdrop-blur-md rounded-full flex items-center justify-center text-on-surface-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[18px]">favorite</span>
+</button>
+</div>
+<div class="p-6">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">SofÃ¡ Lienzo 3L</h3>
+<p class="text-on-surface-variant font-body-sm">CÃ³d: DG-SL3-015</p>
+</div>
+<span class="font-headline-sm text-headline-sm text-primary">R$ 12.400</span>
+</div>
+<div class="grid grid-cols-2 gap-y-3 gap-x-4 mb-6 text-body-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">weekend</span>
+<span class="text-on-surface-variant">Tipo: <span class="text-on-surface font-medium">Estofado</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">palette</span>
+<span class="text-on-surface-variant">Cor: <span class="text-on-surface font-medium">Lino (Bege)</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">texture</span>
+<span class="text-on-surface-variant">Mat: <span class="text-on-surface font-medium">Linho Belga</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">meeting_room</span>
+<span class="text-on-surface-variant">CÃ´modo: <span class="text-on-surface font-medium">Living</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">straighten</span>
+<span class="text-on-surface-variant">Dim: <span class="text-on-surface font-medium">280x100x85cm</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">weight</span>
+<span class="text-on-surface-variant">Peso: <span class="text-on-surface font-medium">120kg</span></span>
+</div>
+</div>
+<div class="space-y-4 pt-4 border-t border-outline-variant">
+<div>
+<p class="text-[11px] font-bold text-outline uppercase tracking-widest mb-1">DescriÃ§Ã£o</p>
+<p class="text-body-sm text-on-surface-variant leading-relaxed">
+                                SofÃ¡ modular de 3 lugares com estrutura em madeira de reflorestamento e percintas elÃ¡sticas italianas. Conforto nÃ­vel premium.
+                            </p>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 bg-tertiary/10 px-3 py-1 rounded-full">
+<span class="material-symbols-outlined text-[14px] text-tertiary">tune</span>
+<span class="text-[12px] font-medium text-tertiary">ModulÃ¡vel</span>
+</div>
+<span class="text-[12px] text-on-surface-variant italic">Fornecedor: ConfortEstofados</span>
+</div>
+</div>
+</div>
+</article>
+</div>
+<!-- Pagination / Load More -->
+<div class="mt-section-gap flex flex-col items-center gap-4">
+<button class="px-8 py-3 border-2 border-primary text-primary font-bold rounded-full hover:bg-primary hover:text-on-primary transition-all duration-300">
+                Carregar mais produtos
+            </button>
+<p class="text-body-sm text-on-surface-variant">Exibindo 4 de 128 itens</p>
+</div>
+</main>
+<!-- Footer Identity -->
+<footer class="py-12 px-margin-page border-t border-outline-variant bg-surface-container-low mt-12">
+<div class="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+<div class="flex flex-col items-center md:items-start">
+<span class="font-headline-sm text-headline-sm font-bold text-primary">ARC</span>
+<p class="text-on-surface-variant text-body-sm">Vestindo espaÃ§os com resistÃªncia e elegÃ¢ncia.</p>
+</div>
+<div class="flex gap-8">
+<a class="text-on-surface-variant hover:text-primary transition-colors text-label-md" href="#">Privacidade</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors text-label-md" href="#">Termos de Uso</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors text-label-md" href="#">Suporte</a>
+</div>
+<div class="text-on-surface-variant text-body-sm">
+                Â© 2024 ARC MÃ³veis Planejados. Todos os direitos reservados.
+            </div>
+</div>
+</footer>
+<script>
+        // Simple micro-interaction for filter buttons
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', () => {
+                button.classList.add('scale-95');
+            });
+            button.addEventListener('mouseup', () => {
+                button.classList.remove('scale-95');
+            });
+            button.addEventListener('mouseleave', () => {
+                button.classList.remove('scale-95');
+            });
+        });
+    </script>
+</body></html>

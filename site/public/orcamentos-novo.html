@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+
+<html class="light" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Construtor de OrÃ§amento | ARC MÃ³veis</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#111f14",
+                        "on-error-container": "#93000a",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#f1edeb",
+                        "primary-container": "#b2c2b2",
+                        "secondary-container": "#e6e2e0",
+                        "on-surface": "#1c1b1b",
+                        "background": "#fdf8f7",
+                        "tertiary": "#71585c",
+                        "surface-container-high": "#ece7e6",
+                        "surface": "#fdf8f7",
+                        "surface-container-highest": "#e6e2e0",
+                        "primary-fixed-dim": "#bacbbb",
+                        "outline-variant": "#c3c8c1",
+                        "on-primary-fixed-variant": "#3c4a3e",
+                        "inverse-surface": "#31302f",
+                        "error": "#ba1a1a",
+                        "surface-tint": "#536255",
+                        "tertiary-fixed": "#fcdadf",
+                        "secondary": "#605e5d",
+                        "on-error": "#ffffff",
+                        "on-background": "#1c1b1b",
+                        "primary": "#536255",
+                        "on-surface-variant": "#434843",
+                        "on-tertiary-container": "#5e474a",
+                        "on-tertiary-fixed-variant": "#584145",
+                        "error-container": "#ffdad6",
+                        "primary-fixed": "#d6e7d6",
+                        "surface-variant": "#e6e2e0",
+                        "on-secondary-fixed": "#1c1b1b",
+                        "surface-dim": "#ddd9d8",
+                        "inverse-primary": "#bacbbb",
+                        "surface-bright": "#fdf8f7",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed-variant": "#484645",
+                        "on-primary": "#ffffff",
+                        "outline": "#747872",
+                        "inverse-on-surface": "#f4f0ee",
+                        "secondary-fixed-dim": "#c9c6c4",
+                        "on-secondary": "#ffffff",
+                        "secondary-fixed": "#e6e2e0",
+                        "surface-container-low": "#f7f3f1",
+                        "on-tertiary-fixed": "#29161a",
+                        "tertiary-fixed-dim": "#dfbfc3",
+                        "on-primary-container": "#425044",
+                        "tertiary-container": "#d6b6bb",
+                        "on-secondary-container": "#666463"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "1rem",
+                        "margin-page": "2rem",
+                        "element-gap": "1rem",
+                        "section-gap": "3rem"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Source Sans 3"],
+                        "headline-lg": ["Source Sans 3"],
+                        "label-md": ["Source Sans 3"],
+                        "headline-sm": ["Source Sans 3"],
+                        "body-sm": ["Source Sans 3"],
+                        "button": ["Source Sans 3"],
+                        "body-lg": ["Source Sans 3"],
+                        "body-md": ["Source Sans 3"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "700"}],
+                        "headline-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                        "label-md": ["14px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "headline-sm": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                        "button": ["14px", {"lineHeight": "1", "fontWeight": "500"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Source Sans 3', sans-serif;
+            background-color: #fdf8f7; /* Background Lino */
+            color: #1c1b1b;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1edeb;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #b2c2b2;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-surface/90 backdrop-blur-md shadow-sm h-16 flex justify-between items-center px-gutter mx-auto">
+<div class="flex items-center gap-8">
+<span class="font-headline-md text-headline-md text-primary uppercase tracking-wider">ARC MÃ³veis</span>
+<div class="hidden md:flex gap-6">
+<a class="text-primary font-bold border-b-2 border-primary pb-1 font-label-md text-label-md" href="#">ORÃ‡AMENTOS</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary transition-colors" href="#">PROJETOS</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary transition-colors" href="#">ESTOQUE</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-surface-container rounded-full border-none focus:ring-1 focus:ring-primary text-body-sm" placeholder="Pesquisar..." type="text"/>
+</div>
+<button class="p-2 hover:bg-surface-container-highest/50 rounded-full transition-colors active:scale-95 duration-150">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+</button>
+<button class="p-2 hover:bg-surface-container-highest/50 rounded-full transition-colors active:scale-95 duration-150">
+<span class="material-symbols-outlined text-on-surface-variant">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-primary-container flex items-center justify-center overflow-hidden">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A professional headshot of a middle-aged male architect with short dark hair and a confident expression. He is wearing a minimalist charcoal gray linen shirt. The background is a blurred high-end interior design studio with natural light and wooden textures, adhering to a sophisticated and organic minimalism aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5vSk58AH3vdEQ2ET6BRnpgh_xBcC6ePF95qI5gTmbH8vHgxyj8-FOkTepIEBTiAvbJrAAt2h5KTAmUwEvYnrJYpqDSxKcHHhYAjrT7zRA4s1UcXmWKIRzEpRjgYKK5v0lcxkakXdn3gXAbakGTrHtEr-fBgekF21mr7T-jjvR1_CVqirzXc8_bwN6j0_D9Bn0ceRuERs70pZhosLLLE4c5HHx9TZH02KjFdi4BYQcBVKENjVq2jMF6bSu3fxUWIxGfWTuE38zCI_t"/>
+</div>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<main class="pt-24 pb-12 px-margin-page max-w-[1600px] mx-auto space-y-gutter">
+<!-- Header Controls Bar -->
+<header class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/30 flex flex-wrap gap-4 items-end shadow-sm">
+<div class="flex-1 min-w-[280px] space-y-2">
+<label class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">person</span> Cliente
+                </label>
+<div class="flex gap-2">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-lowest border border-outline/30 rounded-lg text-body-md focus:ring-primary focus:border-primary" placeholder="Buscar cliente..." type="text"/>
+</div>
+<button class="px-4 py-2 border border-primary text-primary rounded-lg font-button text-button hover:bg-primary/5 transition-all flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined">person_add</span> Cadastro RÃ¡pido
+                    </button>
+</div>
+</div>
+<div class="w-48 space-y-2">
+<label class="font-label-md text-label-md text-on-surface-variant">Tipo de Documento</label>
+<select class="w-full py-2 bg-surface-container-lowest border border-outline/30 rounded-lg text-body-md focus:ring-primary">
+<option>Venda</option>
+<option>LocaÃ§Ã£o</option>
+<option>ProduÃ§Ã£o</option>
+</select>
+</div>
+<div class="w-48 space-y-2">
+<label class="font-label-md text-label-md text-on-surface-variant">Vendedor ResponsÃ¡vel</label>
+<select class="w-full py-2 bg-surface-container-lowest border border-outline/30 rounded-lg text-body-md focus:ring-primary">
+<option>Ricardo Alves</option>
+<option>Mariana Costa</option>
+<option>Felipe Silva</option>
+</select>
+</div>
+<div class="w-40 space-y-2">
+<label class="font-label-md text-label-md text-on-surface-variant">Prazo</label>
+<div class="flex">
+<input class="w-16 py-2 bg-surface-container-lowest border border-outline/30 rounded-l-lg text-body-md focus:ring-primary border-r-0" type="number" value="30"/>
+<select class="flex-1 py-2 bg-surface-container-lowest border border-outline/30 rounded-r-lg text-body-md focus:ring-primary">
+<option>Dias</option>
+<option>Semanas</option>
+<option>Meses</option>
+</select>
+</div>
+</div>
+<div class="w-48 space-y-2">
+<label class="font-label-md text-label-md text-on-surface-variant">Arquiteto</label>
+<input class="w-full py-2 bg-surface-container-lowest border border-outline/30 rounded-lg text-body-md focus:ring-primary" placeholder="Nome do arquiteto" type="text"/>
+</div>
+<div class="w-48 space-y-2">
+<label class="font-label-md text-label-md text-on-surface-variant">Contato</label>
+<input class="w-full py-2 bg-surface-container-lowest border border-outline/30 rounded-lg text-body-md focus:ring-primary" placeholder="(00) 00000-0000" type="text"/>
+</div>
+</header>
+<!-- Two Column Body -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter items-start">
+<!-- Left Column: Quote Document -->
+<section class="lg:col-span-2 space-y-gutter">
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm overflow-hidden">
+<div class="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
+<h2 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">description</span> Itens do OrÃ§amento
+                        </h2>
+<span class="text-body-sm text-on-surface-variant">4 itens selecionados</span>
+</div>
+<!-- Item List -->
+<div class="divide-y divide-outline-variant/20 max-h-[600px] overflow-y-auto custom-scrollbar">
+<!-- Item Row 1 -->
+<div class="p-4 grid grid-cols-12 gap-4 items-center group hover:bg-surface-container-low/30 transition-colors">
+<div class="col-span-1">
+<div class="w-16 h-16 rounded-lg bg-surface-container overflow-hidden border border-outline-variant/20">
+<img alt="Product image" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBk27sL55gpoV0fQfstajL27YQfPUxNMP9wPTey-2FbhA6cHZ8pfFMUUGoxe7jgpQkiP-FgPs7ZytiGllEnwWaXP56xQ9EGymtzSYoA5U4yB8yPeWFIjB2y2JUf8SMUKNUstNkT9IP9Fms8z2uWJUXrGWNO5BVmM157dHDFZnOQFUbNTkQK0ti_CaN890Hrz1tCIhcwsJgZ-PtdepmX2cjIWpyTWD-jv4Kimaaf-Y58HIHbKZy0eZw-RgvReU23rNwFB7I6CY0zDywE"/>
+</div>
+</div>
+<div class="col-span-3 space-y-1">
+<input class="w-full font-bold text-body-md p-1 border-none focus:ring-1 focus:ring-primary rounded bg-transparent" type="text" value="ArmÃ¡rio Embutido Master"/>
+<textarea class="w-full text-body-sm text-on-surface-variant p-1 border-none focus:ring-1 focus:ring-primary rounded bg-transparent resize-none h-12" placeholder="DescriÃ§Ã£o do item...">Acabamento em Carvalho Americano com puxadores embutidos em latÃ£o fosco.</textarea>
+</div>
+<div class="col-span-7 grid grid-cols-4 gap-2">
+<div class="space-y-1">
+<label class="text-[10px] uppercase font-bold text-outline">Qtd</label>
+<input class="w-full py-1 text-body-sm border border-outline/30 rounded bg-surface-container-lowest" type="number" value="1"/>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] uppercase font-bold text-outline">PreÃ§o Un.</label>
+<input class="w-full py-1 text-body-sm border border-outline/30 rounded bg-surface-container-lowest" type="text" value="R$ 12.450,00"/>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] uppercase font-bold text-outline">Local InstalaÃ§Ã£o</label>
+<input class="w-full py-1 text-body-sm border border-outline/30 rounded bg-surface-container-lowest" type="text" value="SuÃ­te Master"/>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] uppercase font-bold text-outline">Entrega</label>
+<input class="w-full py-1 text-body-sm border border-outline/30 rounded bg-surface-container-lowest" type="text" value="45 dias"/>
+</div>
+</div>
+<div class="col-span-1 flex justify-end">
+<button class="p-2 text-error/60 hover:text-error hover:bg-error/10 rounded-full transition-all">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+</div>
+<!-- Item Row 2 -->
+<div class="p-4 grid grid-cols-12 gap-4 items-center group hover:bg-surface-container-low/30 transition-colors">
+<div class="col-span-1">
+<div class="w-16 h-16 rounded-lg bg-surface-container overflow-hidden border border-outline-variant/20">
+<img alt="Boutique bedside table" class="w-full h-full object-cover" data-alt="A high-end designer bedside table made of light-toned oak wood with a marble top. The piece features organic, rounded edges and minimal hardware. It is staged in a serene bedroom with soft, diffuse lighting and a neutral palette of beige and sage green, capturing the ARC boutique furniture aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNXXzm5jQkaehfxpFSmZhLmNslY6OlfT5hM2XgkvTSSjU53GBwrSkfWU4p8KivXi9usTDiRH950IpaPlV99ZDHh33MEhl4t23Xk31M6sqDM0bq05ua5vbOcw1Y8u_nfSBNuAJKk_cDQCIhTdhZiQtv3nhg_CbOVufY9SxYzyCY46EmFlaPucAX4K-Y3mwa7BlQ9y7del_TNGVqzcgMNi9c50bD-EOSkvKWd6yAKDGJ0UAGXef59MhWRNuvw1oy0sTOK8tw3h79JtMv"/>
+</div>
+</div>
+<div class="col-span-3 space-y-1">
+<input class="w-full font-bold text-body-md p-1 border-none focus:ring-1 focus:ring-primary rounded bg-transparent" type="text" value="Mesa de Cabeceira Minimal"/>
+<textarea class="w-full text-body-sm text-on-surface-variant p-1 border-none focus:ring-1 focus:ring-primary rounded bg-transparent resize-none h-12" placeholder="DescriÃ§Ã£o do item...">Tampo em mÃ¡rmore Carrara, estrutura em madeira freijÃ³.</textarea>
+</div>
+<div class="col-span-7 grid grid-cols-4 gap-2">
+<div class="space-y-1">
+<label class="text-[10px] uppercase font-bold text-outline">Qtd</label>
+<input class="w-full py-1 text-body-sm border border-outline/30 rounded bg-surface-container-lowest" type="number" value="2"/>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] uppercase font-bold text-outline">PreÃ§o Un.</label>
+<input class="w-full py-1 text-body-sm border border-outline/30 rounded bg-surface-container-lowest" type="text" value="R$ 2.800,00"/>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] uppercase font-bold text-outline">Local InstalaÃ§Ã£o</label>
+<input class="w-full py-1 text-body-sm border border-outline/30 rounded bg-surface-container-lowest" type="text" value="SuÃ­te 02"/>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] uppercase font-bold text-outline">Entrega</label>
+<input class="w-full py-1 text-body-sm border border-outline/30 rounded bg-surface-container-lowest" type="text" value="20 dias"/>
+</div>
+</div>
+<div class="col-span-1 flex justify-end">
+<button class="p-2 text-error/60 hover:text-error hover:bg-error/10 rounded-full transition-all">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Footer / Summary -->
+<div class="p-6 bg-surface-container border-t border-outline-variant/30 flex flex-col md:flex-row justify-between items-center gap-6">
+<div class="flex gap-8">
+<div class="text-on-surface-variant">
+<p class="text-body-sm">Subtotal</p>
+<p class="font-headline-sm text-headline-sm">R$ 18.050,00</p>
+</div>
+<div class="text-primary">
+<p class="text-body-sm font-bold">TOTAL DO ORÃ‡AMENTO</p>
+<p class="font-headline-md text-headline-md">R$ 18.050,00</p>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="px-6 py-3 border border-outline text-on-surface-variant rounded-full font-button text-button hover:bg-surface-container-highest transition-all flex items-center gap-2">
+<span class="material-symbols-outlined">delete_sweep</span> Limpar Todos
+                            </button>
+<button class="px-8 py-3 bg-primary text-on-primary rounded-full font-button text-button hover:opacity-90 shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined">send</span> Emitir OrÃ§amento / Salvar
+                            </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Column: Selection Tools -->
+<aside class="space-y-gutter">
+<!-- Upload Dropzone -->
+<div class="bg-surface-container-low border-2 border-dashed border-outline-variant rounded-xl p-8 text-center group hover:border-primary transition-colors cursor-pointer">
+<div class="flex flex-col items-center gap-3">
+<div class="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">cloud_upload</span>
+</div>
+<div class="space-y-1">
+<p class="font-headline-sm text-headline-sm text-on-surface">Upload de ReferÃªncia</p>
+<p class="text-body-sm text-on-surface-variant px-4">Arraste fotos de inspiraÃ§Ã£o ou cole uma URL para auxiliar o projeto.</p>
+</div>
+</div>
+</div>
+<!-- Product Catalog Selection -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm overflow-hidden flex flex-col h-[750px]">
+<div class="p-1 bg-surface-container flex border-b border-outline-variant/30">
+<button class="flex-1 py-3 px-4 text-center font-label-md text-label-md bg-surface-container-lowest rounded-t-lg text-primary font-bold">GalpÃ£o (FÃ­sico)</button>
+<button class="flex-1 py-3 px-4 text-center font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors">CatÃ¡logo (Sob Demanda)</button>
+</div>
+<div class="p-4 space-y-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container border border-outline/30 rounded-lg text-body-sm focus:ring-primary" placeholder="Busca de Produto..." type="text"/>
+</div>
+<!-- Mini Grid of Products -->
+<div class="grid grid-cols-2 gap-3 overflow-y-auto max-h-[580px] custom-scrollbar pr-1">
+<!-- Thumb 1 -->
+<div class="group relative rounded-lg border border-outline-variant/30 overflow-hidden cursor-pointer hover:border-primary transition-all active:scale-[0.98]">
+<img alt="Cabinet" class="w-full h-32 object-cover" data-alt="A modern green kitchen cabinet unit with integrated minimalist shelves and subtle wood detailing. The scene is bright and airy, with soft shadows and a high-end luxury furniture feel, perfectly matching ARC's 'dressing spaces' concept." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXsQV7ZOekwqOIKwyBgMiSesZL2x48GEjsA93aq06pAqBR1T6oy3cjSOCwo9GU9uVdKd2eDVWsZAlssQIc6_3VsOXCJKbf4twWvkl15WGpKneDgJLnLviwEdGPBmbY7_3WzJ2Rb3uggKo8e_9cRSEgXalRb89suRgqaSeVxA9y13yfd09j1FY604vXTUTcokUQjNzidKkpJOBn2qZ8ueld5g5pWkl1o736LwzunUb4y--36SdRN4pwfehfAfw3eLzWVxFbouavuAs1"/>
+<div class="p-2 bg-surface-container-lowest">
+<p class="text-[12px] font-bold truncate">BalcÃ£o Cozinha Gourmet</p>
+<p class="text-[10px] text-primary">R$ 4.200,00</p>
+</div>
+<div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+<span class="material-symbols-outlined text-white text-3xl">add_circle</span>
+</div>
+</div>
+<!-- Thumb 2 -->
+<div class="group relative rounded-lg border border-outline-variant/30 overflow-hidden cursor-pointer hover:border-primary transition-all active:scale-[0.98]">
+<img alt="Sideboard" class="w-full h-32 object-cover" data-alt="A minimalist living room sideboard crafted from dark walnut wood with a matte finish. It features a sleek linear design and is presented in a sophisticated interior space with clean white walls and warm, atmospheric lighting that emphasizes the organic textures of the wood." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCrmF40303djJ-UWqqHgPyluuBm3V9Dof-m7EnPCmfAvYbAoTP8-eSQiH1gf4lx_9fdA4aBMi8wrtf6CoDLKNhjBTmmHDSibV-ROoDBa1aHGd-Pc0FyiRPQCeZh-rXq6CzqVdplh1BTEXgGCE7EaALMNQ8tbzsGjQ3hc5B6FtK29jdQ3rhya4yx_LkIQ4H4xYy6rVwqLR9zKChUP_WFMAEtoYA1EjNfPjL08fAGU7C0-LpBAd_ek3NzpVWhlt4W_HDUyKb-WJegXo7u"/>
+<div class="p-2 bg-surface-container-lowest">
+<p class="text-[12px] font-bold truncate">Aparador Zen Walnut</p>
+<p class="text-[10px] text-primary">R$ 2.950,00</p>
+</div>
+<div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+<span class="material-symbols-outlined text-white text-3xl">add_circle</span>
+</div>
+</div>
+<!-- Thumb 3 -->
+<div class="group relative rounded-lg border border-outline-variant/30 overflow-hidden cursor-pointer hover:border-primary transition-all active:scale-[0.98]">
+<img alt="Lounge Chair" class="w-full h-32 object-cover" data-alt="An elegant, modern lounge chair with a moss-green velvet upholstery and slim black metal legs. The design is architectural and sophisticated, set against a backdrop of a high-end minimalist apartment with natural wood flooring and soft, evening sunlight." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxpuz2k5s2kXZ1Sw9XI8F1slY1xI9An9YLI52Akr7ELhtjPdfk3uWkv0PK9Syi-kxCd3MU4ZAIVs0xM6PkJEXVIeb3HZPvRB1gIf88BFBc1w-c4onhbd9D9MMwwBqIMJr6zr7TwL9_zPQT52NwNhIh4zy41M47c-av7frKlPyv0AFiqaoIua0aRMfFqEanbkEDtxKb6V5KwOXydOyQGMr-ZGkxyFC5iybIqvQuLZcy23f4ZFXBmFX7xQrxU0vgJSH5b3KKYHxm4v8j"/>
+<div class="p-2 bg-surface-container-lowest">
+<p class="text-[12px] font-bold truncate">Poltrona Eucalipto Velvet</p>
+<p class="text-[10px] text-primary">R$ 1.800,00</p>
+</div>
+<div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+<span class="material-symbols-outlined text-white text-3xl">add_circle</span>
+</div>
+</div>
+<!-- Thumb 4 -->
+<div class="group relative rounded-lg border border-outline-variant/30 overflow-hidden cursor-pointer hover:border-primary transition-all active:scale-[0.98]">
+<img alt="Desk" class="w-full h-32 object-cover" data-alt="A designer executive desk made from a combination of light oak and white lacquered surfaces. The workspace is clean and organized, featuring high-end stationery and a designer lamp, all captured with a shallow depth of field in a bright, modern office setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFS23ZzpBJto3NrTCozpJTzN7ncHvZr-CsQKcAVlGoV9cqHPzEjVGL9v5W7a2VY78tGW8Vjj-MJZ2x2jwdDs02mzSkMXyivgoGQgT50M_zTZT5IVBQxvNRolkRUC945Mw7hUYPUTc6YanTuV8dvMcSj0yqweguOGzJKy4LClVZldVsAUndMIsmp8uUwfB4V3sATwQaP6zuqRBBky0TNVOgEeSPDu73ABK5ZaSbE4DHC0qtd16XaBl3lGPDQKbQ91BPlv1pX9IIQFwY"/>
+<div class="p-2 bg-surface-container-lowest">
+<p class="text-[12px] font-bold truncate">Escrivaninha Studio Lino</p>
+<p class="text-[10px] text-primary">R$ 3.550,00</p>
+</div>
+<div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+<span class="material-symbols-outlined text-white text-3xl">add_circle</span>
+</div>
+</div>
+<!-- Thumb 5 -->
+<div class="group relative rounded-lg border border-outline-variant/30 overflow-hidden cursor-pointer hover:border-primary transition-all active:scale-[0.98]">
+<img alt="Stool" class="w-full h-32 object-cover" data-alt="A set of handcrafted wooden stools with woven rattan seats. The wood has a natural, warm finish and the overall aesthetic is rustic yet refined, suitable for a boutique interior design showroom with focused spotlighting and a premium feel." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoTjKvjetu2FBMuATpCX8AnMvPeoFdZc38eqn0B1BYQ0vej0_LOK-Qhl0Um0Uo4WY3mn3zIoXd2gptKJlRuKM1E3nBeP6Dsh2YF1iY_bYRpZfHREqawwRnd4sDPSc1GXYLd2xw48sNCPVBpHfbHtx8O1kQ4GYQppIKsDm3WkUpJu-CG2NC-Fr2eN74pcKkR75fNJ3Rp0-B_bDdYvua1xt3jdY-yX7QwdnJnt7BcaBzjcEstHoQPjjnKUbOy6X0BzPTUWMXcXVB-zX3"/>
+<div class="p-2 bg-surface-container-lowest">
+<p class="text-[12px] font-bold truncate">Banqueta Rattan Artesanal</p>
+<p class="text-[10px] text-primary">R$ 850,00</p>
+</div>
+<div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+<span class="material-symbols-outlined text-white text-3xl">add_circle</span>
+</div>
+</div>
+<!-- Thumb 6 -->
+<div class="group relative rounded-lg border border-outline-variant/30 overflow-hidden cursor-pointer hover:border-primary transition-all active:scale-[0.98]">
+<img alt="Wardrobe" class="w-full h-32 object-cover" data-alt="A large, custom-built floor-to-ceiling wardrobe with fluted glass doors and internal LED lighting. The piece is highly architectural and luxurious, presented in a minimalist bedroom with high-key lighting that emphasizes the play of transparency and texture." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCehzwJdUqzwwXTZfsDpWT1KxIkzaELFvnlqumTHPRzcEOrMQxTprCjw9EUG0-MQE6CcMr1jD8LY0q-swgJ3vVhs0yB6YPKz31fRrk4dgBf29kBJJP3Ux4XQ3uY-PaF_8UFDH2lsFWmiEHDwhZh9LDcvCLZETVz2u1ThuuPtswNEY4cfj9JQVNTx_NXooBkuNrpjVa0b5wadfwN0UH6Rvd-Mq_AxvbiTUUTcJ4pMs45-CEY3SPxqGtGKGdaLMEm4lKKexyuILcpUsJk"/>
+<div class="p-2 bg-surface-container-lowest">
+<p class="text-[12px] font-bold truncate">Closet Glass High-Tech</p>
+<p class="text-[10px] text-primary">R$ 15.200,00</p>
+</div>
+<div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+<span class="material-symbols-outlined text-white text-3xl">add_circle</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Help / Support -->
+<div class="bg-surface-container-high/40 p-4 rounded-xl border border-outline-variant/20 flex items-center gap-4">
+<div class="p-2 bg-surface-container-lowest rounded-lg">
+<span class="material-symbols-outlined text-primary">help_outline</span>
+</div>
+<div>
+<p class="text-body-sm font-bold">Precisa de ajuda?</p>
+<p class="text-[12px] text-on-surface-variant">Fale com o suporte tÃ©cnico para orÃ§amentos complexos.</p>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<script>
+        // Micro-interactions for buttons
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', () => {
+                button.classList.add('scale-95');
+            });
+            button.addEventListener('mouseup', () => {
+                button.classList.remove('scale-95');
+            });
+        });
+
+        // Simple tab switching for the right sidebar
+        const catalogTabs = document.querySelectorAll('aside .bg-surface-container button');
+        catalogTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                catalogTabs.forEach(t => {
+                    t.classList.remove('bg-surface-container-lowest', 'text-primary', 'font-bold');
+                    t.classList.add('text-on-surface-variant');
+                });
+                tab.classList.add('bg-surface-container-lowest', 'text-primary', 'font-bold');
+                tab.classList.remove('text-on-surface-variant');
+            });
+        });
+    </script>
+</body></html>
