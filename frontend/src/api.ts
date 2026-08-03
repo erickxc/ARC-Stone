@@ -1,4 +1,4 @@
-const API = '/api'
+const API = import.meta.env.VITE_API_URL || '/api'
 
 export interface Product {
   id: number
@@ -43,6 +43,49 @@ export interface Supplier {
 }
 
 export type SupplierInput = Omit<Supplier, 'id' | 'created_at'>
+
+export interface TeamMember {
+  id: number
+  nome: string
+  email: string
+  role: string
+  contato: string | null
+  ativo: boolean
+  mfa_enabled: boolean
+}
+
+export interface TeamMemberInput {
+  nome: string
+  email: string
+  password: string
+  role: 'admin' | 'vendedor' | 'estoquista'
+  contato?: string | null
+}
+
+export interface TeamMemberUpdate {
+  nome?: string
+  email?: string
+  contato?: string | null
+}
+
+export interface PaymentCondition {
+  id: number
+  nome: string
+  ativo: boolean | null
+}
+
+export interface OrcamentoConfig {
+  id: number
+  condicao_pagamento: string | null
+  prazo_entrega: string | null
+  validade_orcamento: string | null
+  garantia_mobiliario: string | null
+  observacoes_extras: string | null
+  empresa1_nome: string | null
+  empresa1_cnpj: string | null
+  empresa2_nome: string | null
+  empresa2_cnpj: string | null
+}
 
 export interface CalendarEvent {
   id: string
@@ -129,9 +172,18 @@ export function regenerateQuotePdf(id: number) {
   return request<{ status: string; anexo_url: string }>(`/orcamentos/${id}/regenerate-pdf`, { method: 'POST' })
 }
 
-export function updateQuoteStatus(id: number, status: string) {
+export function updateQuoteStatus(id: number, status: string, cnpjFaturamento?: string) {
   const params = new URLSearchParams({ novo_status: status })
+  if (cnpjFaturamento) params.set('cnpj_faturamento', cnpjFaturamento)
   return request<Quote>(`/orcamentos/${id}/status?${params.toString()}`, { method: 'PUT' })
+}
+
+export function getOrcamentoConfig() {
+  return request<OrcamentoConfig>('/orcamentos/config')
+}
+
+export function listPaymentConditions() {
+  return request<PaymentCondition[]>('/orcamentos/condicoes-pagamento')
 }
 
 export function createCatalogProduct(input: { nome: string; tipo: string; material?: string; preco_venda: number }) {
@@ -146,6 +198,10 @@ export function createCatalogProduct(input: { nome: string; tipo: string; materi
       ativo: true,
     }),
   })
+}
+
+export function updateProduct(id: number, input: { nome?: string; tipo?: string | null; material?: string | null; preco_venda?: number; estoque_minimo?: number; ativo?: boolean }) {
+  return request<Product>(`/estoque/produtos/${id}`, { method: 'PUT', body: JSON.stringify(input) })
 }
 
 export function listClients() {
@@ -188,6 +244,31 @@ export async function login(email: string, password: string) {
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(data.detail || 'Não foi possível entrar.')
   return data
+}
+
+export async function mfaLogin(mfaToken: string, code: string) {
+  const response = await fetch(`${API}/auth/mfa-login`, {
+    method: 'POST', body: JSON.stringify({ mfa_token: mfaToken, code }), credentials: 'include', headers: { 'Content-Type': 'application/json' },
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.detail || 'Código inválido.')
+  return data
+}
+
+export function listTeam() {
+  return request<TeamMember[]>('/usuarios/')
+}
+
+export function createTeamMember(input: TeamMemberInput) {
+  return request<TeamMember>('/usuarios/', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function updateTeamMember(id: number, input: TeamMemberUpdate) {
+  return request<TeamMember>(`/usuarios/${id}`, { method: 'PUT', body: JSON.stringify(input) })
+}
+
+export function deactivateTeamMember(id: number) {
+  return request<{ status: string }>(`/usuarios/${id}`, { method: 'DELETE' })
 }
 
 export async function getSessionUser() {

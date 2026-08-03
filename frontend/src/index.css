@@ -35,3 +35,5 @@ button:not(:disabled){transition:background-color .15s ease,border-color .15s ea
 
 /* Restore calendar grid; event markers never alter its date layout. */
 .month-grid{border-top:1px solid var(--line)}.month-grid button{border-right:1px solid var(--line);border-bottom:1px solid var(--line)}.month-grid button:nth-child(7n){border-right:0}
+
+.row-actions{display:inline-flex;gap:8px;align-items:center}
