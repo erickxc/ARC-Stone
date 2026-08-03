@@ -120,7 +120,57 @@ export interface QuoteCreateInput {
   tipo_orcamento: 'Venda' | 'Locacao' | 'Producao'
   vendedor_id?: number | null
   condicoes_pagamento_selecionadas?: string | null
-  itens: Array<{ quantidade: number; preco_unitario_aplicado: number; produto_id?: number | null; is_externo?: boolean; nome_externo?: string | null; descricao_externa?: string | null }>
+  projeto_id?: number | null
+  itens: Array<{ quantidade: number; preco_unitario_aplicado: number; produto_id?: number | null; is_externo?: boolean; nome_externo?: string | null; descricao_externa?: string | null; projeto_item_id?: number | null }>
+}
+
+export interface ProjetoItem {
+  id: number
+  projeto_id: number
+  nome: string
+  quantidade: number
+  material: string | null
+  comprimento: number | null
+  largura: number | null
+  altura: number | null
+  referencia_externa: string | null
+  produto_id: number | null
+  produto_nome_sugerido: string | null
+  preco_sugerido_centavos: number | null
+  observacoes: string | null
+}
+
+export interface Projeto {
+  id: number
+  nome: string
+  cliente_id: number | null
+  cliente_nome: string | null
+  usuario_id: number
+  usuario_nome: string | null
+  origem: string
+  origem_meta: string | null
+  created_at: string
+  total_itens: number | null
+}
+
+export interface ProjetoDetail extends Projeto {
+  itens: ProjetoItem[]
+}
+
+export interface ApiKey {
+  id: number
+  nome: string
+  prefixo: string
+  usuario_id: number
+  usuario_nome: string | null
+  ativo: boolean
+  created_at: string
+  last_used_at: string | null
+  revoked_at: string | null
+}
+
+export interface ApiKeyCreated extends ApiKey {
+  chave: string
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -234,6 +284,46 @@ export function updateSupplier(id: number, input: SupplierInput) {
 
 export function deleteSupplier(id: number) {
   return request<void>(`/fornecedores/${id}`, { method: 'DELETE' })
+}
+
+export function listProjetos() {
+  return request<Projeto[]>('/projetos/')
+}
+
+export function getProjeto(id: number) {
+  return request<ProjetoDetail>(`/projetos/${id}`)
+}
+
+export function deleteProjeto(id: number) {
+  return request<void>(`/projetos/${id}`, { method: 'DELETE' })
+}
+
+export function updateProjetoItem(projetoId: number, itemId: number, input: Partial<Pick<ProjetoItem, 'nome' | 'quantidade' | 'material' | 'produto_id' | 'preco_sugerido_centavos' | 'observacoes'>>) {
+  return request<ProjetoItem>(`/projetos/${projetoId}/itens/${itemId}`, { method: 'PUT', body: JSON.stringify(input) })
+}
+
+export async function importarProjetoCsv(file: File, nome: string, clienteId?: number) {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('nome', nome)
+  if (clienteId) form.append('cliente_id', String(clienteId))
+  // Não usar request<T>() aqui: ele fixa Content-Type: application/json, o que quebraria o boundary do multipart.
+  const response = await fetch(`${API}/projetos/importar`, { method: 'POST', credentials: 'include', body: form })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.detail || 'Falha ao importar projeto.')
+  return data as ProjetoDetail
+}
+
+export function listApiKeys() {
+  return request<ApiKey[]>('/integracoes/api-keys')
+}
+
+export function createApiKey(nome: string) {
+  return request<ApiKeyCreated>('/integracoes/api-keys', { method: 'POST', body: JSON.stringify({ nome }) })
+}
+
+export function revokeApiKey(id: number) {
+  return request<void>(`/integracoes/api-keys/${id}`, { method: 'DELETE' })
 }
 
 export async function login(email: string, password: string) {

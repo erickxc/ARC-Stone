@@ -159,6 +159,7 @@ class OrcamentoItemCreate(BaseModel):
     personalizacao_aplicada: Optional[str] = None
     prazo_entrega_valor: Optional[int] = None
     prazo_entrega_unidade: Optional[str] = None
+    projeto_item_id: Optional[int] = None
 
 class OrcamentoItemOut(OrcamentoItemCreate):
     id: int
@@ -181,6 +182,7 @@ class OrcamentoCreate(BaseModel):
     prazo_locacao_unidade: Optional[str] = None
     condicoes_pagamento_selecionadas: Optional[str] = None
     itens: List[OrcamentoItemCreate]
+    projeto_id: Optional[int] = None
 
 # Schema básico para listagem no Kanban (com dados expandidos)
 class OrcamentoOut(BaseModel):
@@ -200,6 +202,7 @@ class OrcamentoOut(BaseModel):
     arquiteto_contato: Optional[str] = None
     condicoes_pagamento_selecionadas: Optional[str] = None
     cnpj_faturamento: Optional[str] = None
+    projeto_id: Optional[int] = None
     itens: List[OrcamentoItemOut]
     # Campos calculados / expandidos
     cliente_nome: Optional[str] = None
@@ -242,6 +245,7 @@ class OrcamentoDetailOut(BaseModel):
     arquiteto_nome: Optional[str] = None
     arquiteto_contato: Optional[str] = None
     cnpj_faturamento: Optional[str] = None
+    projeto_id: Optional[int] = None
     pendencias: List[str] = []
 
     class Config:
@@ -313,4 +317,100 @@ class CondicaoPagamentoOut(CondicaoPagamentoBase):
 
 class OrcamentoCondicaoPagamentoUpdate(BaseModel):
     condicao_pagamento: str
+
+
+# --- Projetos (integração com softwares de arquitetura, ex: SketchUp) ---
+
+PROJETO_ORIGENS_PERMITIDAS = ["sketchup", "manual_csv"]
+
+class ProjetoItemBase(BaseModel):
+    nome: str = Field(..., max_length=200)
+    quantidade: int = Field(..., ge=1)
+    material: Optional[str] = None
+    comprimento: Optional[float] = None
+    largura: Optional[float] = None
+    altura: Optional[float] = None
+    referencia_externa: Optional[str] = None
+    preco_sugerido_centavos: Optional[int] = Field(None, ge=0)
+    observacoes: Optional[str] = None
+
+class ProjetoItemCreate(ProjetoItemBase):
+    produto_id: Optional[int] = None
+
+class ProjetoItemOut(ProjetoItemBase):
+    id: int
+    projeto_id: int
+    produto_id: Optional[int] = None
+    produto_nome_sugerido: Optional[str] = None
+    class Config:
+        from_attributes = True
+
+class ProjetoItemUpdate(BaseModel):
+    nome: Optional[str] = None
+    quantidade: Optional[int] = Field(None, ge=1)
+    material: Optional[str] = None
+    comprimento: Optional[float] = None
+    largura: Optional[float] = None
+    altura: Optional[float] = None
+    produto_id: Optional[int] = None
+    preco_sugerido_centavos: Optional[int] = Field(None, ge=0)
+    observacoes: Optional[str] = None
+
+class ProjetoCreatePush(BaseModel):
+    """Payload normalizado usado tanto pelo parser de CSV quanto pelo endpoint de push (extensão externa)."""
+    nome: str = Field(..., max_length=200)
+    cliente_id: Optional[int] = None
+    origem: str = "sketchup"
+    origem_meta: Optional[str] = None
+    itens: List[ProjetoItemCreate] = Field(..., min_length=1)
+
+    @field_validator('origem')
+    def validate_origem(cls, v):
+        if v not in PROJETO_ORIGENS_PERMITIDAS:
+            raise ValueError(f'Origem inválida: {PROJETO_ORIGENS_PERMITIDAS}')
+        return v
+
+class ProjetoOut(BaseModel):
+    id: int
+    nome: str
+    cliente_id: Optional[int] = None
+    usuario_id: int
+    origem: str
+    origem_meta: Optional[str] = None
+    created_at: datetime
+    cliente_nome: Optional[str] = None
+    usuario_nome: Optional[str] = None
+    total_itens: Optional[int] = None
+    class Config:
+        from_attributes = True
+
+class ProjetoDetailOut(ProjetoOut):
+    itens: List[ProjetoItemOut] = []
+
+
+# --- API Keys (autenticação máquina-a-máquina para integrações) ---
+
+class ApiKeyCreate(BaseModel):
+    nome: str = Field(..., max_length=150, pattern=r"^[^<>]*$")
+    usuario_id: Optional[int] = None  # admin pode emitir em nome de outro usuário; vendedor sempre emite para si
+
+class ApiKeyCreated(BaseModel):
+    id: int
+    nome: str
+    prefixo: str
+    chave: str  # valor completo — retornado só nesta resposta, nunca mais
+    created_at: datetime
+
+class ApiKeyOut(BaseModel):
+    id: int
+    nome: str
+    prefixo: str
+    usuario_id: int
+    usuario_nome: Optional[str] = None
+    ativo: bool
+    created_at: datetime
+    last_used_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
 

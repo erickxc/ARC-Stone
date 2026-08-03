@@ -207,7 +207,8 @@ def criar_orcamento(orcamento: schemas.OrcamentoCreate, db: Session = Depends(ge
         prazo_locacao_unidade=orcamento.prazo_locacao_unidade,
         arquiteto_nome=orcamento.arquiteto_nome,
         arquiteto_contato=orcamento.arquiteto_contato,
-        condicoes_pagamento_selecionadas=orcamento.condicoes_pagamento_selecionadas
+        condicoes_pagamento_selecionadas=orcamento.condicoes_pagamento_selecionadas,
+        projeto_id=orcamento.projeto_id
     )
     db.add(novo_orcamento)
     db.flush()  # Puxa o ID gerado sem fazer commit ainda
@@ -314,7 +315,8 @@ def editar_orcamento(orcamento_id: int, orcamento_in: schemas.OrcamentoCreate, d
     orcamento.arquiteto_nome = orcamento_in.arquiteto_nome
     orcamento.arquiteto_contato = orcamento_in.arquiteto_contato
     orcamento.condicoes_pagamento_selecionadas = orcamento_in.condicoes_pagamento_selecionadas
-    
+    orcamento.projeto_id = orcamento_in.projeto_id
+
     if orcamento.status in ["Aprovado", "Entregue", "Devolvido", "Faturado"] and orcamento.tipo_orcamento in ["Locacao", "Producao"]:
         base_date = orcamento.data_entrega if orcamento.tipo_orcamento == "Locacao" else orcamento.data_aprovacao
         if base_date and orcamento.prazo_locacao_valor:

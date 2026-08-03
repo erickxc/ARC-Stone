@@ -18,6 +18,8 @@ from routers import usuarios as usuarios_router
 from routers import fornecedores as fornecedores_router
 from routers import calendario as calendario_router
 from routers import logs as logs_router
+from routers import projetos as projetos_router
+from routers import integracoes as integracoes_router
 from fastapi.middleware.cors import CORSMiddleware
 import auth as auth_module
 import shutil
@@ -62,7 +64,7 @@ app.add_middleware(
     allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
 
 # Registra as rotas e os módulos
@@ -75,6 +77,8 @@ app.include_router(usuarios_router.router)
 app.include_router(fornecedores_router.router)
 app.include_router(calendario_router.router)
 app.include_router(logs_router.router)
+app.include_router(projetos_router.router)
+app.include_router(integracoes_router.router)
 
 
 @app.get("/static/uploads/{filename:path}")
@@ -155,6 +159,8 @@ def on_startup():
         conn.execute(text("ALTER TABLE orcamento_config ADD COLUMN IF NOT EXISTS empresa1_cnpj VARCHAR"))
         conn.execute(text("ALTER TABLE orcamento_config ADD COLUMN IF NOT EXISTS empresa2_nome VARCHAR"))
         conn.execute(text("ALTER TABLE orcamento_config ADD COLUMN IF NOT EXISTS empresa2_cnpj VARCHAR"))
+        conn.execute(text("ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS projeto_id INTEGER"))
+        conn.execute(text("ALTER TABLE orcamento_itens ADD COLUMN IF NOT EXISTS projeto_item_id INTEGER"))
 
     db = database.SessionLocal()
     try:

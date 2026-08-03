@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { createCatalogProduct, createClient, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteSupplier, getOrcamentoConfig, getSessionUser, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listPaymentConditions, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, regenerateQuotePdf, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember } from './api'
-import type { CalendarEvent, Client, ClientInput, OrcamentoConfig, PaymentCondition, Product, Quote, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
+import { createApiKey, createCatalogProduct, createClient, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, getOrcamentoConfig, getProjeto, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listPaymentConditions, listProjetos, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, regenerateQuotePdf, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember } from './api'
+import type { ApiKey, ApiKeyCreated, CalendarEvent, Client, ClientInput, OrcamentoConfig, PaymentCondition, Product, Projeto, ProjetoDetail, Quote, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
 import { clients, inventory, money, quotes } from './data'
 import type { Status } from './data'
 
-type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'catalog' | 'inventory' | 'suppliers' | 'schedule' | 'finance' | 'team' | 'portal'
-const routes: Route[] = ['dashboard', 'clients', 'pipeline', 'builder', 'catalog', 'inventory', 'suppliers', 'schedule', 'finance', 'team', 'portal']
+type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'projects' | 'catalog' | 'inventory' | 'suppliers' | 'schedule' | 'finance' | 'team' | 'integrations' | 'portal'
+const routes: Route[] = ['dashboard', 'clients', 'pipeline', 'builder', 'projects', 'catalog', 'inventory', 'suppliers', 'schedule', 'finance', 'team', 'integrations', 'portal']
 
 type IconName = Exclude<Route, 'portal'> | 'menu' | 'close'
 const iconPaths: Record<IconName, ReactNode> = {
@@ -14,12 +14,14 @@ const iconPaths: Record<IconName, ReactNode> = {
   clients: <><circle cx="12" cy="8" r="3.25"/><path d="M5.5 21v-2.2a6.5 6.5 0 0 1 13 0V21"/></>,
   pipeline: <><path d="M4 5h5v14H4zM15 5h5v9h-5z"/><path d="M9 9h6M12 6v6"/></>,
   builder: <><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 12h6M9 16h6"/></>,
+  projects: <><path d="M3 6.5h6l2 2h10v10.5H3z"/><path d="M3 6.5V5h5l2 1.5"/></>,
   catalog: <><path d="m12 3 8 4-8 4-8-4 8-4Z"/><path d="m4 12 8 4 8-4M4 17l8 4 8-4"/></>,
   inventory: <><path d="M3 7h18v13H3zM7 7V4h10v3"/><path d="M8 12h8"/></>,
   suppliers: <><path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></>,
   schedule: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></>,
   finance: <><path d="M4 20V10M10 20V4M16 20v-7M22 20V7"/></>,
   team: <><circle cx="9" cy="8" r="3"/><circle cx="18" cy="9" r="2.5"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M15 15a5 5 0 0 1 6 4.9V21"/></>,
+  integrations: <><circle cx="7" cy="12" r="3.2"/><circle cx="17" cy="12" r="3.2"/><path d="M10.2 12h3.6"/></>,
   menu: <path d="M4 7h16M4 12h16M4 17h16"/>,
   close: <path d="m6 6 12 12M18 6 6 18"/>,
 }
@@ -42,7 +44,7 @@ function Button({ children, variant = 'primary', onClick, type = 'button', disab
 
 function Sidebar({ route, go, collapsed, setCollapsed, mobileOpen, closeMobile }: { route: Route; go: (r: Route) => void; collapsed: boolean; setCollapsed: (v: boolean) => void; mobileOpen: boolean; closeMobile: () => void }) {
   const items: [Route, string, string, IconName][] = [
-    ['dashboard', 'Dashboard', '', 'dashboard'], ['clients', 'Carteira de clientes', '', 'clients'], ['pipeline', 'Pipeline de vendas', '18', 'pipeline'], ['builder', 'Construtor de orçamento', '', 'builder'], ['catalog', 'Catálogo de produtos', '', 'catalog'], ['inventory', 'Controle de estoque', '7', 'inventory'], ['suppliers', 'Fornecedores', '', 'suppliers'], ['schedule', 'Calendário de entregas', '', 'schedule'], ['finance', 'Painel financeiro', '', 'finance'], ['team', 'Equipe', '', 'team'],
+    ['dashboard', 'Dashboard', '', 'dashboard'], ['clients', 'Carteira de clientes', '', 'clients'], ['pipeline', 'Pipeline de vendas', '18', 'pipeline'], ['builder', 'Construtor de orçamento', '', 'builder'], ['projects', 'Projetos', '', 'projects'], ['catalog', 'Catálogo de produtos', '', 'catalog'], ['inventory', 'Controle de estoque', '7', 'inventory'], ['suppliers', 'Fornecedores', '', 'suppliers'], ['schedule', 'Calendário de entregas', '', 'schedule'], ['finance', 'Painel financeiro', '', 'finance'], ['team', 'Equipe', '', 'team'], ['integrations', 'Integrações', '', 'integrations'],
   ]
   const navigate = (next: Route) => { go(next); closeMobile() }
   return <><button className={`sidebar-scrim ${mobileOpen ? 'show' : ''}`} onClick={closeMobile} aria-label="Fechar menu lateral"/><aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
@@ -50,7 +52,7 @@ function Sidebar({ route, go, collapsed, setCollapsed, mobileOpen, closeMobile }
     <Button onClick={() => navigate('builder')}>{collapsed ? '+' : '+ Novo orçamento'}</Button>
     <nav>
       {items.map(([key, label, count, itemIcon], index) => <div key={key}>
-        {!collapsed && [1, 4, 7].includes(index) && <span className="nav-label">{index === 1 ? 'VENDAS' : index === 4 ? 'GALPÃO' : 'GESTÃO'}</span>}
+        {!collapsed && [1, 5, 8].includes(index) && <span className="nav-label">{index === 1 ? 'VENDAS' : index === 5 ? 'GALPÃO' : 'GESTÃO'}</span>}
         <button className={route === key ? 'active' : ''} onClick={() => navigate(key)} title={label}><span><Icon name={itemIcon}/></span>{!collapsed && <>{label}<em>{count}</em></>}</button>
       </div>)}
     </nav>
@@ -215,7 +217,8 @@ export function LegacyBuilder() { const [items,setItems]=useState(proposalItems)
   <div className="builder"><div><article className="card fields"><label>Cliente<input value="Ana Prado" readOnly /></label><label>Ambiente<input value="Cozinha + living" readOnly /></label><label>Entrega prevista<input value="12/11/2026" readOnly /></label></article><article className="card items"><div className="card-title"><h2>Itens <small>· {items.length}</small></h2><span><Button variant="secondary" onClick={()=>location.hash='catalog'}>Do catálogo</Button> <Button variant="dark" onClick={()=>setFeedback('Item livre adicionado ao rascunho.')}>+ Item livre</Button></span></div><div className="item-head mono"><span>DESCRIÇÃO</span><span>QTD / M²</span><span>UN.</span><span>UNITÁRIO</span><span>TOTAL</span></div>{items.map((x,i)=><div className={`item-row ${i===items.length-1?'editing':''}`} key={x[0]}><div><b>{x[0]}</b><small>CAT-{2210+i} · especificação do projeto</small></div>{x.slice(1).map((v,j)=><span key={`${j}-${v}`}>{v}</span>)}<button aria-label={`Remover ${x[0]}`} onClick={()=>setItems(current=>current.filter(item=>item!==x))}>×</button></div>)}</article></div>
   <aside><article className="card total-card"><p className="mono">TOTAL DA PROPOSTA</p><strong>R$ 54.400</strong><dl><dt>Materiais</dt><dd>44.850</dd><dt>Serviços</dt><dd>2.940</dd><dt>Logística</dt><dd>1.850</dd><dt>Margem aplicada</dt><dd>28%</dd></dl></article><article className="card conditions"><h2>Condições</h2><label>Pagamento<input value="40% entrada + 3x" readOnly /></label><label>Validade da proposta<input value="15 dias" readOnly /></label><p>✓ Liberar no portal do cliente</p></article><article className="card attachments"><p className="mono">ANEXOS</p><button className="text-action" onClick={()=>setFeedback('Seletor de anexos disponível quando o upload estiver ligado.')}>+ Adicionar arquivo</button><span>planta-cozinha.pdf</span><span>render-1living.jpg</span></article></aside></div>{feedback&&<Feedback message={feedback} close={()=>setFeedback('')}/>}</> }
 
-type BuilderItem = { key: string; productId: number | null; name: string; quantity: number; unit: string; unitPrice: number; isExternal: boolean }
+type BuilderItem = { key: string; productId: number | null; name: string; quantity: number; unit: string; unitPrice: number; isExternal: boolean; projetoItemId: number | null }
+type ValidationRow = { projetoItemId: number; nome: string; quantidade: number; material: string | null; matchedProductId: number | null; unitPrice: number; included: boolean }
 
 function Builder() {
   const [clientsList, setClientsList] = useState<Client[]>([])
@@ -226,7 +229,10 @@ function Builder() {
   const [paymentOptions, setPaymentOptions] = useState<PaymentCondition[]>([])
   const [items, setItems] = useState<BuilderItem[]>([])
   const [quoteId, setQuoteId] = useState<number | null>(null)
-  const [itemModal, setItemModal] = useState<'catalog'|'free'|null>(null)
+  const [itemModal, setItemModal] = useState<'catalog'|'free'|'project'|'project-validate'|null>(null)
+  const [projetosList, setProjetosList] = useState<Projeto[]>([])
+  const [projectDraft, setProjectDraft] = useState<ProjetoDetail | null>(null)
+  const [validationRows, setValidationRows] = useState<ValidationRow[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -238,7 +244,7 @@ function Builder() {
       if (!mounted) return
       setClientsList(clientData); setProductsList(productData)
       if (clientData[0]) setSelectedClient(clientData[0].id)
-      setItems(productData.slice(0, 3).map((product, index) => ({ key: `product-${product.id}-${index}`, productId: product.id, name: product.nome, quantity: 1, unit: 'un.', unitPrice: product.preco_venda, isExternal: false })))
+      setItems(productData.slice(0, 3).map((product, index) => ({ key: `product-${product.id}-${index}`, productId: product.id, name: product.nome, quantity: 1, unit: 'un.', unitPrice: product.preco_venda, isExternal: false, projetoItemId: null })))
     }).catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar dados do orçamento.') }).finally(() => { if (mounted) setLoading(false) })
     listPaymentConditions().then(data => {
       if (!mounted) return
@@ -246,12 +252,62 @@ function Builder() {
       setPaymentOptions(active)
       if (active[0]) setPayment(active[0].nome)
     }).catch(() => undefined)
+    listProjetos().then(data => { if (mounted) setProjetosList(data) }).catch(() => undefined)
     return () => { mounted = false }
   }, [])
 
   const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
   const selectedClientName = clientsList.find(client => client.id === selectedClient)?.nome_fantasia || 'Cliente não selecionado'
-  const payload = () => ({ cliente_id: Number(selectedClient), tipo_orcamento: quoteType, condicoes_pagamento_selecionadas: payment, itens: items.map(item => item.isExternal ? { quantidade: item.quantity, preco_unitario_aplicado: item.unitPrice, is_externo: true, nome_externo: item.name, descricao_externa: 'Item livre do construtor' } : { quantidade: item.quantity, preco_unitario_aplicado: item.unitPrice, produto_id: item.productId }) })
+  const payload = () => ({
+    cliente_id: Number(selectedClient), tipo_orcamento: quoteType, condicoes_pagamento_selecionadas: payment,
+    projeto_id: projectDraft?.id ?? null,
+    itens: items.map(item => item.isExternal
+      ? { quantidade: item.quantity, preco_unitario_aplicado: item.unitPrice, is_externo: true, nome_externo: item.name, descricao_externa: 'Item livre do construtor', projeto_item_id: item.projetoItemId }
+      : { quantidade: item.quantity, preco_unitario_aplicado: item.unitPrice, produto_id: item.productId, projeto_item_id: item.projetoItemId }),
+  })
+  const sortedProjects = [...projetosList].sort((a, b) => {
+    const aMatch = selectedClient && a.cliente_id === selectedClient ? 0 : 1
+    const bMatch = selectedClient && b.cliente_id === selectedClient ? 0 : 1
+    return aMatch - bMatch
+  })
+
+  async function openProject(projetoId: number) {
+    setError('')
+    try {
+      const detail = await getProjeto(projetoId)
+      setProjectDraft(detail)
+      setValidationRows(detail.itens.map(item => ({
+        projetoItemId: item.id, nome: item.nome, quantidade: item.quantidade, material: item.material,
+        matchedProductId: item.produto_id,
+        unitPrice: item.preco_sugerido_centavos ?? (item.produto_id ? (productsList.find(p => p.id === item.produto_id)?.preco_venda ?? 0) : 0),
+        included: true,
+      })))
+      setItemModal('project-validate')
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao carregar projeto.') }
+  }
+
+  function updateValidationRow(index: number, patch: Partial<ValidationRow>) {
+    setValidationRows(current => current.map((row, i) => i === index ? { ...row, ...patch } : row))
+  }
+
+  function confirmProjectSelection() {
+    const additions: BuilderItem[] = validationRows.filter(row => row.included).map(row => {
+      const produto = row.matchedProductId ? productsList.find(p => p.id === row.matchedProductId) : undefined
+      return {
+        key: `project-${row.projetoItemId}-${Date.now()}`,
+        productId: row.matchedProductId,
+        name: produto?.nome || row.nome,
+        quantity: row.quantidade,
+        unit: 'un.',
+        unitPrice: row.unitPrice,
+        isExternal: !row.matchedProductId,
+        projetoItemId: row.projetoItemId,
+      }
+    })
+    setItems(current => [...current, ...additions])
+    setItemModal(null)
+    setFeedback(`${additions.length} item(ns) importado(s) do projeto "${projectDraft?.nome}".`)
+  }
 
   async function saveQuote(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault(); setSaving(true); setError('')
@@ -270,14 +326,124 @@ function Builder() {
 
   function addCatalogItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget); const product = productsList.find(item => item.id === Number(form.get('produto_id'))); if (!product) return
-    setItems(current => [...current, { key: `product-${product.id}-${Date.now()}`, productId: product.id, name: product.nome, quantity: Number(form.get('quantidade') || 1), unit: 'un.', unitPrice: product.preco_venda, isExternal: false }]); setItemModal(null)
+    setItems(current => [...current, { key: `product-${product.id}-${Date.now()}`, productId: product.id, name: product.nome, quantity: Number(form.get('quantidade') || 1), unit: 'un.', unitPrice: product.preco_venda, isExternal: false, projetoItemId: null }]); setItemModal(null)
   }
 
   function addFreeItem(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); const form = new FormData(event.currentTarget); setItems(current => [...current, { key: `free-${Date.now()}`, productId: null, name: String(form.get('nome') || 'Item livre'), quantity: Number(form.get('quantidade') || 1), unit: String(form.get('unidade') || 'un.'), unitPrice: Math.round(Number(form.get('preco') || 0) * 100), isExternal: true }]); setItemModal(null)
+    event.preventDefault(); const form = new FormData(event.currentTarget); setItems(current => [...current, { key: `free-${Date.now()}`, productId: null, name: String(form.get('nome') || 'Item livre'), quantity: Number(form.get('quantidade') || 1), unit: String(form.get('unidade') || 'un.'), unitPrice: Math.round(Number(form.get('preco') || 0) * 100), isExternal: true, projetoItemId: null }]); setItemModal(null)
   }
 
-  return <><PageHead eyebrow={quoteId ? `ORC-${String(quoteId).padStart(4, '0')} · RASCUNHO` : 'NOVO ORÇAMENTO · RASCUNHO'} title={`${selectedClientName} — orçamento`} actions={<><Badge>Gerando</Badge><Button variant="secondary" onClick={() => saveQuote()} disabled={saving}>{saving ? 'Salvando…' : 'Salvar rascunho'}</Button><Button onClick={regeneratePdf}>Gerar PDF e enviar</Button></>} />{error && <p className="form-error" role="alert">{error}</p>}{loading ? <article className="card empty-state"><h2>Carregando clientes e catálogo…</h2></article> : <form onSubmit={saveQuote}><div className="builder"><div><article className="card fields"><label>Cliente<select value={selectedClient} onChange={event => setSelectedClient(Number(event.target.value) || '')} required><option value="" disabled>Selecione um cliente…</option>{clientsList.map(client => <option key={client.id} value={client.id}>{client.nome_fantasia}</option>)}</select></label><label>Tipo de orçamento<select value={quoteType} onChange={event => setQuoteType(event.target.value as 'Venda'|'Locacao'|'Producao')}><option>Venda</option><option>Locacao</option><option>Producao</option></select></label><label>Pagamento{paymentOptions.length ? <select value={payment} onChange={event => setPayment(event.target.value)} required><option value="" disabled>Selecione uma condição…</option>{paymentOptions.map(option => <option key={option.id} value={option.nome}>{option.nome}</option>)}</select> : <input value={payment} onChange={event => setPayment(event.target.value)} placeholder="40% entrada + 3x…"/>}</label></article><article className="card items"><div className="card-title"><h2>Itens <small>· {items.length}</small></h2><span><Button type="button" variant="secondary" onClick={() => setItemModal('catalog')}>Do catálogo</Button> <Button type="button" variant="dark" onClick={() => setItemModal('free')}>+ Item livre</Button></span></div><div className="item-head mono"><span>DESCRIÇÃO</span><span>QTD / M²</span><span>UN.</span><span>UNITÁRIO</span><span>TOTAL</span></div>{items.map((item, index) => <div className={`item-row ${index === items.length - 1 ? 'editing' : ''}`} key={item.key}><div><b>{item.name}</b><small>{item.isExternal ? 'ITEM LIVRE · especificação do projeto' : `CAT-${String(item.productId).padStart(4, '0')} · catálogo`}</small></div><span>{item.quantity}</span><span>{item.unit}</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.unitPrice / 100)}</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.quantity * item.unitPrice / 100)}</span><button type="button" aria-label={`Remover ${item.name}`} onClick={() => setItems(current => current.filter(currentItem => currentItem.key !== item.key))}>×</button></div>)}{!items.length && <p className="empty-state">Nenhum item adicionado ainda.</p>}</article></div><aside><article className="card total-card"><p className="mono">TOTAL DA PROPOSTA</p><strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total / 100)}</strong><dl><dt>Itens</dt><dd>{items.length}</dd><dt>Cliente</dt><dd>{selectedClientName}</dd><dt>Tipo</dt><dd>{quoteType}</dd></dl></article><article className="card attachments"><p className="mono">ANEXOS</p><span>PDF gerado automaticamente ao salvar</span></article></aside></div></form>}{itemModal === 'catalog' && <Modal title="Adicionar do catálogo" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addCatalogItem}><label>Produto<select name="produto_id" required autoFocus defaultValue=""><option value="" disabled>Selecione um produto…</option>{productsList.map(product => <option key={product.id} value={product.id}>{product.nome}</option>)}</select></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}{itemModal === 'free' && <Modal title="Adicionar item livre" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addFreeItem}><label>Descrição<input name="nome" required autoFocus placeholder="Bancada especial…"/></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><label>Unidade<input name="unidade" defaultValue="un." required/></label><label>Preço unitário<input name="preco" type="number" min="0" step="0.01" required placeholder="0,00"/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}{feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}</>
+  return <><PageHead eyebrow={quoteId ? `ORC-${String(quoteId).padStart(4, '0')} · RASCUNHO` : 'NOVO ORÇAMENTO · RASCUNHO'} title={`${selectedClientName} — orçamento`} actions={<><Badge>Gerando</Badge><Button variant="secondary" onClick={() => saveQuote()} disabled={saving}>{saving ? 'Salvando…' : 'Salvar rascunho'}</Button><Button onClick={regeneratePdf}>Gerar PDF e enviar</Button></>} />{error && <p className="form-error" role="alert">{error}</p>}{loading ? <article className="card empty-state"><h2>Carregando clientes e catálogo…</h2></article> : <form onSubmit={saveQuote}><div className="builder"><div><article className="card fields"><label>Cliente<select value={selectedClient} onChange={event => setSelectedClient(Number(event.target.value) || '')} required><option value="" disabled>Selecione um cliente…</option>{clientsList.map(client => <option key={client.id} value={client.id}>{client.nome_fantasia}</option>)}</select></label><label>Tipo de orçamento<select value={quoteType} onChange={event => setQuoteType(event.target.value as 'Venda'|'Locacao'|'Producao')}><option>Venda</option><option>Locacao</option><option>Producao</option></select></label><label>Pagamento{paymentOptions.length ? <select value={payment} onChange={event => setPayment(event.target.value)} required><option value="" disabled>Selecione uma condição…</option>{paymentOptions.map(option => <option key={option.id} value={option.nome}>{option.nome}</option>)}</select> : <input value={payment} onChange={event => setPayment(event.target.value)} placeholder="40% entrada + 3x…"/>}</label></article><article className="card items"><div className="card-title"><h2>Itens <small>· {items.length}</small></h2><span><Button type="button" variant="secondary" onClick={() => setItemModal('catalog')}>Do catálogo</Button> <Button type="button" variant="dark" onClick={() => setItemModal('free')}>+ Item livre</Button> <Button type="button" variant="secondary" onClick={() => setItemModal('project')}>Importar de um projeto</Button></span></div><div className="item-head mono"><span>DESCRIÇÃO</span><span>QTD / M²</span><span>UN.</span><span>UNITÁRIO</span><span>TOTAL</span></div>{items.map((item, index) => <div className={`item-row ${index === items.length - 1 ? 'editing' : ''}`} key={item.key}><div><b>{item.name}</b><small>{item.isExternal ? 'ITEM LIVRE · especificação do projeto' : `CAT-${String(item.productId).padStart(4, '0')} · catálogo`}</small></div><span>{item.quantity}</span><span>{item.unit}</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.unitPrice / 100)}</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.quantity * item.unitPrice / 100)}</span><button type="button" aria-label={`Remover ${item.name}`} onClick={() => setItems(current => current.filter(currentItem => currentItem.key !== item.key))}>×</button></div>)}{!items.length && <p className="empty-state">Nenhum item adicionado ainda.</p>}</article></div><aside><article className="card total-card"><p className="mono">TOTAL DA PROPOSTA</p><strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total / 100)}</strong><dl><dt>Itens</dt><dd>{items.length}</dd><dt>Cliente</dt><dd>{selectedClientName}</dd><dt>Tipo</dt><dd>{quoteType}</dd></dl></article><article className="card attachments"><p className="mono">ANEXOS</p><span>PDF gerado automaticamente ao salvar</span></article></aside></div></form>}{itemModal === 'catalog' && <Modal title="Adicionar do catálogo" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addCatalogItem}><label>Produto<select name="produto_id" required autoFocus defaultValue=""><option value="" disabled>Selecione um produto…</option>{productsList.map(product => <option key={product.id} value={product.id}>{product.nome}</option>)}</select></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}{itemModal === 'free' && <Modal title="Adicionar item livre" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addFreeItem}><label>Descrição<input name="nome" required autoFocus placeholder="Bancada especial…"/></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><label>Unidade<input name="unidade" defaultValue="un." required/></label><label>Preço unitário<input name="preco" type="number" min="0" step="0.01" required placeholder="0,00"/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}
+    {itemModal === 'project' && <Modal title="Importar de um projeto" close={() => setItemModal(null)}>
+      <div className="modal-form" style={{ gridTemplateColumns: '1fr' }}>
+        {projetosList.length ? <DataTable headers={['PROJETO', 'ORIGEM', 'CLIENTE', 'ITENS', '']} rows={sortedProjects.map(p => [
+          <b>{p.nome}</b>,
+          projetoOrigemLabel[p.origem] || p.origem,
+          p.cliente_nome || 'Sem cliente',
+          String(p.total_itens ?? 0),
+          <Button type="button" variant="secondary" onClick={() => openProject(p.id)}>Selecionar</Button>,
+        ])}/> : <p className="empty-state">Nenhum projeto importado ainda. Vá em "Projetos" para importar um CSV do SketchUp.</p>}
+      </div>
+    </Modal>}
+    {itemModal === 'project-validate' && projectDraft && <Modal title={`Validar itens · ${projectDraft.nome}`} close={() => setItemModal(null)}>
+      <div className="modal-form" style={{ gridTemplateColumns: '1fr' }}>
+        <p className="empty-state">Confira cada item antes de adicionar ao orçamento — nada é incluído automaticamente.</p>
+        <DataTable headers={['ITEM', 'QTD', 'PRODUTO DO CATÁLOGO', 'PREÇO UNIT.', 'INCLUIR']} rows={validationRows.map((row, index) => [
+          <div><b>{row.nome}</b>{row.material && <small>{row.material}</small>}</div>,
+          <input type="number" min="1" step="1" value={row.quantidade} onChange={e => updateValidationRow(index, { quantidade: Number(e.target.value) || 1 })}/>,
+          <select value={row.matchedProductId ?? ''} onChange={e => { const id = e.target.value ? Number(e.target.value) : null; const produto = productsList.find(p => p.id === id); updateValidationRow(index, { matchedProductId: id, unitPrice: produto ? produto.preco_venda : row.unitPrice }) }}>
+            <option value="">— manter como item externo —</option>
+            {productsList.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+          </select>,
+          <input type="number" min="0" step="0.01" value={(row.unitPrice / 100).toFixed(2)} onChange={e => updateValidationRow(index, { unitPrice: Math.round(Number(e.target.value || 0) * 100) })}/>,
+          <input type="checkbox" checked={row.included} onChange={e => updateValidationRow(index, { included: e.target.checked })} aria-label={`Incluir ${row.nome}`}/>,
+        ])}/>
+        <footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button onClick={confirmProjectSelection} disabled={!validationRows.some(row => row.included)}>Confirmar seleção</Button></footer>
+      </div>
+    </Modal>}
+    {feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}</>
+}
+
+const projetoOrigemLabel: Record<string, string> = { sketchup: 'SketchUp', manual_csv: 'CSV manual' }
+
+function Projects() {
+  const [items, setItems] = useState<Projeto[]>([])
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [detail, setDetail] = useState<ProjetoDetail | null>(null)
+  const [clientsList, setClientsList] = useState<Client[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [feedback, setFeedback] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+    listProjetos().then(data => { if (mounted) setItems(data) })
+      .catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar projetos.') })
+      .finally(() => { if (mounted) setLoading(false) })
+    listClients().then(data => { if (mounted) setClientsList(data) }).catch(() => undefined)
+    return () => { mounted = false }
+  }, [])
+
+  const filtered = items.filter(item => `${item.nome} ${item.origem} ${item.cliente_nome || ''}`.toLowerCase().includes(query.toLowerCase()))
+
+  async function submitImport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setSaving(true); setError('')
+    const form = new FormData(event.currentTarget)
+    const fileInput = event.currentTarget.elements.namedItem('file') as HTMLInputElement
+    const file = fileInput?.files?.[0]
+    try {
+      if (!file) throw new Error('Selecione um arquivo CSV para importar.')
+      const nome = String(form.get('nome') || '')
+      const clienteId = Number(form.get('cliente_id') || 0) || undefined
+      const created = await importarProjetoCsv(file, nome, clienteId)
+      setItems(current => [created, ...current]); setOpen(false)
+      setFeedback(`Projeto "${created.nome}" importado com ${created.itens.length} item(ns).`)
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao importar projeto.') }
+    finally { setSaving(false) }
+  }
+
+  async function openDetail(projetoId: number) {
+    setError('')
+    try { setDetail(await getProjeto(projetoId)) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao carregar detalhe do projeto.') }
+  }
+
+  async function removeProjeto(item: Projeto) {
+    if (!confirm(`Excluir o projeto "${item.nome}"? Esta ação não pode ser desfeita.`)) return
+    try { await deleteProjeto(item.id); setItems(current => current.filter(current_item => current_item.id !== item.id)) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao excluir projeto.') }
+  }
+
+  return <><PageHead eyebrow="VENDAS · PROJETOS" title="Projetos" subtitle={`${items.length} projeto(s) importado(s) de softwares de arquitetura`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar projeto, origem ou cliente..."/><Button onClick={() => setOpen(true)}>+ Importar CSV</Button></>}/>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <article className="card list-card">
+      <div className="card-title"><h2>Projetos importados</h2><Badge>{filtered.length} resultados</Badge></div>
+      {loading ? <p className="empty-state">Carregando projetos…</p> : filtered.length ? <DataTable headers={['PROJETO', 'ORIGEM', 'CLIENTE', 'ITENS', 'IMPORTADO EM', 'AÇÕES']} rows={filtered.map(item => [
+        <b>{item.nome}</b>,
+        <Badge tone="neutral">{projetoOrigemLabel[item.origem] || item.origem}</Badge>,
+        item.cliente_nome || 'Sem cliente definido',
+        String(item.total_itens ?? 0),
+        new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(item.created_at)),
+        <span className="row-actions"><button className="text-action" onClick={() => openDetail(item.id)}>Ver itens</button> <button className="text-action" onClick={() => removeProjeto(item)}>Excluir</button></span>,
+      ])}/> : <p className="empty-state">Nenhum projeto importado ainda. Use "+ Importar CSV" para trazer uma lista de itens do SketchUp.</p>}
+    </article>
+    {open && <Modal title="Importar projeto (CSV)" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitImport}>
+      <label>Nome do projeto<input name="nome" autoFocus required placeholder="Apto 302 - Torre B"/></label>
+      <label>Cliente (opcional)<select name="cliente_id" defaultValue=""><option value="">Sem cliente definido</option>{clientsList.map(client => <option key={client.id} value={client.id}>{client.nome_fantasia}</option>)}</select></label>
+      <label>Arquivo CSV<input name="file" type="file" accept=".csv,.txt" required/></label>
+      <small>Exporte a lista de componentes pelo "Generate Report" do SketchUp (colunas nome/quantidade/material/dimensões) e envie aqui.</small>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Importando…' : 'Importar'}</Button></footer>
+    </form></Modal>}
+    {detail && <Modal title={`Projeto · ${detail.nome}`} close={() => setDetail(null)}>
+      <DataTable headers={['ITEM', 'QTD', 'MATERIAL', 'PRODUTO SUGERIDO']} rows={detail.itens.map(item => [
+        <b>{item.nome}</b>, item.quantidade, item.material || '—', item.produto_nome_sugerido || <span className="danger-text">Sem correspondência</span>,
+      ])}/>
+    </Modal>}
+    {feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}
+  </>
 }
 
 function DataTable({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) { return <div className="table-wrap"><table><thead><tr>{headers.map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}>{cell}</td>)}</tr>)}</tbody></table><footer>Exibindo {rows.length} registros <span>‹ <b>1</b> 2 ›</span></footer></div> }
@@ -583,6 +749,72 @@ function Team() {
   return <><PageHead eyebrow="GESTÃO · ACESSOS" title="Equipe" subtitle={`${items.length} pessoas · ${activeCount} acessos ativos`} actions={<><input className="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar nome ou e-mail…"/><Button onClick={()=>setOpen(true)}>+ Conceder acesso</Button></>}/>{error&&<p className="form-error" role="alert">{error}</p>}<section className="team-stats"><article className="card"><span>{String(activeCount).padStart(2,'0')}</span><div><h2>Acessos ativos</h2><p>Colaboradores com acesso imediato.</p></div></article><article className="card"><span>{String(suspendedCount).padStart(2,'0')}</span><div><h2>Acesso suspenso</h2><p>Conta preservada sem login permitido.</p></div></article><article className="card security-card"><span>{mfaCount}</span><div><h2>Com MFA ativo</h2><p>Segundo fator habilitado.</p></div></article></section><article className="card list-card"><div className="card-title"><h2>Membros</h2><Badge>{rows.length} pessoas</Badge></div>{loading ? <p className="empty-state">Carregando equipe…</p> : <DataTable headers={['NOME / E-MAIL','CARGO','STATUS DO ACESSO','MFA','AÇÕES']} rows={rows.map(item=>[<div className="person"><span>{item.nome.split(' ').map(part=>part[0]).slice(0,2).join('')}</span><b>{item.nome}<small>{item.email}</small></b></div>,<Badge tone="neutral">{roleLabel[item.role]||item.role}</Badge>,<Badge tone={item.ativo?'success':'danger'}>{item.ativo?'Ativo':'Suspenso'}</Badge>,item.mfa_enabled?'✓':'—',<button className="text-action" onClick={()=>setEditing(item)}>Gerenciar</button>])}/>}</article>{open&&<Modal title="Conceder acesso" close={()=>setOpen(false)}><form className="modal-form" onSubmit={submitInvite}><label>Nome<input name="nome" autoFocus required/></label><label>E-mail<input name="email" type="email" required/></label><label>Senha provisória<input name="password" type="password" required minLength={8} placeholder="Mín. 8 caracteres, maiúscula, minúscula, número e símbolo"/></label><label>Telefone<input name="contato" placeholder="(11) 99999-9999"/></label><label>Perfil<select name="role" defaultValue="vendedor"><option value="vendedor">Vendedor</option><option value="estoquista">Estoquista</option><option value="admin">Admin</option></select></label>{error&&<p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={()=>setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving?'Salvando…':'Conceder acesso'}</Button></footer></form></Modal>}{editing&&<Modal title={`Gerenciar · ${editing.nome}`} close={()=>setEditing(null)}><form className="modal-form" onSubmit={submitEdit}><label>Nome<input name="nome" defaultValue={editing.nome} autoFocus required/></label><label>Telefone<input name="contato" defaultValue={editing.contato||''}/></label>{error&&<p className="form-error" role="alert">{error}</p>}<footer>{editing.ativo&&<Button variant="secondary" onClick={()=>deactivate(editing)}>Desligar acesso</Button>}<Button type="submit" disabled={saving}>{saving?'Salvando…':'Salvar'}</Button></footer></form></Modal>}{feedback&&<Feedback message={feedback} close={()=>setFeedback('')}/>}</>
 }
 
+function Integrations() {
+  const [items, setItems] = useState<ApiKey[]>([])
+  const [open, setOpen] = useState(false)
+  const [created, setCreated] = useState<ApiKeyCreated | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [feedback, setFeedback] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+    listApiKeys().then(data => { if (mounted) setItems(data) })
+      .catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar chaves de API.') })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [])
+
+  async function submitCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setSaving(true); setError('')
+    const form = new FormData(event.currentTarget)
+    try {
+      const novaChave = await createApiKey(String(form.get('nome') || ''))
+      setItems(current => [novaChave, ...current]); setOpen(false); setCreated(novaChave); setCopied(false)
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao gerar chave.') }
+    finally { setSaving(false) }
+  }
+
+  async function copyKey() {
+    if (!created) return
+    try { await navigator.clipboard.writeText(created.chave); setCopied(true) } catch { setCopied(false) }
+  }
+
+  async function revoke(key: ApiKey) {
+    if (!confirm(`Revogar a chave "${key.nome}"? Qualquer integração usando-a deixará de funcionar.`)) return
+    try { await revokeApiKey(key.id); setItems(current => current.map(item => item.id === key.id ? { ...item, ativo: false, revoked_at: new Date().toISOString() } : item)); setFeedback(`Chave "${key.nome}" revogada.`) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao revogar chave.') }
+  }
+
+  return <><PageHead eyebrow="GESTÃO · INTEGRAÇÕES" title="Integrações" subtitle="Chaves de API para extensões externas (ex: SketchUp) enviarem projetos direto para a ERP" actions={<><Button onClick={() => setOpen(true)}>+ Gerar chave</Button></>}/>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <article className="card list-card">
+      <div className="card-title"><h2>Chaves de API</h2><Badge>{items.length} chave(s)</Badge></div>
+      {loading ? <p className="empty-state">Carregando chaves…</p> : items.length ? <DataTable headers={['NOME', 'PREFIXO', 'STATUS', 'CRIADA EM', 'ÚLTIMO USO', 'AÇÕES']} rows={items.map(key => [
+        <b>{key.nome}</b>,
+        <span className="mono">{key.prefixo}…</span>,
+        <Badge tone={key.ativo ? 'success' : 'danger'}>{key.ativo ? 'Ativa' : 'Revogada'}</Badge>,
+        new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(key.created_at)),
+        key.last_used_at ? new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(key.last_used_at)) : 'Nunca usada',
+        key.ativo ? <button className="text-action" onClick={() => revoke(key)}>Revogar</button> : '—',
+      ])}/> : <p className="empty-state">Nenhuma chave gerada ainda. Gere uma para conectar a extensão do SketchUp.</p>}
+    </article>
+    {open && <Modal title="Gerar chave de API" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitCreate}>
+      <label>Nome da chave<input name="nome" autoFocus required placeholder="SketchUp - Notebook Ana"/></label>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Gerando…' : 'Gerar chave'}</Button></footer>
+    </form></Modal>}
+    {created && <Modal title="Chave gerada" close={() => setCreated(null)}><div className="modal-form">
+      <p className="form-error" role="alert">Esta chave só é mostrada uma vez. Copie e guarde em local seguro agora.</p>
+      <label>Chave completa<input readOnly value={created.chave} onFocus={e => e.currentTarget.select()}/></label>
+      <footer><Button variant="secondary" onClick={copyKey}>{copied ? 'Copiado ✓' : 'Copiar'}</Button><Button onClick={() => setCreated(null)}>Concluir</Button></footer>
+    </div></Modal>}
+    {feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}
+  </>
+}
+
 export function LegacyFinance() { return <><PageHead eyebrow="GESTÃO · FINANCEIRO" title="Painel financeiro" subtitle="Agosto de 2026 · fechamento em 28 dias" actions={<><div className="segmented"><button>Trimestre</button><button className="active">Mês</button></div><Button variant="secondary">Exportar</Button><Button>+ Lançamento</Button></>} /><section className="kpi-grid"><Kpi label="A RECEBER" value="R$ 742k" note="18 títulos abertos"/><Kpi label="RECEBIDO NO MÊS" value="R$ 612k" note="meta R$ 700k"/><Kpi label="VENCIDOS" value="R$ 96k" note="4 títulos · cobrar"/><Kpi dark label="MARGEM MÉDIA" value="28%" note="+3 p.p. vs. julho"/></section><section className="finance-grid"><article className="card chart"><h2>Entradas e saídas</h2><div className="bars">{[55,78,43,88,66,96].map((n,i)=><div key={i}><i style={{height:`${n}%`}}/><b style={{height:`${n*.62}%`}}/><span>{['MAR','ABR','MAI','JUN','JUL','AGO'][i]}</span></div>)}</div></article><div><article className="card"><h2>Aging de recebíveis</h2><StatusBars/></article><article className="card total-card forecast"><p className="mono">FLUXO PROJETADO · 30 DIAS</p><strong>+ R$ 268k</strong><dl><dt>Entradas previstas</dt><dd>594k</dd><dt>Compras e fornecedores</dt><dd>211k</dd><dt>Folha e serviços</dt><dd>115k</dd></dl></article></div></section><article className="card list-card"><div className="card-title"><h2>Títulos a receber</h2><span className="brand-text">Ver todos</span></div><DataTable headers={['TÍTULO','PROJETO','CLIENTE','SITUAÇÃO','VALOR','VENCE']} rows={quotes.slice(0,4).map((q,i)=>[q.id.replace('ORC','FT'),<b>{q.project}</b>,q.client,<Badge tone={i===1?'success':i===2?'danger':'info'}>{i===1?'Pago':i===2?'Vencido':'Em aberto'}</Badge>,money(q.value),q.date])}/></article></> }
 
 function Finance() {
@@ -628,7 +860,7 @@ export default function App() {
   const [route,setRoute] = useState<Route>(() => { const hash=location.hash.slice(1) as Route; return routes.includes(hash)?hash:'dashboard' })
   useEffect(()=>{ if(!authenticated) return; getSessionUser().catch(()=>{ /* cookie may be unavailable during static visual review */ }) },[authenticated])
   const go=(next:Route)=>{setRoute(next);location.hash=next;window.scrollTo(0,0)}
-  const page=useMemo(()=>({dashboard:<Dashboard/>,clients:<Clients/>,pipeline:<Pipeline/>,builder:<Builder/>,catalog:<Catalog/>,inventory:<Inventory/>,suppliers:<Suppliers/>,schedule:<Schedule/>,finance:<Finance/>,team:<Team/>} as Partial<Record<Route, ReactNode>>)[route],[route])
+  const page=useMemo(()=>({dashboard:<Dashboard/>,clients:<Clients/>,pipeline:<Pipeline/>,builder:<Builder/>,projects:<Projects/>,catalog:<Catalog/>,inventory:<Inventory/>,suppliers:<Suppliers/>,schedule:<Schedule/>,finance:<Finance/>,team:<Team/>,integrations:<Integrations/>} as Partial<Record<Route, ReactNode>>)[route],[route])
   if(!authenticated) return <Login onSuccess={()=>setAuthenticated(true)}/>
   if(route==='portal') return <Portal/>
   return <AppShell route={route} go={go}>{page}</AppShell>

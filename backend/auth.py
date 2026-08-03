@@ -1,9 +1,11 @@
+import hashlib
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, Header, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from database import get_db
@@ -103,6 +105,52 @@ class RoleChecker:
                 detail="Acesso negado. Nível de permissão insuficiente para a operação."
             )
         return user
+
+
+# --- API Keys (autenticação máquina-a-máquina para integrações, ex: extensão do SketchUp) ---
+
+API_KEY_PREFIX_LEN = 12  # inclui o prefixo "ak_" — visível na UI para identificar a chave sem expor o segredo
+
+
+def hash_api_key(chave: str) -> str:
+    return hashlib.sha256(chave.encode()).hexdigest()
+
+
+def generate_api_key() -> tuple[str, str, str]:
+    """Gera uma chave nova. Retorna (chave_completa, prefixo_visivel, hash_sha256_hex).
+    A chave completa só existe em memória aqui — nunca é persistida em texto puro."""
+    chave_completa = f"ak_{secrets.token_urlsafe(32)}"
+    prefixo = chave_completa[:API_KEY_PREFIX_LEN]
+    return chave_completa, prefixo, hash_api_key(chave_completa)
+
+
+def get_api_key_identity(
+    x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+    db: Session = Depends(get_db),
+) -> models.Usuario:
+    """Resolve o header X-API-Key para o Usuario dono da chave. Usada apenas em rotas de
+    integração (ex: push de projetos), como alternativa ao JWT de sessão para clientes
+    máquina-a-máquina (extensões rodando localmente por longos períodos)."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="API key ausente, inválida ou revogada.",
+    )
+    if not x_api_key:
+        raise credentials_exception
+
+    key_row = db.query(models.ApiKey).filter(
+        models.ApiKey.hash_chave == hash_api_key(x_api_key)
+    ).first()
+    if not key_row or not key_row.ativo or key_row.revoked_at is not None:
+        raise credentials_exception
+
+    user = db.query(models.Usuario).filter(models.Usuario.id == key_row.usuario_id).first()
+    if not user or not user.ativo:
+        raise credentials_exception
+
+    key_row.last_used_at = datetime.now(timezone.utc)
+    db.commit()
+    return user
 
 # pyrefly: ignore [missing-import]
 import pyotp
