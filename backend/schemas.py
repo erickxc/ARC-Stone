@@ -329,7 +329,7 @@ class OrcamentoCondicaoPagamentoUpdate(BaseModel):
 
 # --- Projetos (integração com softwares de arquitetura, ex: SketchUp) ---
 
-PROJETO_ORIGENS_PERMITIDAS = ["sketchup", "manual_csv"]
+PROJETO_ORIGENS_PERMITIDAS = ["sketchup", "manual_csv", "stone"]
 
 class ProjetoItemBase(BaseModel):
     nome: str = Field(..., max_length=200)
