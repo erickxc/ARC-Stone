@@ -410,6 +410,10 @@ export function verifyMfa(code: string) {
   return request<{ status: string }>(`/auth/verify-mfa?${new URLSearchParams({ code })}`, { method: 'POST' })
 }
 
+export function disableMfa(password: string) {
+  return request<{ status: string }>('/auth/disable-mfa', { method: 'POST', body: JSON.stringify({ password }) })
+}
+
 export async function logout() {
   await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' })
 }

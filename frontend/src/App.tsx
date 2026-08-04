@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { createApiKey, createCatalogProduct, createClient, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, enableMfa, forgotPassword, getOrcamentoConfig, getProjeto, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLogs, listPaymentConditions, listProjetos, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, regenerateQuotePdf, resetPassword, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, verifyMfa } from './api'
+import { createApiKey, createCatalogProduct, createClient, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, forgotPassword, getOrcamentoConfig, getProjeto, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLogs, listPaymentConditions, listProjetos, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, regenerateQuotePdf, resetPassword, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, verifyMfa } from './api'
 import type { ApiKey, ApiKeyCreated, AuditLog, CalendarEvent, Client, ClientInput, OrcamentoConfig, PaymentCondition, Product, Projeto, ProjetoDetail, Quote, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
 import { money, quotes } from './data'
 import type { Status } from './data'
@@ -670,6 +670,8 @@ function Team() {
   const [mfaCode, setMfaCode] = useState('')
   const [mfaBusy, setMfaBusy] = useState(false)
   const [mfaError, setMfaError] = useState('')
+  const [disableMfaOpen, setDisableMfaOpen] = useState(false)
+  const [disableMfaPassword, setDisableMfaPassword] = useState('')
 
   useEffect(() => {
     let mounted = true
@@ -680,7 +682,18 @@ function Team() {
     return () => { mounted = false }
   }, [])
 
-  function closeEditing() { setEditing(null); setMfaSetup(null); setMfaCode(''); setMfaError('') }
+  function closeEditing() { setEditing(null); setMfaSetup(null); setMfaCode(''); setMfaError(''); setDisableMfaOpen(false); setDisableMfaPassword('') }
+
+  async function confirmDisableMfa(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!editing) return; setMfaError(''); setMfaBusy(true)
+    try {
+      await disableMfa(disableMfaPassword)
+      setItems(current => current.map(item => item.id === editing.id ? { ...item, mfa_enabled: false } : item))
+      setEditing(current => current ? { ...current, mfa_enabled: false } : current)
+      setDisableMfaOpen(false); setDisableMfaPassword(''); setFeedback('MFA desativado.')
+    } catch (err) { setMfaError(err instanceof Error ? err.message : 'Falha ao desativar MFA.') }
+    finally { setMfaBusy(false) }
+  }
 
   async function startMfaSetup() {
     setMfaError(''); setMfaBusy(true)
@@ -739,7 +752,13 @@ function Team() {
   return <><PageHead eyebrow="GESTÃO · ACESSOS" title="Equipe" subtitle={`${items.length} pessoas · ${activeCount} acessos ativos`} actions={<><input className="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar nome ou e-mail…"/><Button onClick={()=>setOpen(true)}>+ Conceder acesso</Button></>}/>{error&&<p className="form-error" role="alert">{error}</p>}<section className="team-stats"><article className="card"><span>{String(activeCount).padStart(2,'0')}</span><div><h2>Acessos ativos</h2><p>Colaboradores com acesso imediato.</p></div></article><article className="card"><span>{String(suspendedCount).padStart(2,'0')}</span><div><h2>Acesso suspenso</h2><p>Conta preservada sem login permitido.</p></div></article><article className="card security-card"><span>{mfaCount}</span><div><h2>Com MFA ativo</h2><p>Segundo fator habilitado.</p></div></article></section><article className="card list-card"><div className="card-title"><h2>Membros</h2><Badge>{rows.length} pessoas</Badge></div>{loading ? <p className="empty-state">Carregando equipe…</p> : <DataTable headers={['NOME / E-MAIL','CARGO','STATUS DO ACESSO','MFA','AÇÕES']} rows={rows.map(item=>[<div className="person"><span>{item.nome.split(' ').map(part=>part[0]).slice(0,2).join('')}</span><b>{item.nome}<small>{item.email}</small></b></div>,<Badge tone="neutral">{roleLabel[item.role]||item.role}</Badge>,<Badge tone={item.ativo?'success':'danger'}>{item.ativo?'Ativo':'Suspenso'}</Badge>,item.mfa_enabled?'✓':'—',<button className="text-action" onClick={()=>setEditing(item)}>Gerenciar</button>])}/>}</article>{open&&<Modal title="Conceder acesso" close={()=>setOpen(false)}><form className="modal-form" onSubmit={submitInvite}><label>Nome<input name="nome" autoFocus required/></label><label>E-mail<input name="email" type="email" required/></label><label>Senha provisória<input name="password" type="password" required minLength={8} placeholder="Mín. 8 caracteres, maiúscula, minúscula, número e símbolo"/></label><label>Telefone<input name="contato" placeholder="(11) 99999-9999"/></label><label>Perfil<select name="role" defaultValue="vendedor"><option value="vendedor">Vendedor</option><option value="estoquista">Estoquista</option><option value="admin">Admin</option></select></label>{error&&<p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={()=>setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving?'Salvando…':'Conceder acesso'}</Button></footer></form></Modal>}{editing&&<Modal title={`Gerenciar · ${editing.nome}`} close={closeEditing}><form className="modal-form" onSubmit={submitEdit}><label>Nome<input name="nome" defaultValue={editing.nome} autoFocus required/></label><label>Telefone<input name="contato" defaultValue={editing.contato||''}/></label>{error&&<p className="form-error" role="alert">{error}</p>}<footer>{editing.ativo&&<Button variant="secondary" onClick={()=>deactivate(editing)}>Desligar acesso</Button>}<Button type="submit" disabled={saving}>{saving?'Salvando…':'Salvar'}</Button></footer></form>
   {editing.id===selfId && <div className="modal-form" style={{ gridTemplateColumns: '1fr', borderTop: '1px solid var(--border, #e5e5e5)', paddingTop: '1rem', marginTop: '1rem' }}>
     <p className="mono">AUTENTICAÇÃO EM DUAS ETAPAS</p>
-    {editing.mfa_enabled ? <p className="empty-state">MFA já está ativo na sua conta.</p>
+    {editing.mfa_enabled ? (disableMfaOpen ? <form onSubmit={confirmDisableMfa} className="modal-form" style={{ gridTemplateColumns: '1fr' }}>
+        <p>Confirme sua senha atual para desativar o MFA.</p>
+        <label>Senha<input type="password" value={disableMfaPassword} onChange={e=>setDisableMfaPassword(e.target.value)} autoFocus required/></label>
+        {mfaError&&<p className="form-error" role="alert">{mfaError}</p>}
+        <footer><Button type="button" variant="secondary" onClick={()=>{setDisableMfaOpen(false);setDisableMfaPassword('');setMfaError('')}}>Cancelar</Button><Button type="submit" disabled={mfaBusy}>{mfaBusy?'Desativando…':'Confirmar e desativar'}</Button></footer>
+      </form>
+    : <><p className="empty-state">MFA está ativo na sua conta.</p>{mfaError&&<p className="form-error" role="alert">{mfaError}</p>}<Button type="button" variant="secondary" onClick={()=>setDisableMfaOpen(true)}>Desativar MFA</Button></>)
     : mfaSetup ? <form onSubmit={confirmMfaSetup} className="modal-form" style={{ gridTemplateColumns: '1fr' }}>
         <p>No seu aplicativo autenticador (Google Authenticator, Authy…), adicione uma conta manualmente e informe a chave abaixo:</p>
         <label>Chave manual<input readOnly value={mfaSetup.secret} onFocus={e=>e.currentTarget.select()}/></label>
