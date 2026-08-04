@@ -33,7 +33,7 @@ class UsuarioUpdate(BaseModel):
 class UsuarioOut(BaseModel):
     id: int
     nome: str
-    email: EmailStr
+    email: str
     role: str
     contato: Optional[str] = None
     ativo: bool
