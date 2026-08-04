@@ -20,6 +20,7 @@ from routers import calendario as calendario_router
 from routers import logs as logs_router
 from routers import projetos as projetos_router
 from routers import integracoes as integracoes_router
+from routers import financeiro as financeiro_router
 from fastapi.middleware.cors import CORSMiddleware
 import auth as auth_module
 import shutil
@@ -92,6 +93,7 @@ app.include_router(calendario_router.router)
 app.include_router(logs_router.router)
 app.include_router(projetos_router.router)
 app.include_router(integracoes_router.router)
+app.include_router(financeiro_router.router)
 
 
 @app.get("/static/uploads/{filename:path}")

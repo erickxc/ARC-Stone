@@ -422,3 +422,47 @@ class ApiKeyOut(BaseModel):
     class Config:
         from_attributes = True
 
+
+# --- Financeiro (ledger de lançamentos: contas a pagar/receber) ---
+
+class LancamentoCreate(BaseModel):
+    descricao: str = Field(..., max_length=200, pattern=r"^[^<>]*$")
+    categoria: Optional[str] = Field(None, max_length=100, pattern=r"^[^<>]*$")
+    valor: int = Field(..., gt=0)  # em centavos
+    tipo: str = "SAIDA"
+    data_vencimento: datetime
+
+    @field_validator('tipo')
+    def validate_tipo(cls, v):
+        if v not in ('ENTRADA', 'SAIDA'): raise ValueError("Tipo deve ser 'ENTRADA' ou 'SAIDA'.")
+        return v
+
+class LancamentoOut(BaseModel):
+    id: int
+    tipo: str
+    descricao: str
+    categoria: Optional[str] = None
+    valor: int
+    status: str
+    data_vencimento: datetime
+    data_pagamento: Optional[datetime] = None
+    automatico: bool
+    orcamento_id: Optional[int] = None
+    usuario_id: int
+    created_at: datetime
+    vencido: bool = False
+    class Config:
+        from_attributes = True
+
+class FinanceiroResumoOut(BaseModel):
+    a_receber: int  # soma pendente ENTRADA, em centavos
+    recebido_no_periodo: int
+    vencidos: int
+    margem_media: Optional[float] = None  # percentual (0-100), None se não houver base de cálculo
+    titulos_abertos: int
+
+class FluxoMensalItem(BaseModel):
+    mes: str  # "2026-08"
+    entradas: int
+    saidas: int
+
