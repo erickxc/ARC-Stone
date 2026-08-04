@@ -107,3 +107,43 @@ def test_status_invalido_rejeitado(client, make_user, make_client):
 
     resp = client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "StatusQueNaoExiste"})
     assert resp.status_code == 400
+
+
+def test_aprovar_sem_estoque_suficiente_bloqueia(client, make_user, make_client, make_product):
+    """Regressão do achado adversarial D: aprovar não pode reter mais do que existe disponível."""
+    vendedor = make_user(role="vendedor")
+    cliente = make_client(vendedor)
+    produto = make_product(quantidade_estoque=2, quantidade_retida=0)
+    _login(client, vendedor)
+
+    criado = client.post("/orcamentos/", json={
+        "cliente_id": cliente.id, "tipo_orcamento": "Venda",
+        "condicoes_pagamento_selecionadas": "à vista",
+        "itens": [{"produto_id": produto.id, "quantidade": 5, "preco_unitario_aplicado": 1000}],
+    })
+    assert criado.status_code == 201, criado.text
+    orcamento_id = criado.json()["id"]
+
+    resp = client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Aprovado"})
+    assert resp.status_code == 400
+    assert "estoque" in resp.json()["detail"].lower()
+
+
+def test_aprovar_com_estoque_suficiente_retem_a_quantidade_certa(client, make_user, make_client, make_product, db_session):
+    vendedor = make_user(role="vendedor")
+    cliente = make_client(vendedor)
+    produto = make_product(quantidade_estoque=10, quantidade_retida=0)
+    _login(client, vendedor)
+
+    criado = client.post("/orcamentos/", json={
+        "cliente_id": cliente.id, "tipo_orcamento": "Venda",
+        "condicoes_pagamento_selecionadas": "à vista",
+        "itens": [{"produto_id": produto.id, "quantidade": 3, "preco_unitario_aplicado": 1000}],
+    })
+    orcamento_id = criado.json()["id"]
+
+    resp = client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Aprovado"})
+    assert resp.status_code == 200
+
+    db_session.refresh(produto)
+    assert produto.quantidade_retida == 3

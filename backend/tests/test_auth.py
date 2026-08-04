@@ -5,6 +5,7 @@ from datetime import timedelta
 import pyotp
 
 import auth as auth_module
+import models
 
 
 def test_login_sucesso(client, make_user):
@@ -68,12 +69,16 @@ def test_forgot_password_mensagem_generica_email_existente_e_inexistente(client,
     assert existente.json()["message"] == inexistente.json()["message"]
 
 
-def test_reset_password_token_valido_troca_senha(client, make_user):
-    user = make_user(password="SenhaAntiga@123")
-    reset_token = auth_module.create_access_token(
-        data={"sub": user.email, "type": auth_module.TOKEN_TYPE_RESET},
+def _reset_token(user, rtv=None):
+    return auth_module.create_access_token(
+        data={"sub": user.email, "type": auth_module.TOKEN_TYPE_RESET, "rtv": user.reset_token_version if rtv is None else rtv},
         expires_delta=timedelta(hours=1),
     )
+
+
+def test_reset_password_token_valido_troca_senha(client, make_user):
+    user = make_user(password="SenhaAntiga@123")
+    reset_token = _reset_token(user)
     resp = client.post("/auth/reset-password", json={"token": reset_token, "new_password": "SenhaNova@456"})
     assert resp.status_code == 200
 
@@ -91,12 +96,32 @@ def test_reset_password_token_invalido_rejeitado(client):
 
 def test_reset_password_senha_curta_rejeitada(client, make_user):
     user = make_user()
-    reset_token = auth_module.create_access_token(
-        data={"sub": user.email, "type": auth_module.TOKEN_TYPE_RESET},
-        expires_delta=timedelta(hours=1),
-    )
-    resp = client.post("/auth/reset-password", json={"token": reset_token, "new_password": "curta"})
+    resp = client.post("/auth/reset-password", json={"token": _reset_token(user), "new_password": "curta"})
     assert resp.status_code == 400
+
+
+def test_reset_password_exige_mesma_complexidade_da_criacao(client, make_user):
+    """Regressão do achado F6: reset não pode aceitar senha mais fraca que a criação exigiria."""
+    user = make_user()
+    resp = client.post("/auth/reset-password", json={"token": _reset_token(user), "new_password": "somenteminusculas"})
+    assert resp.status_code == 400
+    assert "maiúscula" in resp.json()["detail"].lower() or "número" in resp.json()["detail"].lower()
+
+
+def test_reset_password_token_uso_unico(client, make_user):
+    """Regressão do achado F3: token de reset não pode ser reaplicado depois de usado."""
+    user = make_user(password="SenhaAntiga@123")
+    token = _reset_token(user)
+
+    primeiro = client.post("/auth/reset-password", json={"token": token, "new_password": "SenhaNova@456"})
+    assert primeiro.status_code == 200
+
+    segundo = client.post("/auth/reset-password", json={"token": token, "new_password": "OutraSenha@789"})
+    assert segundo.status_code == 400
+
+    # A senha do primeiro reset continua valendo — o segundo não teve efeito
+    login = client.post("/auth/login", data={"username": user.email, "password": "SenhaNova@456"})
+    assert login.status_code == 200
 
 
 def test_reset_password_rejeita_token_de_outro_tipo(client, make_user):
@@ -108,6 +133,38 @@ def test_reset_password_rejeita_token_de_outro_tipo(client, make_user):
     )
     resp = client.post("/auth/reset-password", json={"token": access_token, "new_password": "SenhaNova@456"})
     assert resp.status_code == 401
+
+
+def test_login_falho_gera_audit_log(client, make_user, db_session):
+    """Regressão do achado adversarial H: tentativa de login com senha errada vira AuditLog."""
+    user = make_user()
+    resp = client.post("/auth/login", data={"username": user.email, "password": "SenhaErrada@999"})
+    assert resp.status_code == 401
+
+    log = db_session.query(models.AuditLog).filter(
+        models.AuditLog.usuario_id == user.id, models.AuditLog.acao == "LOGIN_FALHOU"
+    ).first()
+    assert log is not None
+
+
+def test_mfa_disable_exige_senha_correta(client, make_user):
+    secret = pyotp.random_base32()
+    user = make_user(mfa_enabled=True, totp_secret=secret, password="SenhaCorreta@123")
+    # login exige MFA — completa o fluxo antes de tentar desativar
+    login = client.post("/auth/login", data={"username": user.email, "password": user._plain_password})
+    mfa_token = login.json()["mfa_token"]
+    ok_code = pyotp.TOTP(secret).now()
+    client.post("/auth/mfa-login", json={"mfa_token": mfa_token, "code": ok_code})
+
+    negado = client.post("/auth/disable-mfa", json={"password": "SenhaErrada@999"})
+    assert negado.status_code == 401
+
+    permitido = client.post("/auth/disable-mfa", json={"password": "SenhaCorreta@123"})
+    assert permitido.status_code == 200
+
+    # Depois de desativado, login não pede mais MFA
+    novo_login = client.post("/auth/login", data={"username": user.email, "password": "SenhaCorreta@123"})
+    assert novo_login.json()["mfa_required"] is False
 
 
 def test_rbac_vendedor_nao_pode_criar_funcionario(client, make_user):

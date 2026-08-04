@@ -126,6 +126,25 @@ def make_client(db_session):
     return _make
 
 
+@pytest.fixture()
+def make_product(db_session):
+    def _make(**overrides):
+        produto = models.Produto(
+            nome=overrides.pop("nome", None) or f"Produto {uuid.uuid4().hex[:6]}",
+            preco_custo=overrides.pop("preco_custo", 1000),
+            preco_venda=overrides.pop("preco_venda", 2000),
+            quantidade_estoque=overrides.pop("quantidade_estoque", 10),
+            quantidade_retida=overrides.pop("quantidade_retida", 0),
+            **overrides,
+        )
+        db_session.add(produto)
+        db_session.commit()
+        db_session.refresh(produto)
+        return produto
+
+    return _make
+
+
 def login_client(client: TestClient, email: str, password: str) -> TestClient:
     """Loga via /auth/login e devolve o mesmo TestClient com os cookies de sessão setados."""
     resp = client.post("/auth/login", data={"username": email, "password": password})
