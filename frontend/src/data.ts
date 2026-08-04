@@ -12,21 +12,4 @@ export const quotes = [
   { id: 'ORC-0404', project: 'Loja Pinheiros', client: 'Grupo Norte', status: 'Perdido' as Status, value: 312000, date: 'PREÇO', owner: 'J' },
 ]
 
-export const clients = [
-  ['Studio Aroeira', 'marina@aroeira.com', 'Escritório', '248.900', 'há 2 dias'],
-  ['Incorporadora Ventura', 'compras@ventura.com.br', 'Incorporadora', '1.354.200', 'hoje'],
-  ['Cissa Bueno', 'marina.bueno@gmail.com', 'Pessoa física', '96.150', 'há 6 dias'],
-  ['Grupo Norte', 'projetos@gruponorte.com', 'Varejo', '188.400', 'há 74 dias'],
-  ['Ana Prado', 'ana@apstudio.com', 'Escritório', '54.400', 'há 1 dia'],
-]
-
-export const inventory = [
-  ['CAT-1189', 'MDF carvalho 18mm', 'Painéis', '4', '12', 'Crítico'],
-  ['CAT-0442', 'Quartzo branco absoluto', 'Bancadas', '9', '6', 'Saudável'],
-  ['CAT-0771', 'Ripa freijó 20mm', 'Painéis', '11', '10', 'Atenção'],
-  ['CAT-2210', 'Perfil linear LED 2700K', 'Iluminação', '38', '20', 'Saudável'],
-  ['CAT-0318', 'Corrediça soft-close 500mm', 'Ferragens', '6', '24', 'Crítico'],
-  ['CAT-0904', 'Fita de borda ABS carvalho', 'Acabamento', '19', '8', 'Saudável'],
-]
-
 export const money = (value: number) => value.toLocaleString('pt-BR')

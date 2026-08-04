@@ -49,7 +49,10 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Vari�veis de Ambiente
+# Plano de execução local (Claude Code)
+.claude/
+
+# Vari�veis de Ambiente
 .env
 
 # Documentos Internos Sensiveis (nao expor no GitHub)
