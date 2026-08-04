@@ -626,7 +626,7 @@ def deletar_orcamento(orcamento_id: int, db: Session = Depends(get_db), current_
     return None
 
 
-@router.put("/{orcamento_id}/status")
+@router.put("/{orcamento_id}/status", response_model=schemas.OrcamentoOut)
 def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str | None = None, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     """ Transição de Status do Kanban (Arraste e Solte) """
     orcamento = db.query(models.Orcamento).filter(models.Orcamento.id == orcamento_id).first()
@@ -749,7 +749,7 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
         entidade_id=orcamento.id
     ))
     db.commit()
-    return orcamento
+    return _enrich_orcamento(orcamento, db)
 
 
 class RenovarLocacaoRequest(schemas.BaseModel):
