@@ -274,7 +274,9 @@ class LancamentoFinanceiro(Base):
     data_vencimento = Column(DateTime(timezone=True), nullable=False)
     data_pagamento = Column(DateTime(timezone=True), nullable=True)
     automatico = Column(Boolean, nullable=False, default=False)  # gerado ao aprovar orçamento
-    orcamento_id = Column(Integer, ForeignKey("orcamentos.id"), nullable=True, index=True)
+    # ON DELETE SET NULL: excluir o orçamento não pode falhar por causa de um lançamento já
+    # pago vinculado a ele — o lançamento fica como histórico órfão, só perde a referência.
+    orcamento_id = Column(Integer, ForeignKey("orcamentos.id", ondelete="SET NULL"), nullable=True, index=True)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

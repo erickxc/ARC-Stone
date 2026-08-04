@@ -177,6 +177,13 @@ def on_startup():
         conn.execute(text("ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS projeto_id INTEGER"))
         conn.execute(text("ALTER TABLE orcamento_itens ADD COLUMN IF NOT EXISTS projeto_item_id INTEGER"))
         conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token_version INTEGER NOT NULL DEFAULT 0"))
+        # Corrige a FK de lançamentos_financeiros criada antes de ON DELETE SET NULL existir
+        # no model — sem isso, excluir um orçamento com lançamento pago vinculado falha.
+        conn.execute(text("ALTER TABLE lancamentos_financeiros DROP CONSTRAINT IF EXISTS lancamentos_financeiros_orcamento_id_fkey"))
+        conn.execute(text(
+            "ALTER TABLE lancamentos_financeiros ADD CONSTRAINT lancamentos_financeiros_orcamento_id_fkey "
+            "FOREIGN KEY (orcamento_id) REFERENCES orcamentos(id) ON DELETE SET NULL"
+        ))
 
     db = database.SessionLocal()
     try:
