@@ -248,7 +248,7 @@ def criar_orcamento(orcamento: schemas.OrcamentoCreate, db: Session = Depends(ge
         print(f"[PDF] Erro ao gerar PDF do orçamento #{novo_orcamento.id}: {e}")
         # Não falha a criação do orçamento se o PDF der erro
     
-    return _enrich_orcamento(novo_orcamento, db)
+    return _enrich_orcamento(novo_orcamento, detail=True)
 
 
 @router.get("/config", response_model=schemas.OrcamentoConfigOut)
@@ -368,7 +368,7 @@ def editar_orcamento(orcamento_id: int, orcamento_in: schemas.OrcamentoCreate, d
     except Exception as e:
         print(f"[PDF] Erro ao gerar PDF na edição do orçamento #{orcamento.id}: {e}")
 
-    return _enrich_orcamento(orcamento, db)
+    return _enrich_orcamento(orcamento, detail=True)
 
 
 @router.get("/", response_model=list[schemas.OrcamentoOut])
@@ -391,7 +391,7 @@ def listar_orcamentos(db: Session = Depends(get_db), current_user: models.Usuari
     
     # Enriquece cada orçamento com dados calculados
     for orc in orcamentos:
-        _enrich_orcamento(orc, db)
+        _enrich_orcamento(orc, detail=True)
     
     return orcamentos
 
@@ -707,10 +707,12 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
     ]
 
     if produto_ids:
+        # Trava as linhas dos produtos envolvidos: evita que duas aprovações concorrentes do
+        # mesmo item leiam o mesmo saldo disponível e retenham mais do que existe fisicamente.
         produtos_map = {
             p.id: p for p in db.query(models.Produto).filter(
                 models.Produto.id.in_(produto_ids)
-            ).all()
+            ).with_for_update().all()
         }
 
         # 1. Estorno de Retenção
@@ -720,8 +722,17 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
                 if p:
                     p.quantidade_retida = max(0, p.quantidade_retida - item.quantidade)
 
-        # 2. Nova Retenção
+        # 2. Nova Retenção — só reserva o que realmente está disponível (estoque - já retido)
         if status_anterior not in retained_statuses and novo_status in retained_statuses:
+            for item in orcamento.itens:
+                p = produtos_map.get(item.produto_id) if item.produto_id and not item.is_externo else None
+                if p:
+                    disponivel = p.quantidade_estoque - p.quantidade_retida
+                    if disponivel < item.quantidade:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Estoque insuficiente para aprovar: '{p.nome}' tem {disponivel} unidade(s) disponível(is), mas o orçamento pede {item.quantidade}.",
+                        )
             for item in orcamento.itens:
                 p = produtos_map.get(item.produto_id) if item.produto_id and not item.is_externo else None
                 if p:
@@ -749,7 +760,7 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
         entidade_id=orcamento.id
     ))
     db.commit()
-    return _enrich_orcamento(orcamento, db)
+    return _enrich_orcamento(orcamento, detail=True)
 
 
 class RenovarLocacaoRequest(schemas.BaseModel):
@@ -806,8 +817,12 @@ def regenerar_pdf(orcamento_id: int, db: Session = Depends(get_db), current_user
         raise HTTPException(status_code=403, detail="Acesso negado.")
     
     pdf_data = _build_pdf_data(orcamento, db)
-    pdf_url = generate_orcamento_pdf(pdf_data)
+    try:
+        pdf_url = generate_orcamento_pdf(pdf_data)
+    except Exception as e:
+        print(f"[PDF] Erro ao regenerar PDF do orçamento #{orcamento_id}: {e}")
+        raise HTTPException(status_code=500, detail="Falha ao gerar o PDF. Verifique os dados do orçamento (cliente, itens) por caracteres inválidos.")
     orcamento.anexo_url = pdf_url
     db.commit()
-    
+
     return {"status": "PDF regenerado com sucesso", "anexo_url": pdf_url}

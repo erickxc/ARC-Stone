@@ -33,8 +33,9 @@ class Usuario(Base):
     role = Column(String, nullable=False)
     contato = Column(String, nullable=True)  # Telefone do funcionário (exibido no PDF)
     ativo = Column(Boolean, default=True)
-    totp_secret = Column(String, nullable=True) 
+    totp_secret = Column(String, nullable=True)
     mfa_enabled = Column(Boolean, default=False)
+    reset_token_version = Column(Integer, nullable=False, default=0)  # incrementa a cada uso do token de reset, invalidando os anteriores
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     clientes = relationship("Cliente", back_populates="vendedor")

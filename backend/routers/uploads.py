@@ -83,6 +83,7 @@ async def upload_file(file: UploadFile = File(...), current_user = Depends(get_c
 
 from pydantic import BaseModel
 import requests
+from ssrf_utils import assert_public_http_url
 
 class URLUploadRequest(BaseModel):
     url: str
@@ -93,16 +94,19 @@ async def upload_from_url(body: URLUploadRequest, current_user = Depends(get_cur
     Faz o download de uma imagem de um site externo e salva localmente.
     Ideal para arrastar e soltar imagens de outras abas.
     """
-    url = body.url
-    if not url.startswith("http://") and not url.startswith("https://"):
-        raise HTTPException(status_code=400, detail="URL inválida. Apenas HTTP/HTTPS são suportados.")
-        
+    url = assert_public_http_url(body.url)
+
     try:
         # Define um User-Agent para evitar bloqueios básicos
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         response = requests.get(url, headers=headers, timeout=10, stream=True)
         response.raise_for_status()
-    except Exception as e:
+        # requests segue redirect por padrão — revalida o destino final (anti-SSRF via redirect)
+        if response.url != url:
+            assert_public_http_url(response.url)
+    except HTTPException:
+        raise
+    except Exception:
         raise HTTPException(status_code=400, detail="Não foi possível baixar a imagem deste link.")
 
     content = response.content

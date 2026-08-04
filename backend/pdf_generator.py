@@ -5,6 +5,7 @@ Usa ReportLab para criar PDFs no padrão visual do projeto.
 import os
 import uuid
 from datetime import datetime
+from xml.sax.saxutils import escape as _xml_escape
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm, cm
@@ -31,6 +32,16 @@ SAND = LINO
 NOBLE_GRAY = SOMBRA
 
 PAGE_WIDTH, PAGE_HEIGHT = A4
+
+
+def esc(value) -> str:
+    """Escapa texto de origem do usuário (nome de cliente, item, observação, etc.) antes de
+    entrar em markup do ReportLab (Paragraph interpreta um subconjunto de tags tipo XML — sem
+    escapar, `<`/`>`/`&` podem quebrar o parser ou injetar markup/link no PDF final)."""
+    if value is None:
+        return ''
+    return _xml_escape(str(value))
+
 
 def get_styles():
     """Retorna estilos customizados para os PDFs do ARC ERP."""
@@ -137,18 +148,18 @@ def build_client_section(orcamento_data, styles):
     # Monta o bloco de dados do cliente
     client_lines = [
         f'<b>Rio de Janeiro, {data_hoje}</b>',
-        f'Nome: <b>{orcamento_data.get("cliente_nome", "")}</b>     '
-        f'Tel.: <b>{orcamento_data.get("cliente_contato", "")}</b>',
-        f'E-mail: <b>{orcamento_data.get("cliente_email", "")}</b>     '
-        f'CPF/CNPJ: <b>{orcamento_data.get("cliente_cpf_cnpj", "")}</b>',
-        f'Responsável: <b>{orcamento_data.get("cliente_responsavel", "")}</b>',
-        f'Endereço de Entrega: <b>{orcamento_data.get("cliente_endereco", "")}</b>',
+        f'Nome: <b>{esc(orcamento_data.get("cliente_nome", ""))}</b>     '
+        f'Tel.: <b>{esc(orcamento_data.get("cliente_contato", ""))}</b>',
+        f'E-mail: <b>{esc(orcamento_data.get("cliente_email", ""))}</b>     '
+        f'CPF/CNPJ: <b>{esc(orcamento_data.get("cliente_cpf_cnpj", ""))}</b>',
+        f'Responsável: <b>{esc(orcamento_data.get("cliente_responsavel", ""))}</b>',
+        f'Endereço de Entrega: <b>{esc(orcamento_data.get("cliente_endereco", ""))}</b>',
     ]
-    
+
     if orcamento_data.get("arquiteto_nome"):
         client_lines.append(
-            f'Arquiteto: <b>{orcamento_data.get("arquiteto_nome")}</b>     '
-            f'Tel. Arquiteto: <b>{orcamento_data.get("arquiteto_contato", "")}</b>'
+            f'Arquiteto: <b>{esc(orcamento_data.get("arquiteto_nome"))}</b>     '
+            f'Tel. Arquiteto: <b>{esc(orcamento_data.get("arquiteto_contato", ""))}</b>'
         )
     
     tipo = orcamento_data.get("tipo_orcamento", "Venda")
@@ -272,21 +283,21 @@ def build_items_table(itens, styles):
     
     subtotal = 0
     for idx, item in enumerate(itens, 1):
-        nome = item.get('nome_externo', '') if item.get('is_externo') else item.get('nome', f'Produto #{item.get("produto_id", "?")}')
-        descricao = item.get('descricao_externa', '') if item.get('is_externo') else ''
-        local_inst = item.get('local_instalacao', '')
-        
+        nome = esc(item.get('nome_externo', '') if item.get('is_externo') else item.get('nome', f'Produto #{item.get("produto_id", "?")}'))
+        descricao = esc(item.get('descricao_externa', '') if item.get('is_externo') else '')
+        local_inst = esc(item.get('local_instalacao', ''))
+
         display_name = nome
         if descricao:
             display_name += f'<br/><font size="6" color="#888">{descricao}</font>'
         if local_inst:
             display_name += f'<br/><font size="7" color="#2E2D2C">Local: {local_inst}</font>'
-        personalizacao = item.get('personalizacao_aplicada', '')
+        personalizacao = esc(item.get('personalizacao_aplicada', ''))
         if personalizacao:
             display_name += f'<br/><font size="7" color="#2E2D2C">Personalização: {personalizacao}</font>'
-            
+
         prazo_val = item.get('prazo_entrega_valor', '')
-        prazo_uni = item.get('prazo_entrega_unidade', '')
+        prazo_uni = esc(item.get('prazo_entrega_unidade', ''))
         if prazo_val:
             display_name += f'<br/><font size="7" color="#2E2D2C">Prazo de Entrega: {prazo_val} {prazo_uni}</font>'
         
@@ -391,11 +402,12 @@ def build_footer_info(styles, config=None, orcamento_data=None):
     
     if not cond_pagamento:
         cond_pagamento = config.get('condicao_pagamento') or '5% à vista OU 3x sem juros. Em caso de construtoras e empreiteiras, 28 dias de faturamento.'
-        
-    prazo = config.get('prazo_entrega') or 'em casos de pronta entrega, até 7 dias úteis. No geral, de 30 a 40 dias úteis.'
-    validade = config.get('validade_orcamento') or '30 dias corridos.'
-    garantia = config.get('garantia_mobiliario') or '6 meses contra eventuais defeitos de fabricação.'
-    observacoes = config.get('observacoes_extras') or 'Peças cromadas em região litorânea não possuem garantia.\nEm caso de içamento, será de total responsabilidade do comprador.'
+    cond_pagamento = esc(cond_pagamento)
+
+    prazo = esc(config.get('prazo_entrega') or 'em casos de pronta entrega, até 7 dias úteis. No geral, de 30 a 40 dias úteis.')
+    validade = esc(config.get('validade_orcamento') or '30 dias corridos.')
+    garantia = esc(config.get('garantia_mobiliario') or '6 meses contra eventuais defeitos de fabricação.')
+    observacoes = esc(config.get('observacoes_extras') or 'Peças cromadas em região litorânea não possuem garantia.\nEm caso de içamento, será de total responsabilidade do comprador.')
     
     info_lines = [
         f'<b>Condição de Pagamento:</b> {cond_pagamento}',
@@ -421,9 +433,9 @@ def build_vendor_footer(vendedor_data, styles):
     elements.append(Spacer(1, 8*mm))
     elements.append(HRFlowable(width="100%", thickness=1, color=WOOD, spaceAfter=4*mm))
     
-    nome = vendedor_data.get('nome', 'Vendedor')
-    contato = vendedor_data.get('contato', '')
-    email = vendedor_data.get('email', '')
+    nome = esc(vendedor_data.get('nome', 'Vendedor'))
+    contato = esc(vendedor_data.get('contato', ''))
+    email = esc(vendedor_data.get('email', ''))
     
     vendor_text = f"""
     <font size="10" color="#2E2D2C"><b>{nome}</b></font><br/>

@@ -26,11 +26,24 @@ import shutil
 
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from rate_limiter import limiter
 
-app = FastAPI(title="ARC ERP")
+# Em produção, /docs, /redoc e /openapi.json ficam desligados — não expor o mapa completo
+# da API (rotas, schemas, regras) sem autenticação. Fica ligado por padrão em dev.
+IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
+
+app = FastAPI(
+    title="ARC ERP",
+    docs_url=None if IS_PRODUCTION else "/docs",
+    redoc_url=None if IS_PRODUCTION else "/redoc",
+    openapi_url=None if IS_PRODUCTION else "/openapi.json",
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# Aplica default_limits do Limiter (100/minute) a TODAS as rotas, não só as com
+# @limiter.limit(...) explícito — sem isso, default_limits nunca era enforçado de fato.
+app.add_middleware(SlowAPIMiddleware)
 
 # Uploads: diretórios (NÃO montamos StaticFiles público — serve autenticado abaixo)
 os.makedirs("uploads", exist_ok=True)
@@ -161,6 +174,7 @@ def on_startup():
         conn.execute(text("ALTER TABLE orcamento_config ADD COLUMN IF NOT EXISTS empresa2_cnpj VARCHAR"))
         conn.execute(text("ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS projeto_id INTEGER"))
         conn.execute(text("ALTER TABLE orcamento_itens ADD COLUMN IF NOT EXISTS projeto_item_id INTEGER"))
+        conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token_version INTEGER NOT NULL DEFAULT 0"))
 
     db = database.SessionLocal()
     try:

@@ -3,6 +3,19 @@ from typing import List, Optional
 from datetime import datetime
 import re
 
+
+def validar_complexidade_senha(v: str) -> str:
+    """Regra única de força de senha — usada tanto na criação de usuário quanto na
+    redefinição de senha (POST /auth/reset-password), pra não deixar o reset aceitar uma
+    senha mais fraca do que a criação de conta permitiria."""
+    if len(v) < 8: raise ValueError('Minimo 8 caracteres.')
+    if not re.search(r"[A-Z]", v): raise ValueError('Requer maiúscula.')
+    if not re.search(r"[a-z]", v): raise ValueError('Requer minúscula.')
+    if not re.search(r"\d", v): raise ValueError('Requer número.')
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v): raise ValueError('Requer caractere especial.')
+    return v
+
+
 class UsuarioCreate(BaseModel):
     nome: str = Field(..., max_length=150, pattern=r"^[^<>]*$")
     email: EmailStr
@@ -12,12 +25,7 @@ class UsuarioCreate(BaseModel):
 
     @field_validator('password')
     def password_complexity(cls, v):
-        if len(v) < 8: raise ValueError('Minimo 8 caracteres.')
-        if not re.search(r"[A-Z]", v): raise ValueError('Requer maiúscula.')
-        if not re.search(r"[a-z]", v): raise ValueError('Requer minúscula.')
-        if not re.search(r"\d", v): raise ValueError('Requer número.')
-        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v): raise ValueError('Requer caractere especial.')
-        return v
+        return validar_complexidade_senha(v)
 
     @field_validator('role')
     def validate_role(cls, v):
