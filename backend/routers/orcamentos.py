@@ -607,10 +607,15 @@ def deletar_orcamento(orcamento_id: int, db: Session = Depends(get_db), current_
     for anexo in anexos:
         _remover_arquivo_anexo(anexo)
         
-    # Os itens serão apagados em cascata se o relacionamento estiver configurado para isso, 
+    # Os itens serão apagados em cascata se o relacionamento estiver configurado para isso,
     # mas para garantir, apagamos manualmente:
     db.query(models.OrcamentoItem).filter(models.OrcamentoItem.orcamento_id == orcamento_id).delete()
     db.query(models.OrcamentoAnexo).filter(models.OrcamentoAnexo.orcamento_id == orcamento_id).delete()
+    # Desvincula (sem apagar) lançamentos financeiros ligados a este orçamento — excluir o
+    # orçamento não deve apagar o histórico financeiro nem violar a FK orcamento_id.
+    db.query(models.LancamentoFinanceiro).filter(
+        models.LancamentoFinanceiro.orcamento_id == orcamento_id
+    ).update({"orcamento_id": None})
     db.delete(orcamento)
     
     # Grava o Log de Exclusão

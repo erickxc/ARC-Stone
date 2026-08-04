@@ -3,7 +3,7 @@ from typing import Optional
 
 from dateutil.relativedelta import relativedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 
 import auth
 import models
@@ -55,6 +55,8 @@ def resumo(
     # orçamentos aprovados dentro do período.
     itens = db.query(models.OrcamentoItem).join(models.Orcamento).join(
         models.Produto, models.OrcamentoItem.produto_id == models.Produto.id
+    ).options(
+        contains_eager(models.OrcamentoItem.produto)
     ).filter(
         models.Orcamento.data_aprovacao >= inicio,
         models.OrcamentoItem.is_externo.is_(False),

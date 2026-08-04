@@ -57,6 +57,29 @@ def test_voltar_status_cancela_lancamento_automatico_pendente(client, make_user,
     assert not any(l["orcamento_id"] == orcamento_id for l in lancamentos)
 
 
+def test_excluir_orcamento_com_lancamento_pago_nao_quebra_por_fk(client, make_user, make_client, make_product):
+    vendedor = make_user(role="vendedor")
+    admin = make_user(role="admin")
+    cliente = make_client(vendedor)
+    produto = make_product(quantidade_estoque=10)
+    _login(client, vendedor)
+    orcamento_id = _criar_orcamento_com_item(client, cliente.id, produto.id)
+    client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Aprovado"})
+
+    _login(client, admin)
+    lancamentos = client.get("/financeiro/lancamentos", params={"tipo": "ENTRADA"}).json()
+    gerado = next(l for l in lancamentos if l["orcamento_id"] == orcamento_id)
+    client.patch(f"/financeiro/lancamentos/{gerado['id']}/pagar")
+
+    excluido = client.delete(f"/orcamentos/{orcamento_id}")
+    assert excluido.status_code == 204, excluido.text
+
+    lancamentos_depois = client.get("/financeiro/lancamentos", params={"tipo": "ENTRADA"}).json()
+    ainda_existe = next(l for l in lancamentos_depois if l["id"] == gerado["id"])
+    assert ainda_existe["orcamento_id"] is None
+    assert ainda_existe["status"] == "pago"
+
+
 def test_lancamento_pago_nao_e_cancelado_ao_voltar_status(client, make_user, make_client, make_product):
     vendedor = make_user(role="vendedor")
     admin = make_user(role="admin")

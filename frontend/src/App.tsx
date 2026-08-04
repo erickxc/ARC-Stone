@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { createApiKey, createCatalogProduct, createClient, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, forgotPassword, getOrcamentoConfig, getProjeto, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLogs, listPaymentConditions, listProjetos, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, regenerateQuotePdf, resetPassword, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, verifyMfa } from './api'
-import type { ApiKey, ApiKeyCreated, AuditLog, CalendarEvent, Client, ClientInput, OrcamentoConfig, PaymentCondition, Product, Projeto, ProjetoDetail, Quote, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
+import { createApiKey, createCatalogProduct, createClient, createLancamento, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, forgotPassword, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getProjeto, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetPassword, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, verifyMfa } from './api'
+import type { ApiKey, ApiKeyCreated, AuditLog, CalendarEvent, Client, ClientInput, FinanceiroResumo, FluxoMensalItem, Lancamento, OrcamentoConfig, PaymentCondition, Product, Projeto, ProjetoDetail, Quote, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
 import { money, quotes } from './data'
 import type { Status } from './data'
 
@@ -871,9 +871,133 @@ function Logs() {
   </>
 }
 
+function brl(cents: number) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100) }
+
 function Finance() {
-  const [period,setPeriod]=useState<'Mês'|'Trimestre'>('Mês'); const [open,setOpen]=useState(false); const [feedback,setFeedback]=useState('')
-  return <><PageHead eyebrow="GESTÃO · FINANCEIRO" title="Painel financeiro" subtitle={`${period} · dados prontos para lançamento`} actions={<><div className="segmented"><button className={period==='Trimestre'?'active':''} onClick={()=>setPeriod('Trimestre')}>Trimestre</button><button className={period==='Mês'?'active':''} onClick={()=>setPeriod('Mês')}>Mês</button></div><Button variant="secondary" onClick={()=>setFeedback('Exportação preparada em CSV.')}>Exportar</Button><Button onClick={()=>setOpen(true)}>+ Lançamento</Button></>}/><section className="kpi-grid"><Kpi label="A RECEBER" value="R$ 742k" note="18 títulos abertos"/><Kpi label="RECEBIDO NO MÊS" value="R$ 612k" note="meta R$ 700k"/><Kpi label="VENCIDOS" value="R$ 96k" note="4 títulos · cobrar"/><Kpi dark label="MARGEM MÉDIA" value="28%" note="+3 p.p. vs. julho"/></section><section className="finance-grid"><article className="card chart"><h2>Entradas e saídas</h2><div className="bars">{[55,78,43,88,66,96].map((n,i)=><div key={i}><i style={{height:`${n}%`}}/><b style={{height:`${n*.62}%`}}/><span>{['MAR','ABR','MAI','JUN','JUL','AGO'][i]}</span></div>)}</div></article><div><article className="card"><h2>Aging de recebíveis</h2><StatusBars/></article><article className="card total-card forecast"><p className="mono">FLUXO PROJETADO · 30 DIAS</p><strong>+ R$ 268k</strong><dl><dt>Entradas previstas</dt><dd>594k</dd><dt>Compras e fornecedores</dt><dd>211k</dd><dt>Folha e serviços</dt><dd>115k</dd></dl></article></div></section><article className="card list-card"><div className="card-title"><h2>Títulos a receber</h2><button className="text-action" onClick={()=>setFeedback('Filtro completo de títulos aberto.')}>Ver todos</button></div><DataTable headers={['TÍTULO','PROJETO','CLIENTE','SITUAÇÃO','VALOR','VENCE']} rows={quotes.slice(0,4).map((q,i)=>[q.id.replace('ORC','FT'),<b>{q.project}</b>,q.client,<Badge tone={i===1?'success':i===2?'danger':'info'}>{i===1?'Pago':i===2?'Vencido':'Em aberto'}</Badge>,money(q.value),q.date])}/></article>{open&&<Modal title="Novo lançamento" close={()=>setOpen(false)}><form className="modal-form" onSubmit={e=>{e.preventDefault();setOpen(false);setFeedback('Lançamento salvo como rascunho.')}}><label>Descrição<input name="description" required autoFocus placeholder="Compra de MDF…"/></label><label>Valor<input name="amount" type="number" min="0" step="0.01" required placeholder="0,00"/></label><label>Data<input name="date" type="date" required/></label><footer><Button variant="secondary" onClick={()=>setOpen(false)}>Cancelar</Button><Button type="submit">Salvar lançamento</Button></footer></form></Modal>}{feedback&&<Feedback message={feedback} close={()=>setFeedback('')}/>}</>
+  const [period, setPeriod] = useState<'Mês' | 'Trimestre'>('Mês')
+  const [resumo, setResumo] = useState<FinanceiroResumo | null>(null)
+  const [receivables, setReceivables] = useState<Lancamento[]>([])
+  const [fluxo, setFluxo] = useState<FluxoMensalItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [open, setOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [feedback, setFeedback] = useState('')
+
+  async function carregar() {
+    setLoading(true); setError('')
+    try {
+      const [resumoData, receivablesData, fluxoData] = await Promise.all([
+        getFinanceiroResumo(period), listLancamentos({ tipo: 'ENTRADA' }), getFluxoMensal(),
+      ])
+      setResumo(resumoData); setReceivables(receivablesData); setFluxo(fluxoData)
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao carregar dados financeiros.') }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { carregar() }, [period])
+
+  async function submitLancamento(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault(); setSaving(true); setError('')
+    const form = new FormData(e.currentTarget)
+    try {
+      await createLancamento({
+        descricao: String(form.get('description') || ''),
+        valor: Math.round(Number(form.get('amount') || 0) * 100),
+        data_vencimento: `${form.get('date')}T00:00:00Z`,
+        tipo: 'SAIDA',
+      })
+      setOpen(false); setFeedback('Lançamento salvo.')
+      setResumo(await getFinanceiroResumo(period))
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao salvar lançamento.') }
+    finally { setSaving(false) }
+  }
+
+  async function marcarComoPago(lancamento: Lancamento) {
+    try {
+      await pagarLancamento(lancamento.id)
+      setReceivables(current => current.filter(l => l.id !== lancamento.id))
+      setResumo(await getFinanceiroResumo(period))
+      setFeedback(`Título "${lancamento.descricao}" marcado como pago.`)
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao marcar título como pago.') }
+  }
+
+  function exportarCsv() {
+    const linhas = [['TÍTULO', 'DESCRIÇÃO', 'SITUAÇÃO', 'VALOR', 'VENCIMENTO'], ...receivables.map(l => [
+      `FT${l.orcamento_id ?? l.id}`, l.descricao,
+      l.status === 'pago' ? 'Pago' : l.vencido ? 'Vencido' : 'Em aberto',
+      (l.valor / 100).toFixed(2).replace('.', ','),
+      new Date(l.data_vencimento).toLocaleDateString('pt-BR'),
+    ])]
+    const csv = linhas.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = `titulos-a-receber-${new Date().toISOString().slice(0, 10)}.csv`; a.click()
+    URL.revokeObjectURL(url)
+    setFeedback('Exportação em CSV concluída.')
+  }
+
+  const agora = Date.now()
+  const diasVencido = (venc: string) => Math.floor((agora - new Date(venc).getTime()) / 86400000)
+  const pendentes = receivables.filter(l => l.status === 'pendente')
+  const emDia = pendentes.filter(l => !l.vencido).length
+  const vencidoAte30 = pendentes.filter(l => l.vencido && diasVencido(l.data_vencimento) <= 30).length
+  const vencidoMais30 = pendentes.filter(l => l.vencido && diasVencido(l.data_vencimento) > 30).length
+  const totalAging = emDia + vencidoAte30 + vencidoMais30
+  const agingBuckets: [string, number, string][] = [
+    ['Em dia', emDia, 'aprovado'], ['Vencido até 30 dias', vencidoAte30, 'planejando'], ['Vencido +30 dias', vencidoMais30, 'perdido'],
+  ]
+  const picoFluxo = Math.max(1, ...fluxo.map(f => Math.max(f.entradas, f.saidas)))
+
+  return <><PageHead eyebrow="GESTÃO · FINANCEIRO" title="Painel financeiro" subtitle={`${period} · dados reais do ledger financeiro`} actions={<><div className="segmented"><button className={period === 'Trimestre' ? 'active' : ''} onClick={() => setPeriod('Trimestre')}>Trimestre</button><button className={period === 'Mês' ? 'active' : ''} onClick={() => setPeriod('Mês')}>Mês</button></div><Button variant="secondary" onClick={exportarCsv}>Exportar</Button><Button onClick={() => setOpen(true)}>+ Lançamento</Button></>}/>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    {loading ? <p className="empty-state">Carregando dados financeiros…</p> : <>
+      <section className="kpi-grid">
+        <Kpi label="A RECEBER" value={brl(resumo?.a_receber ?? 0)} note={`${resumo?.titulos_abertos ?? 0} títulos abertos`}/>
+        <Kpi label="RECEBIDO NO PERÍODO" value={brl(resumo?.recebido_no_periodo ?? 0)} note={period}/>
+        <Kpi label="VENCIDOS" value={brl(resumo?.vencidos ?? 0)} note="títulos vencidos · cobrar"/>
+        <Kpi dark label="MARGEM MÉDIA" value={resumo?.margem_media != null ? `${resumo.margem_media}%` : '—'} note="orçamentos aprovados no período"/>
+      </section>
+      <section className="finance-grid">
+        <article className="card chart"><h2>Entradas e saídas pagas · últimos 6 meses</h2>
+          {fluxo.length ? <div className="bars">{fluxo.map(f => <div key={f.mes}>
+            <i style={{ height: `${(f.entradas / picoFluxo) * 100}%` }}/>
+            <b style={{ height: `${(f.saidas / picoFluxo) * 100}%` }}/>
+            <span>{f.mes.slice(5)}/{f.mes.slice(2, 4)}</span>
+          </div>)}</div> : <p className="empty-state">Nenhum lançamento pago no período.</p>}
+        </article>
+        <div>
+          <article className="card"><h2>Aging de recebíveis</h2>
+            {totalAging ? <div className="status-bars">{agingBuckets.map(([label, n, tone]) => <div key={label}><span>{label}</span><i><b className={tone} style={{ width: `${(n / totalAging) * 100}%` }}/></i><em>{n}</em></div>)}</div> : <p className="empty-state">Nenhum título a receber.</p>}
+          </article>
+          <article className="card total-card forecast">
+            <p className="mono">TÍTULOS EM ABERTO</p>
+            <strong>{brl(resumo?.a_receber ?? 0)}</strong>
+            <dl><dt>Recebido no período</dt><dd>{brl(resumo?.recebido_no_periodo ?? 0)}</dd><dt>Vencidos</dt><dd>{brl(resumo?.vencidos ?? 0)}</dd></dl>
+          </article>
+        </div>
+      </section>
+      <article className="card list-card">
+        <div className="card-title"><h2>Títulos a receber</h2><Badge>{receivables.length} resultados</Badge></div>
+        {receivables.length ? <DataTable headers={['TÍTULO', 'DESCRIÇÃO', 'SITUAÇÃO', 'VALOR', 'VENCE', 'AÇÃO']} rows={receivables.map(l => [
+          `FT${l.orcamento_id ?? l.id}`,
+          l.descricao,
+          <Badge tone={l.status === 'pago' ? 'success' : l.vencido ? 'danger' : 'info'}>{l.status === 'pago' ? 'Pago' : l.vencido ? 'Vencido' : 'Em aberto'}</Badge>,
+          brl(l.valor),
+          new Intl.DateTimeFormat('pt-BR').format(new Date(l.data_vencimento)),
+          l.status === 'pendente' ? <button className="text-action" onClick={() => marcarComoPago(l)}>Marcar como pago</button> : '—',
+        ])}/> : <p className="empty-state">Nenhum título a receber ainda.</p>}
+      </article>
+    </>}
+    {open && <Modal title="Novo lançamento" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitLancamento}>
+      <label>Descrição<input name="description" required autoFocus placeholder="Compra de MDF…"/></label>
+      <label>Valor<input name="amount" type="number" min="0.01" step="0.01" required placeholder="0,00"/></label>
+      <label>Data<input name="date" type="date" required/></label>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar lançamento'}</Button></footer>
+    </form></Modal>}
+    {feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}
+  </>
 }
 
 function Portal() { const [approved,setApproved]=useState(false); const [adjustOpen,setAdjustOpen]=useState(false); return <div className="portal"><header><Logo/><span>Portal de aprovações</span><b>Ana Prado <i>AP</i></b></header><main><PageHead eyebrow="PROPOSTA ORC-0413 · REV. 02" title="Cobertura Higienópolis" subtitle="Cozinha e living · entrega prevista 12/11/2026 · validade da proposta 15 dias"/><div className="portal-grid"><div><article className="card proposal"><h2>O que está incluído</h2>{proposalItems.map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]} {x[2]}</span><em>{x[4]}</em></div>)}<footer>Total da proposta <strong>R$ 54.400</strong></footer></article><article className="card documents"><p className="mono">DOCUMENTOS DO PROJETO</p><button className="text-action">planta-cozinha.pdf ↓</button> <button className="text-action">render-living.jpg ↓</button> <button className="text-action">memorial-acabamentos.pdf ↓</button></article></div><aside><article className="card decision"><p className="mono">SUA DECISÃO</p><h2>{approved?'Proposta aprovada.':'Aprovar esta proposta?'}</h2><p>{approved?'A produção foi liberada e uma cópia da aprovação seguirá por e-mail.':'Ao aprovar, a produção entra na fila e o pagamento de entrada (40%) é liberado para emissão.'}</p><Button onClick={()=>setApproved(true)}>{approved?'Aprovada':'Aprovar proposta'}</Button><Button variant="secondary" onClick={()=>setAdjustOpen(true)}>Pedir ajuste</Button><small>Você receberá uma cópia por e-mail.</small></article><article className="card timeline"><h2>Andamento</h2>{['Proposta enviada','Revisão de acabamentos','Aprovação do cliente','Produção','Entrega e montagem'].map((x,i)=><div className={i<2||approved&&i===2?'done':i===2?'current':''} key={x}><i/><b>{x}<small>{i<2?'04/08 · 09:12':i===2?(approved?'aprovado agora':'aguardando você'):'após aprovação'}</small></b></div>)}</article><article className="help">Dúvidas antes de decidir?<small>Fale com Rafael Lima · 11 99812-4402</small></article></aside></div></main>{approved&&<div className="toast"><i/>Proposta aprovada. Produção liberada.<button aria-label="Fechar aviso" onClick={()=>setApproved(false)}>×</button></div>}{adjustOpen&&<Modal title="Pedir ajuste" close={()=>setAdjustOpen(false)}><form className="modal-form" onSubmit={e=>{e.preventDefault();setAdjustOpen(false)}}><label>O que precisa revisar?<textarea name="request" required autoFocus placeholder="Descreva o acabamento, prazo ou item…"/></label><footer><Button variant="secondary" onClick={()=>setAdjustOpen(false)}>Cancelar</Button><Button type="submit">Enviar pedido</Button></footer></form></Modal>}</div> }
