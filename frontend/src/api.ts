@@ -186,6 +186,44 @@ export interface ApiKeyCreated extends ApiKey {
   chave: string
 }
 
+export interface Lancamento {
+  id: number
+  tipo: 'ENTRADA' | 'SAIDA'
+  descricao: string
+  categoria: string | null
+  valor: number
+  status: 'pendente' | 'pago'
+  data_vencimento: string
+  data_pagamento: string | null
+  automatico: boolean
+  orcamento_id: number | null
+  usuario_id: number
+  created_at: string
+  vencido: boolean
+}
+
+export interface LancamentoInput {
+  descricao: string
+  categoria?: string | null
+  valor: number
+  tipo?: 'ENTRADA' | 'SAIDA'
+  data_vencimento: string
+}
+
+export interface FinanceiroResumo {
+  a_receber: number
+  recebido_no_periodo: number
+  vencidos: number
+  margem_media: number | null
+  titulos_abertos: number
+}
+
+export interface FluxoMensalItem {
+  mes: string
+  entradas: number
+  saidas: number
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API}${path}`, {
     credentials: 'include',
@@ -341,6 +379,30 @@ export function createApiKey(nome: string) {
 
 export function revokeApiKey(id: number) {
   return request<void>(`/integracoes/api-keys/${id}`, { method: 'DELETE' })
+}
+
+export function getFinanceiroResumo(periodo: 'Mês' | 'Trimestre') {
+  return request<FinanceiroResumo>(`/financeiro/resumo?${new URLSearchParams({ periodo })}`)
+}
+
+export function listLancamentos(filtros?: { tipo?: 'ENTRADA' | 'SAIDA'; status?: 'pendente' | 'pago' }) {
+  const params = new URLSearchParams()
+  if (filtros?.tipo) params.set('tipo', filtros.tipo)
+  if (filtros?.status) params.set('lancamento_status', filtros.status)
+  const query = params.toString()
+  return request<Lancamento[]>(`/financeiro/lancamentos${query ? `?${query}` : ''}`)
+}
+
+export function createLancamento(input: LancamentoInput) {
+  return request<Lancamento>('/financeiro/lancamentos', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function pagarLancamento(id: number) {
+  return request<Lancamento>(`/financeiro/lancamentos/${id}/pagar`, { method: 'PATCH' })
+}
+
+export function getFluxoMensal() {
+  return request<FluxoMensalItem[]>('/financeiro/fluxo-mensal')
 }
 
 export async function login(email: string, password: string) {
