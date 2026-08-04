@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { createApiKey, createCatalogProduct, createClient, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, getOrcamentoConfig, getProjeto, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listPaymentConditions, listProjetos, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, regenerateQuotePdf, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember } from './api'
-import type { ApiKey, ApiKeyCreated, CalendarEvent, Client, ClientInput, OrcamentoConfig, PaymentCondition, Product, Projeto, ProjetoDetail, Quote, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
+import { createApiKey, createCatalogProduct, createClient, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, getOrcamentoConfig, getProjeto, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLogs, listPaymentConditions, listProjetos, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, regenerateQuotePdf, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember } from './api'
+import type { ApiKey, ApiKeyCreated, AuditLog, CalendarEvent, Client, ClientInput, OrcamentoConfig, PaymentCondition, Product, Projeto, ProjetoDetail, Quote, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
 import { money, quotes } from './data'
 import type { Status } from './data'
 
-type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'projects' | 'catalog' | 'inventory' | 'suppliers' | 'schedule' | 'finance' | 'team' | 'integrations' | 'portal'
-const routes: Route[] = ['dashboard', 'clients', 'pipeline', 'builder', 'projects', 'catalog', 'inventory', 'suppliers', 'schedule', 'finance', 'team', 'integrations', 'portal']
+type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'projects' | 'catalog' | 'inventory' | 'suppliers' | 'schedule' | 'finance' | 'team' | 'integrations' | 'logs' | 'portal'
+const routes: Route[] = ['dashboard', 'clients', 'pipeline', 'builder', 'projects', 'catalog', 'inventory', 'suppliers', 'schedule', 'finance', 'team', 'integrations', 'logs', 'portal']
 
 type IconName = Exclude<Route, 'portal'> | 'menu' | 'close'
 const iconPaths: Record<IconName, ReactNode> = {
@@ -22,6 +22,7 @@ const iconPaths: Record<IconName, ReactNode> = {
   finance: <><path d="M4 20V10M10 20V4M16 20v-7M22 20V7"/></>,
   team: <><circle cx="9" cy="8" r="3"/><circle cx="18" cy="9" r="2.5"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M15 15a5 5 0 0 1 6 4.9V21"/></>,
   integrations: <><circle cx="7" cy="12" r="3.2"/><circle cx="17" cy="12" r="3.2"/><path d="M10.2 12h3.6"/></>,
+  logs: <><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></>,
   menu: <path d="M4 7h16M4 12h16M4 17h16"/>,
   close: <path d="m6 6 12 12M18 6 6 18"/>,
 }
@@ -44,7 +45,7 @@ function Button({ children, variant = 'primary', onClick, type = 'button', disab
 
 function Sidebar({ route, go, collapsed, setCollapsed, mobileOpen, closeMobile }: { route: Route; go: (r: Route) => void; collapsed: boolean; setCollapsed: (v: boolean) => void; mobileOpen: boolean; closeMobile: () => void }) {
   const items: [Route, string, string, IconName][] = [
-    ['dashboard', 'Dashboard', '', 'dashboard'], ['clients', 'Carteira de clientes', '', 'clients'], ['pipeline', 'Pipeline de vendas', '18', 'pipeline'], ['builder', 'Construtor de orçamento', '', 'builder'], ['projects', 'Projetos', '', 'projects'], ['catalog', 'Catálogo de produtos', '', 'catalog'], ['inventory', 'Controle de estoque', '7', 'inventory'], ['suppliers', 'Fornecedores', '', 'suppliers'], ['schedule', 'Calendário de entregas', '', 'schedule'], ['finance', 'Painel financeiro', '', 'finance'], ['team', 'Equipe', '', 'team'], ['integrations', 'Integrações', '', 'integrations'],
+    ['dashboard', 'Dashboard', '', 'dashboard'], ['clients', 'Carteira de clientes', '', 'clients'], ['pipeline', 'Pipeline de vendas', '18', 'pipeline'], ['builder', 'Construtor de orçamento', '', 'builder'], ['projects', 'Projetos', '', 'projects'], ['catalog', 'Catálogo de produtos', '', 'catalog'], ['inventory', 'Controle de estoque', '7', 'inventory'], ['suppliers', 'Fornecedores', '', 'suppliers'], ['schedule', 'Calendário de entregas', '', 'schedule'], ['finance', 'Painel financeiro', '', 'finance'], ['team', 'Equipe', '', 'team'], ['integrations', 'Integrações', '', 'integrations'], ['logs', 'Logs de auditoria', '', 'logs'],
   ]
   const navigate = (next: Route) => { go(next); closeMobile() }
   return <><button className={`sidebar-scrim ${mobileOpen ? 'show' : ''}`} onClick={closeMobile} aria-label="Fechar menu lateral"/><aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
@@ -778,6 +779,40 @@ function Integrations() {
   </>
 }
 
+const acaoTone: Record<string, string> = { CRIOU: 'success', EDITOU: 'info', DELETOU: 'danger', MUDOU_STATUS: 'warning', LOGIN: 'neutral' }
+
+function Logs() {
+  const [items, setItems] = useState<AuditLog[]>([])
+  const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+    listLogs().then(data => { if (mounted) setItems(data) })
+      .catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar logs.') })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [])
+
+  const filtered = items.filter(item => `${item.acao} ${item.detalhes} ${item.entidade || ''} ${item.usuario_nome || ''}`.toLowerCase().includes(query.toLowerCase()))
+
+  return <><PageHead eyebrow="GESTÃO · AUDITORIA" title="Logs de auditoria" subtitle={`${items.length} registro(s) · últimos 100`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar ação, entidade ou usuário..."/></>}/>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <article className="card list-card">
+      <div className="card-title"><h2>Ações recentes</h2><Badge>{filtered.length} resultados</Badge></div>
+      {loading ? <p className="empty-state">Carregando logs…</p> : filtered.length ? <DataTable headers={['DATA/HORA', 'USUÁRIO', 'AÇÃO', 'ENTIDADE', 'DETALHES', 'IP']} rows={filtered.map(item => [
+        new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(item.created_at)),
+        item.usuario_nome || 'Sistema',
+        <Badge tone={acaoTone[item.acao] || 'neutral'}>{item.acao}</Badge>,
+        item.entidade ? `${item.entidade}${item.entidade_id ? ` #${item.entidade_id}` : ''}` : '—',
+        item.detalhes,
+        item.ip || '—',
+      ])}/> : <p className="empty-state">Nenhum log encontrado ainda.</p>}
+    </article>
+  </>
+}
+
 function Finance() {
   const [period,setPeriod]=useState<'Mês'|'Trimestre'>('Mês'); const [open,setOpen]=useState(false); const [feedback,setFeedback]=useState('')
   return <><PageHead eyebrow="GESTÃO · FINANCEIRO" title="Painel financeiro" subtitle={`${period} · dados prontos para lançamento`} actions={<><div className="segmented"><button className={period==='Trimestre'?'active':''} onClick={()=>setPeriod('Trimestre')}>Trimestre</button><button className={period==='Mês'?'active':''} onClick={()=>setPeriod('Mês')}>Mês</button></div><Button variant="secondary" onClick={()=>setFeedback('Exportação preparada em CSV.')}>Exportar</Button><Button onClick={()=>setOpen(true)}>+ Lançamento</Button></>}/><section className="kpi-grid"><Kpi label="A RECEBER" value="R$ 742k" note="18 títulos abertos"/><Kpi label="RECEBIDO NO MÊS" value="R$ 612k" note="meta R$ 700k"/><Kpi label="VENCIDOS" value="R$ 96k" note="4 títulos · cobrar"/><Kpi dark label="MARGEM MÉDIA" value="28%" note="+3 p.p. vs. julho"/></section><section className="finance-grid"><article className="card chart"><h2>Entradas e saídas</h2><div className="bars">{[55,78,43,88,66,96].map((n,i)=><div key={i}><i style={{height:`${n}%`}}/><b style={{height:`${n*.62}%`}}/><span>{['MAR','ABR','MAI','JUN','JUL','AGO'][i]}</span></div>)}</div></article><div><article className="card"><h2>Aging de recebíveis</h2><StatusBars/></article><article className="card total-card forecast"><p className="mono">FLUXO PROJETADO · 30 DIAS</p><strong>+ R$ 268k</strong><dl><dt>Entradas previstas</dt><dd>594k</dd><dt>Compras e fornecedores</dt><dd>211k</dd><dt>Folha e serviços</dt><dd>115k</dd></dl></article></div></section><article className="card list-card"><div className="card-title"><h2>Títulos a receber</h2><button className="text-action" onClick={()=>setFeedback('Filtro completo de títulos aberto.')}>Ver todos</button></div><DataTable headers={['TÍTULO','PROJETO','CLIENTE','SITUAÇÃO','VALOR','VENCE']} rows={quotes.slice(0,4).map((q,i)=>[q.id.replace('ORC','FT'),<b>{q.project}</b>,q.client,<Badge tone={i===1?'success':i===2?'danger':'info'}>{i===1?'Pago':i===2?'Vencido':'Em aberto'}</Badge>,money(q.value),q.date])}/></article>{open&&<Modal title="Novo lançamento" close={()=>setOpen(false)}><form className="modal-form" onSubmit={e=>{e.preventDefault();setOpen(false);setFeedback('Lançamento salvo como rascunho.')}}><label>Descrição<input name="description" required autoFocus placeholder="Compra de MDF…"/></label><label>Valor<input name="amount" type="number" min="0" step="0.01" required placeholder="0,00"/></label><label>Data<input name="date" type="date" required/></label><footer><Button variant="secondary" onClick={()=>setOpen(false)}>Cancelar</Button><Button type="submit">Salvar lançamento</Button></footer></form></Modal>}{feedback&&<Feedback message={feedback} close={()=>setFeedback('')}/>}</>
@@ -821,7 +856,7 @@ export default function App() {
   const [route,setRoute] = useState<Route>(() => { const hash=location.hash.slice(1) as Route; return routes.includes(hash)?hash:'dashboard' })
   useEffect(()=>{ if(!authenticated) return; getSessionUser().catch(()=>{ /* cookie may be unavailable during static visual review */ }) },[authenticated])
   const go=(next:Route)=>{setRoute(next);location.hash=next;window.scrollTo(0,0)}
-  const page=useMemo(()=>({dashboard:<Dashboard/>,clients:<Clients/>,pipeline:<Pipeline/>,builder:<Builder/>,projects:<Projects/>,catalog:<Catalog/>,inventory:<Inventory/>,suppliers:<Suppliers/>,schedule:<Schedule/>,finance:<Finance/>,team:<Team/>,integrations:<Integrations/>} as Partial<Record<Route, ReactNode>>)[route],[route])
+  const page=useMemo(()=>({dashboard:<Dashboard/>,clients:<Clients/>,pipeline:<Pipeline/>,builder:<Builder/>,projects:<Projects/>,catalog:<Catalog/>,inventory:<Inventory/>,suppliers:<Suppliers/>,schedule:<Schedule/>,finance:<Finance/>,team:<Team/>,integrations:<Integrations/>,logs:<Logs/>} as Partial<Record<Route, ReactNode>>)[route],[route])
   if(!authenticated) return <Login onSuccess={()=>setAuthenticated(true)}/>
   if(route==='portal') return <Portal/>
   return <AppShell route={route} go={go}>{page}</AppShell>

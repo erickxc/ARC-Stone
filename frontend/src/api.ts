@@ -157,6 +157,19 @@ export interface ProjetoDetail extends Projeto {
   itens: ProjetoItem[]
 }
 
+export interface AuditLog {
+  id: number
+  usuario_id: number | null
+  vendedor_id: number | null
+  acao: string
+  detalhes: string
+  entidade: string | null
+  entidade_id: number | null
+  ip: string | null
+  created_at: string
+  usuario_nome: string | null
+}
+
 export interface ApiKey {
   id: number
   nome: string
@@ -312,6 +325,10 @@ export async function importarProjetoCsv(file: File, nome: string, clienteId?: n
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(data.detail || 'Falha ao importar projeto.')
   return data as ProjetoDetail
+}
+
+export function listLogs() {
+  return request<AuditLog[]>('/logs/')
 }
 
 export function listApiKeys() {
