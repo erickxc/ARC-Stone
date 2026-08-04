@@ -399,7 +399,15 @@ export function deactivateTeamMember(id: number) {
 export async function getSessionUser() {
   const response = await fetch(`${API}/usuarios/me`, { credentials: 'include' })
   if (!response.ok) throw new Error('Sessão expirada')
-  return response.json()
+  return response.json() as Promise<TeamMember>
+}
+
+export function enableMfa() {
+  return request<{ secret: string; qr_code_url: string }>('/auth/enable-mfa', { method: 'POST' })
+}
+
+export function verifyMfa(code: string) {
+  return request<{ status: string }>(`/auth/verify-mfa?${new URLSearchParams({ code })}`, { method: 'POST' })
 }
 
 export async function logout() {
