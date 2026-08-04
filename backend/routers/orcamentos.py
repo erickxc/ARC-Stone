@@ -675,6 +675,30 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
 
     orcamento.status = novo_status
 
+    # Financeiro: gera/cancela o título a receber automático ao entrar/sair do grupo de
+    # status que representa negócio fechado. Lançamentos já pagos não são removidos —
+    # ficam como histórico mesmo se o orçamento voltar de status depois.
+    financeiro_statuses = ["Aprovado", "Entregue", "Devolvido", "Faturado"]
+    if novo_status in financeiro_statuses and status_anterior not in financeiro_statuses:
+        valor_total = sum(item.quantidade * item.preco_unitario_aplicado for item in orcamento.itens)
+        if valor_total > 0:
+            db.add(models.LancamentoFinanceiro(
+                tipo="ENTRADA",
+                descricao=f"Orçamento #{orcamento.id} — {orcamento.tipo_orcamento}",
+                valor=valor_total,
+                status="pendente",
+                data_vencimento=datetime.now(timezone.utc),
+                automatico=True,
+                orcamento_id=orcamento.id,
+                usuario_id=current_user.id,
+            ))
+    elif status_anterior in financeiro_statuses and novo_status not in financeiro_statuses:
+        db.query(models.LancamentoFinanceiro).filter(
+            models.LancamentoFinanceiro.orcamento_id == orcamento.id,
+            models.LancamentoFinanceiro.automatico.is_(True),
+            models.LancamentoFinanceiro.status == "pendente",
+        ).delete()
+
     if novo_status == "Aprovado" and status_anterior != "Aprovado":
         orcamento.data_aprovacao = datetime.now(timezone.utc)
         if orcamento.tipo_orcamento == "Producao" and orcamento.prazo_locacao_valor:

@@ -259,6 +259,28 @@ class ProjetoItem(Base):
     projeto = relationship("Projeto", back_populates="itens")
     produto = relationship("Produto")
 
+class LancamentoFinanceiro(Base):
+    """Ledger unificado de contas a pagar/receber. Entradas ligadas a um orçamento são
+    criadas automaticamente na aprovação (ver routers/orcamentos.py); lançamentos manuais
+    (tipicamente saídas) são criados pela aba Financeiro."""
+    __tablename__ = "lancamentos_financeiros"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tipo = Column(String, nullable=False)  # 'ENTRADA' ou 'SAIDA'
+    descricao = Column(String, nullable=False)
+    categoria = Column(String, nullable=True)
+    valor = Column(Integer, nullable=False)  # em centavos
+    status = Column(String, nullable=False, default="pendente")  # 'pendente' ou 'pago'
+    data_vencimento = Column(DateTime(timezone=True), nullable=False)
+    data_pagamento = Column(DateTime(timezone=True), nullable=True)
+    automatico = Column(Boolean, nullable=False, default=False)  # gerado ao aprovar orçamento
+    orcamento_id = Column(Integer, ForeignKey("orcamentos.id"), nullable=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    orcamento = relationship("Orcamento")
+    usuario = relationship("Usuario")
+
 class ApiKey(Base):
     """Chave de API para autenticação máquina-a-máquina (ex: extensão do SketchUp fazendo push de projetos)."""
     __tablename__ = "api_keys"
