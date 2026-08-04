@@ -353,6 +353,24 @@ export async function login(email: string, password: string) {
   return data
 }
 
+export async function forgotPassword(email: string) {
+  const response = await fetch(`${API}/auth/forgot-password`, {
+    method: 'POST', body: JSON.stringify({ email }), credentials: 'include', headers: { 'Content-Type': 'application/json' },
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.detail || 'Falha ao solicitar recuperação de senha.')
+  return data as { message: string }
+}
+
+export async function resetPassword(token: string, newPassword: string) {
+  const response = await fetch(`${API}/auth/reset-password`, {
+    method: 'POST', body: JSON.stringify({ token, new_password: newPassword }), credentials: 'include', headers: { 'Content-Type': 'application/json' },
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.detail || 'Falha ao redefinir senha.')
+  return data as { message: string }
+}
+
 export async function mfaLogin(mfaToken: string, code: string) {
   const response = await fetch(`${API}/auth/mfa-login`, {
     method: 'POST', body: JSON.stringify({ mfa_token: mfaToken, code }), credentials: 'include', headers: { 'Content-Type': 'application/json' },

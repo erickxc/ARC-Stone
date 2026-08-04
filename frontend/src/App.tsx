@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { createApiKey, createCatalogProduct, createClient, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, getOrcamentoConfig, getProjeto, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLogs, listPaymentConditions, listProjetos, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, regenerateQuotePdf, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember } from './api'
+import { createApiKey, createCatalogProduct, createClient, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, forgotPassword, getOrcamentoConfig, getProjeto, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLogs, listPaymentConditions, listProjetos, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, regenerateQuotePdf, resetPassword, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember } from './api'
 import type { ApiKey, ApiKeyCreated, AuditLog, CalendarEvent, Client, ClientInput, OrcamentoConfig, PaymentCondition, Product, Projeto, ProjetoDetail, Quote, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
 import { money, quotes } from './data'
 import type { Status } from './data'
@@ -820,10 +820,61 @@ function Finance() {
 
 function Portal() { const [approved,setApproved]=useState(false); const [adjustOpen,setAdjustOpen]=useState(false); return <div className="portal"><header><Logo/><span>Portal de aprovações</span><b>Ana Prado <i>AP</i></b></header><main><PageHead eyebrow="PROPOSTA ORC-0413 · REV. 02" title="Cobertura Higienópolis" subtitle="Cozinha e living · entrega prevista 12/11/2026 · validade da proposta 15 dias"/><div className="portal-grid"><div><article className="card proposal"><h2>O que está incluído</h2>{proposalItems.map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]} {x[2]}</span><em>{x[4]}</em></div>)}<footer>Total da proposta <strong>R$ 54.400</strong></footer></article><article className="card documents"><p className="mono">DOCUMENTOS DO PROJETO</p><button className="text-action">planta-cozinha.pdf ↓</button> <button className="text-action">render-living.jpg ↓</button> <button className="text-action">memorial-acabamentos.pdf ↓</button></article></div><aside><article className="card decision"><p className="mono">SUA DECISÃO</p><h2>{approved?'Proposta aprovada.':'Aprovar esta proposta?'}</h2><p>{approved?'A produção foi liberada e uma cópia da aprovação seguirá por e-mail.':'Ao aprovar, a produção entra na fila e o pagamento de entrada (40%) é liberado para emissão.'}</p><Button onClick={()=>setApproved(true)}>{approved?'Aprovada':'Aprovar proposta'}</Button><Button variant="secondary" onClick={()=>setAdjustOpen(true)}>Pedir ajuste</Button><small>Você receberá uma cópia por e-mail.</small></article><article className="card timeline"><h2>Andamento</h2>{['Proposta enviada','Revisão de acabamentos','Aprovação do cliente','Produção','Entrega e montagem'].map((x,i)=><div className={i<2||approved&&i===2?'done':i===2?'current':''} key={x}><i/><b>{x}<small>{i<2?'04/08 · 09:12':i===2?(approved?'aprovado agora':'aguardando você'):'após aprovação'}</small></b></div>)}</article><article className="help">Dúvidas antes de decidir?<small>Fale com Rafael Lima · 11 99812-4402</small></article></aside></div></main>{approved&&<div className="toast"><i/>Proposta aprovada. Produção liberada.<button aria-label="Fechar aviso" onClick={()=>setApproved(false)}>×</button></div>}{adjustOpen&&<Modal title="Pedir ajuste" close={()=>setAdjustOpen(false)}><form className="modal-form" onSubmit={e=>{e.preventDefault();setAdjustOpen(false)}}><label>O que precisa revisar?<textarea name="request" required autoFocus placeholder="Descreva o acabamento, prazo ou item…"/></label><footer><Button variant="secondary" onClick={()=>setAdjustOpen(false)}>Cancelar</Button><Button type="submit">Enviar pedido</Button></footer></form></Modal>}</div> }
 
+function ForgotPasswordModal({ close }: { close: () => void }) {
+  const [email, setEmail] = useState('')
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  async function submit(e: FormEvent) {
+    e.preventDefault(); setBusy(true); setError('')
+    try { await forgotPassword(email); setSent(true) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao solicitar recuperação.') }
+    finally { setBusy(false) }
+  }
+  return <Modal title="Recuperar senha" close={close}>
+    {sent ? <div className="modal-form"><p>Se o e-mail estiver cadastrado no ARC ERP, você receberá as instruções de recuperação em breve.</p><footer><Button onClick={close}>Fechar</Button></footer></div>
+    : <form className="modal-form" onSubmit={submit}>
+        <label>E-mail<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="marina@estudio.com.br" autoFocus required/></label>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <footer><Button variant="secondary" onClick={close}>Cancelar</Button><Button type="submit" disabled={busy}>{busy ? 'Enviando…' : 'Enviar instruções'}</Button></footer>
+      </form>}
+  </Modal>
+}
+
+function ResetPassword() {
+  const token = new URLSearchParams(location.search).get('token') || ''
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  async function submit(e: FormEvent) {
+    e.preventDefault(); setError('')
+    if (password.length < 8) { setError('A senha deve ter pelo menos 8 caracteres.'); return }
+    if (password !== confirm) { setError('As senhas não conferem.'); return }
+    setBusy(true)
+    try { await resetPassword(token, password); setDone(true) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao redefinir senha.') }
+    finally { setBusy(false) }
+  }
+  return <div className="login"><section><Logo/><div><h1>Redefinir<br/>sua senha<br/><span>em segurança.</span></h1><p>Escolha uma senha nova para voltar<br/>a acessar o ARC ERP.</p></div><footer><i/><i/><i/><i/><span className="mono">AMOSTRAS<br/>DO PROJETO ATIVO</span></footer></section>
+    {!token ? <div><div><p className="eyebrow">LINK INVÁLIDO</p><h2>Token ausente</h2><p className="form-error">Este link de redefinição está incompleto. Solicite um novo pelo login.</p><footer><a href="/">Voltar ao login</a></footer></div></div>
+    : done ? <div><div><p className="eyebrow">SENHA REDEFINIDA</p><h2>Tudo certo.</h2><p>Sua senha foi atualizada. Você já pode entrar com a senha nova.</p><footer><a href="/">Ir para o login</a></footer></div></div>
+    : <form onSubmit={submit}><div><p className="eyebrow">NOVA SENHA</p><h2>Redefinir senha</h2>
+      <label>Nova senha<input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" autoFocus required minLength={8}/></label>
+      <label>Confirmar nova senha<input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="••••••••" required minLength={8}/></label>
+      {error && <p className="form-error">{error}</p>}
+      <Button type="submit">{busy ? 'Salvando...' : 'Redefinir senha'}</Button>
+      <footer><a href="/">Voltar ao login</a><span className="mono">V1.0 · LÍNEA</span></footer>
+    </div></form>}
+  </div>
+}
+
 function Login({ onSuccess }: { onSuccess: () => void }) {
   const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [mfa,setMfa]=useState('')
   const [mfaToken,setMfaToken]=useState<string | null>(null)
   const [error,setError]=useState(''); const [busy,setBusy]=useState(false)
+  const [forgotOpen,setForgotOpen]=useState(false)
   async function submit(e:FormEvent){
     e.preventDefault(); setBusy(true); setError('')
     try {
@@ -846,8 +897,8 @@ function Login({ onSuccess }: { onSuccess: () => void }) {
     <label>Senha<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" required/></label>
     {error&&<p className="form-error">{error}</p>}
     <Button type="submit">{busy?'Entrando...':'Entrar'}</Button>
-    <footer><button type="button">Esqueci minha senha</button><span className="mono">V1.0 · LÍNEA</span></footer>
-  </>}</div></form></div>
+    <footer><button type="button" onClick={()=>setForgotOpen(true)}>Esqueci minha senha</button><span className="mono">V1.0 · LÍNEA</span></footer>
+  </>}</div></form>{forgotOpen && <ForgotPasswordModal close={()=>setForgotOpen(false)}/>}</div>
 }
 
 export default function App() {
@@ -857,6 +908,7 @@ export default function App() {
   useEffect(()=>{ if(!authenticated) return; getSessionUser().catch(()=>{ /* cookie may be unavailable during static visual review */ }) },[authenticated])
   const go=(next:Route)=>{setRoute(next);location.hash=next;window.scrollTo(0,0)}
   const page=useMemo(()=>({dashboard:<Dashboard/>,clients:<Clients/>,pipeline:<Pipeline/>,builder:<Builder/>,projects:<Projects/>,catalog:<Catalog/>,inventory:<Inventory/>,suppliers:<Suppliers/>,schedule:<Schedule/>,finance:<Finance/>,team:<Team/>,integrations:<Integrations/>,logs:<Logs/>} as Partial<Record<Route, ReactNode>>)[route],[route])
+  if(location.pathname==='/reset-password') return <ResetPassword/>
   if(!authenticated) return <Login onSuccess={()=>setAuthenticated(true)}/>
   if(route==='portal') return <Portal/>
   return <AppShell route={route} go={go}>{page}</AppShell>
