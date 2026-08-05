@@ -530,6 +530,10 @@ export function listClients() {
   return request<Client[]>('/clientes/')
 }
 
+export function getClient(id: number) {
+  return request<Client>(`/clientes/${id}`)
+}
+
 export function createClient(input: ClientInput) {
   return request<Client>('/clientes/', { method: 'POST', body: JSON.stringify(input) })
 }
