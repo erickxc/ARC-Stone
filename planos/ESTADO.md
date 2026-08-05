@@ -52,3 +52,17 @@ testes de banco de `/projetos/push` e `/portal`, que nunca rodaram (Docker desli
 ---
 
 <!-- nenhuma tarefa deste plano executada ainda -->
+
+## TAREFA 1 — concluída em 2026-08-05 11:29
+Commit: ed78630
+Arquivos: AGENTS.md
+Verificação: `git status --short` limpo após o commit; `git log --oneline -1` mostra `ed78630 plano(1): define modo executor de planos`; `git diff --check` passou. Não foram executados testes de código, pois esta tarefa altera somente documentação.
+Desvios: nenhum
+Dúvidas: nenhuma
+
+## TAREFA 2 — concluída em 2026-08-05 11:34
+Commit: 776d425
+Arquivos: backend/rate_limiter.py, backend/routers/projetos.py, backend/tests/test_rate_limiter.py
+Verificação: Atributo `limiter._key_func` confirmado e aponta para `_rate_limit_ip`; `git diff --check` passou; `python -m pytest backend/tests/test_rate_limiter.py -q` passou com 4 testes; bateria `python -m pytest backend/tests/test_rate_limiter.py backend/tests/test_portal_token.py backend/tests/test_ssrf_utils.py backend/tests/test_anexo_utils.py -q` passou com 22 testes. Não executados: suíte completa do backend e testes que exigem banco/Docker, fora da verificação desta tarefa. Foram emitidos apenas avisos de depreciação do Pydantic/FastAPI/SlowAPI e aviso do cache do pytest.
+Desvios: nenhum
+Dúvidas: nenhuma
