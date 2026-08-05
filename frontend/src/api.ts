@@ -309,6 +309,17 @@ export interface FluxoMensalItem {
   saidas: number
 }
 
+/**
+ * Sessão inválida (cookie expirado ou ausente): descarta o marcador local e devolve
+ * o usuário ao login. Sem isso a SPA continua "logada" e cada tela cai em dado vazio.
+ */
+export function encerrarSessao() {
+  if (sessionStorage.getItem('arc-session') !== '1') return
+  sessionStorage.removeItem('arc-session')
+  location.hash = 'login'
+  location.reload()
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API}${path}`, {
     credentials: 'include',
@@ -317,7 +328,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
-    if (response.status === 401) throw new Error('Sessão expirada. Entre novamente para carregar os dados.')
+    if (response.status === 401) { encerrarSessao(); throw new Error('Sessão expirada. Entre novamente para carregar os dados.') }
     if (response.status === 403) throw new Error('Seu perfil não tem permissão para esta ação.')
     throw new Error(data.detail || 'Falha ao comunicar com servidor.')
   }
