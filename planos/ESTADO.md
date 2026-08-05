@@ -43,3 +43,38 @@ Planos e estados anteriores em `planos/arquivo/`.
 ---
 
 <!-- nenhuma tarefa deste plano executada ainda -->
+
+## TAREFA 1 — concluida em 2026-08-05 12:24
+Commit: 9e8da9b
+Arquivos: frontend/src/App.tsx
+Verificacao: `npm run build` e `npm run lint` passaram. A inspeção de código confirmou rota `orcamento/<id>`, leitura de hash parametrizado, listener de `hashchange` e `go(nome, id?)`.
+Desvios: verificação manual no navegador não executada nesta tarefa; será coberta na verificação visual ponta a ponta.
+Duvidas: nenhuma
+
+## TAREFA 5 — concluida em 2026-08-05 12:41
+Commit: 7d91794
+Arquivos: frontend/src/index.css
+Verificacao: `npm run build` e `npm run lint` passaram. Selects nativos agora usam a tipografia do app, seta visual, `appearance`, foco visível, estados disabled, cursor e dimensões compactas no card do kanban.
+Desvios: confirmação visual em Firefox/dispositivos ficou reservada para a TAREFA 6.
+Duvidas: nenhuma
+
+## TAREFA 4 — concluida em 2026-08-05 12:39
+Commit: f0457f4
+Arquivos: frontend/src/App.tsx, frontend/src/index.css
+Verificacao: `npm run build` e `npm run lint` passaram. Arrasto usa Pointer Events, limiar de 8px, `setPointerCapture`, `elementFromPoint`, `pointer-events:none` durante arrasto, destaque da coluna, cancelamento fora do alvo e rollback quando a API falha. Aprovação mantém o modal de CNPJ compartilhado.
+Desvios: teste manual de mouse/toque ficou reservado para a TAREFA 6.
+Duvidas: nenhuma
+
+## TAREFA 3 — concluida em 2026-08-05 12:37
+Commit: 2f39bf5
+Arquivos: frontend/src/App.tsx, frontend/src/index.css
+Verificacao: `npm run build` e `npm run lint` passaram. Implementados carregamento paralelo de orçamento/anexos/histórico, layout responsivo, decisão, anexos, PDF, portal, histórico mais recente primeiro, card clicável e acessível por teclado, além de status compartilhado com o kanban. Builder existente permanece desabilitado com explicação.
+Desvios: inspeção manual com orçamento real ficou reservada para a TAREFA 6; nenhum arquivo backend foi tocado.
+Duvidas: nenhuma
+
+## TAREFA 2 — concluida em 2026-08-05 12:25
+Commit: 29f56d8
+Arquivos: frontend/src/api.ts
+Verificacao: contrato conferido em `backend/schemas.py`: `AuditLogOut` fornece `id`, `acao`, `detalhes`, `usuario_nome` e `created_at`; `npm run build` e `npm run lint` passaram.
+Desvios: nenhum
+Duvidas: nenhuma
