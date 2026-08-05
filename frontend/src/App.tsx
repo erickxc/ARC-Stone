@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, createApiKey, createCatalogProduct, createClient, createLancamento, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuoteAttachments, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetPassword, revogarPortalLink, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, verifyMfa } from './api'
-import type { ApiKey, ApiKeyCreated, AuditLog, CalendarEvent, Client, ClientInput, FinanceiroResumo, FluxoMensalItem, Lancamento, OrcamentoAnexo, OrcamentoConfig, PaymentCondition, PortalLink, PortalProposta, Product, Projeto, ProjetoDetail, Quote, QuoteDetail, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
+import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, createApiKey, createCatalogProduct, createClient, createLancamento, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuoteAttachments, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetPassword, revogarPortalLink, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, verifyMfa } from './api'
+import type { ApiKey, ApiKeyCreated, AuditLog, AuditLogEntry, CalendarEvent, Client, ClientInput, FinanceiroResumo, FluxoMensalItem, Lancamento, OrcamentoAnexo, OrcamentoConfig, PaymentCondition, PortalLink, PortalProposta, Product, Projeto, ProjetoDetail, Quote, QuoteDetail as QuoteData, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
 import { money, quotes } from './data'
 import type { Status } from './data'
 
@@ -50,8 +50,8 @@ function Badge({ children, tone }: { children: ReactNode; tone?: string }) {
   return <span className={`badge ${tone || String(children).toLowerCase()}`}>{children}</span>
 }
 
-function Button({ children, variant = 'primary', onClick, type = 'button', disabled = false }: { children: ReactNode; variant?: string; onClick?: () => void; type?: 'button' | 'submit'; disabled?: boolean }) {
-  return <button className={`button ${variant}`} onClick={onClick} type={type} disabled={disabled}>{children}</button>
+function Button({ children, variant = 'primary', onClick, type = 'button', disabled = false, title }: { children: ReactNode; variant?: string; onClick?: () => void; type?: 'button' | 'submit'; disabled?: boolean; title?: string }) {
+  return <button className={`button ${variant}`} onClick={onClick} type={type} disabled={disabled} title={title}>{children}</button>
 }
 
 function Sidebar({ route, go, collapsed, setCollapsed, mobileOpen, closeMobile }: { route: Route; go: (r: Route) => void; collapsed: boolean; setCollapsed: (v: boolean) => void; mobileOpen: boolean; closeMobile: () => void }) {
@@ -167,6 +167,57 @@ function quoteToCard(quote: Quote): KanbanQuote {
   return { id: `ORC-${String(quote.id).padStart(4, '0')}`, backendId: quote.id, project: quote.cliente_nome || quote.tipo_orcamento, client: quote.cliente_nome || 'Cliente sem nome', status: columnByBackendStatus[quote.status] || 'Gerando', value: quote.valor_total || 0, date, owner }
 }
 
+type CnpjOption = { cnpj: string; nome: string | null }
+
+function useQuoteStatusTransition(
+  cnpjOptions: CnpjOption[],
+  onUpdated: (quote: Quote) => void,
+  onFeedback: (message: string) => void,
+  onError: (message: string) => void,
+) {
+  const [approveCard, setApproveCard] = useState<KanbanQuote | null>(null)
+  const [approveCnpj, setApproveCnpj] = useState('')
+
+  async function applyStatus(card: KanbanQuote, status: Status, cnpj?: string) {
+    if (!card.backendId) {
+      onError('Dados locais não podem alterar status antes da sincronização.')
+      return false
+    }
+    try {
+      const updated = await updateQuoteStatus(card.backendId, backendStatusByColumn[status], cnpj)
+      onUpdated(updated)
+      onFeedback(`${card.id} movido para ${status}.`)
+      return true
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Falha ao atualizar status.')
+      return false
+    }
+  }
+
+  async function moveQuote(card: KanbanQuote, status: Status) {
+    if (status === 'Aprovado' && cnpjOptions.length) {
+      setApproveCnpj(cnpjOptions[0].cnpj)
+      setApproveCard(card)
+      return
+    }
+    await applyStatus(card, status)
+  }
+
+  async function confirmApproval(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!approveCard) return
+    await applyStatus(approveCard, 'Aprovado', approveCnpj)
+    setApproveCard(null)
+  }
+
+  const approvalModal = approveCard && <Modal title={`Aprovar ${approveCard.id}`} close={() => setApproveCard(null)}><form className="modal-form" onSubmit={confirmApproval}>
+    <label>CNPJ de faturamento<select value={approveCnpj} onChange={event => setApproveCnpj(event.target.value)} required autoFocus>{cnpjOptions.map(option => <option key={option.cnpj} value={option.cnpj}>{option.nome || option.cnpj} — {option.cnpj}</option>)}</select></label>
+    <footer><Button variant="secondary" onClick={() => setApproveCard(null)}>Cancelar</Button><Button type="submit">Aprovar orçamento</Button></footer>
+  </form></Modal>
+
+  return { moveQuote, approvalModal, approveCard, approveCnpj, setApproveCard, setApproveCnpj, confirmApproval }
+}
+
 function Pipeline() {
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'Lista'|'Kanban'>('Kanban')
@@ -178,8 +229,6 @@ function Pipeline() {
   const [quoteClients, setQuoteClients] = useState<Client[]>([])
   const [saving, setSaving] = useState(false)
   const [orcamentoConfig, setOrcamentoConfig] = useState<OrcamentoConfig | null>(null)
-  const [approveCard, setApproveCard] = useState<KanbanQuote | null>(null)
-  const [approveCnpj, setApproveCnpj] = useState('')
   const [selectedQuoteId, setSelectedQuoteId] = useState<number | null>(null)
 
   useEffect(() => {
@@ -206,30 +255,140 @@ function Pipeline() {
       setRemoteQuotes(current => [...(current || []), created]); setOpen(false); setFeedback('Orçamento criado no backend.')
     } catch (err) { setQuoteError(err instanceof Error ? err.message : 'Falha ao criar orçamento.') } finally { setSaving(false) }
   }
-  async function applyStatus(card: KanbanQuote, status: Status, cnpj?: string) {
-    if (!card.backendId) { setFeedback('Dados locais não podem alterar status antes da sincronização.'); return }
-    try { await updateQuoteStatus(card.backendId, backendStatusByColumn[status], cnpj); setRemoteQuotes(current => (current || []).map(item => item.id === card.backendId ? { ...item, status: backendStatusByColumn[status] } : item)); setFeedback(`${card.id} movido para ${status}.`) }
-    catch (err) { setQuoteError(err instanceof Error ? err.message : 'Falha ao atualizar status.') }
-  }
-  async function moveQuote(card: KanbanQuote, status: Status) {
-    if (status === 'Aprovado' && cnpjOptions.length) { setApproveCnpj(cnpjOptions[0].cnpj); setApproveCard(card); return }
-    await applyStatus(card, status)
-  }
-  async function confirmApproval(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!approveCard) return
-    await applyStatus(approveCard, 'Aprovado', approveCnpj)
-    setApproveCard(null)
-  }
-  return <><PageHead eyebrow="VENDAS · PIPELINE" title={view==='Kanban'?'Kanban dos orçamentos':'Lista de orçamentos'} subtitle={`${remoteQuotes === null ? 'visão local' : `${remoteQuotes.length} orçamentos do backend`} · ${loading ? 'sincronizando…' : 'sincronizado'}`} actions={<><input className="search" placeholder="Buscar projeto ou cliente…" value={query} onChange={e=>setQuery(e.target.value)} /><Button variant="secondary" onClick={()=>setFeedback('Filtro de vendedor será ligado ao endpoint de equipe.')}>Vendedor⌄</Button><div className="segmented"><button className={view==='Lista'?'active':''} onClick={()=>setView('Lista')}>Lista</button><button className={view==='Kanban'?'active':''} onClick={()=>setView('Kanban')}>Kanban</button></div><Button onClick={()=>setOpen(true)}>+ Orçamento</Button></>} />{quoteError&&<p className="form-error" role="alert">{quoteError}</p>}
-    {view==='Kanban'?<div className="kanban">{statusValues.map(([status, fallbackTotal]) => { const columnCards = filtered.filter(q=>q.status===status); return <section className={`kanban-col ${status.toLowerCase()}`} key={status}><header><h2><i />{status}</h2><Badge>{remoteQuotes === null ? fallbackTotal : columnCards.length}</Badge><p className="mono">{money(columnCards.reduce((total, card) => total + card.value, 0))}</p></header>{columnCards.map(card=><article className="quote-card" key={card.id}><div><span className="mono">{card.id}</span><b>{money(card.value)}</b></div><h3>{card.project}</h3><p>{card.client}</p><footer><span>{card.owner}</span><em>{card.date}</em>{remoteQuotes!==null&&card.backendId&&<button className="text-action" onClick={() => setSelectedQuoteId(card.backendId!)}>Portal</button>}</footer>{remoteQuotes!==null&&card.backendId&&<select aria-label={`Status de ${card.id}`} value={card.status} onChange={event=>moveQuote(card,event.target.value as Status)}>{statusValues.map(([option])=><option key={option} value={option}>{option}</option>)}</select>}</article>)}{status==='Gerando'&&<button className="add-card" onClick={()=>setOpen(true)}>+ Adicionar</button>}</section>})}</div>:<article className="card list-card"><DataTable headers={['ORÇAMENTO','PROJETO','CLIENTE','STATUS','VALOR']} rows={filtered.map(q=>[<span className="mono">{q.id}</span>,<b>{q.project}</b>,q.client,<Badge>{q.status}</Badge>,money(q.value)])}/></article>}{open&&<Modal title="Novo orçamento" close={()=>setOpen(false)}><form className="modal-form" onSubmit={submitQuote}><label>Cliente<select name="cliente_id" required autoFocus defaultValue=""><option value="" disabled>Selecione um cliente…</option>{quoteClients.map(client=><option key={client.id} value={client.id}>{client.nome_fantasia}</option>)}</select></label><label>Tipo de orçamento<select name="tipo_orcamento" defaultValue="Venda"><option>Venda</option><option>Locacao</option><option>Producao</option></select></label>{quoteError&&<p className="form-error" role="alert">{quoteError}</p>}<footer><Button variant="secondary" onClick={()=>setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving?'Salvando…':'Criar orçamento'}</Button></footer></form></Modal>}{approveCard&&<Modal title={`Aprovar ${approveCard.id}`} close={()=>setApproveCard(null)}><form className="modal-form" onSubmit={confirmApproval}><label>CNPJ de faturamento<select value={approveCnpj} onChange={e=>setApproveCnpj(e.target.value)} required autoFocus>{cnpjOptions.map(o=><option key={o.cnpj} value={o.cnpj}>{o.nome||o.cnpj} — {o.cnpj}</option>)}</select></label><footer><Button variant="secondary" onClick={()=>setApproveCard(null)}>Cancelar</Button><Button type="submit">Aprovar orçamento</Button></footer></form></Modal>}{selectedQuoteId && <QuotePortalModal quoteId={selectedQuoteId} close={() => setSelectedQuoteId(null)} />}{feedback&&<Feedback message={feedback} close={()=>setFeedback('')}/>}</>
+  const { moveQuote, approveCard, approveCnpj, setApproveCard, setApproveCnpj, confirmApproval } = useQuoteStatusTransition(
+    cnpjOptions,
+    updated => setRemoteQuotes(current => (current || []).map(item => item.id === updated.id ? { ...item, ...updated } : item)),
+    setFeedback,
+    setQuoteError,
+  )
+  const openQuote = (card: KanbanQuote) => { if (card.backendId) { window.history.pushState(null, '', `#orcamento/${card.backendId}`); window.dispatchEvent(new Event('hashchange')) } }
+  const kanban = <div className="kanban">{statusValues.map(([status, fallbackTotal]) => { const columnCards = filtered.filter(q => q.status === status); return <section className={`kanban-col ${status.toLowerCase()}`} key={status}><header><h2><i />{status}</h2><Badge>{remoteQuotes === null ? fallbackTotal : columnCards.length}</Badge><p className="mono">{money(columnCards.reduce((total, card) => total + card.value, 0))}</p></header>{columnCards.map(card => <article className="quote-card" key={card.id} role="button" tabIndex={0} onClick={() => openQuote(card)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openQuote(card) } }}><div><span className="mono">{card.id}</span><b>{money(card.value)}</b></div><h3>{card.project}</h3><p>{card.client}</p><footer><span>{card.owner}</span><em>{card.date}</em>{remoteQuotes !== null && card.backendId && <button className="text-action" onClick={event => { event.stopPropagation(); setSelectedQuoteId(card.backendId!) }}>Portal</button>}</footer>{remoteQuotes !== null && card.backendId && <select aria-label={`Status de ${card.id}`} value={card.status} onClick={event => event.stopPropagation()} onChange={event => void moveQuote(card, event.target.value as Status)}>{statusValues.map(([option]) => <option key={option} value={option}>{option}</option>)}</select>}</article>)}{status === 'Gerando' && <button className="add-card" onClick={() => setOpen(true)}>+ Adicionar</button>}</section>})}</div>
+  return <><PageHead eyebrow="VENDAS · PIPELINE" title={view === 'Kanban' ? 'Kanban dos orçamentos' : 'Lista de orçamentos'} subtitle={`${remoteQuotes === null ? 'visão local' : `${remoteQuotes.length} orçamentos do backend`} · ${loading ? 'sincronizando…' : 'sincronizado'}`} actions={<><input className="search" placeholder="Buscar projeto ou cliente…" value={query} onChange={event => setQuery(event.target.value)} /><Button variant="secondary" onClick={() => setFeedback('Filtro de vendedor será ligado ao endpoint de equipe.')}>Vendedor⌄</Button><div className="segmented"><button className={view === 'Lista' ? 'active' : ''} onClick={() => setView('Lista')}>Lista</button><button className={view === 'Kanban' ? 'active' : ''} onClick={() => setView('Kanban')}>Kanban</button></div><Button onClick={() => setOpen(true)}>+ Orçamento</Button></>} />{quoteError && <p className="form-error" role="alert">{quoteError}</p>}
+    {view === 'Kanban' ? kanban : <article className="card list-card"><DataTable headers={['ORÇAMENTO', 'PROJETO', 'CLIENTE', 'STATUS', 'VALOR']} rows={filtered.map(q => [<span className="mono">{q.id}</span>, <b>{q.project}</b>, q.client, <Badge>{q.status}</Badge>, money(q.value)])}/></article>}{open && <Modal title="Novo orçamento" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitQuote}><label>Cliente<select name="cliente_id" required autoFocus defaultValue=""><option value="" disabled>Selecione um cliente…</option>{quoteClients.map(client => <option key={client.id} value={client.id}>{client.nome_fantasia}</option>)}</select></label><label>Tipo de orçamento<select name="tipo_orcamento" defaultValue="Venda"><option>Venda</option><option>Locacao</option><option>Producao</option></select></label>{quoteError && <p className="form-error" role="alert">{quoteError}</p>}<footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Criar orçamento'}</Button></footer></form></Modal>}{approveCard && <Modal title={`Aprovar ${approveCard.id}`} close={() => setApproveCard(null)}><form className="modal-form" onSubmit={confirmApproval}><label>CNPJ de faturamento<select value={approveCnpj} onChange={event => setApproveCnpj(event.target.value)} required autoFocus>{cnpjOptions.map(option => <option key={option.cnpj} value={option.cnpj}>{option.nome || option.cnpj} — {option.cnpj}</option>)}</select></label><footer><Button variant="secondary" onClick={() => setApproveCard(null)}>Cancelar</Button><Button type="submit">Aprovar orçamento</Button></footer></form></Modal>}{selectedQuoteId && <QuotePortalModal quoteId={selectedQuoteId} close={() => setSelectedQuoteId(null)} />}{feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}</>
 }
 
 type BuilderItem = { key: string; productId: number | null; name: string; quantity: number; unit: string; unitPrice: number; isExternal: boolean; projetoItemId: number | null }
 type ValidationRow = { projetoItemId: number; nome: string; quantidade: number; material: string | null; matchedProductId: number | null; unitPrice: number; included: boolean }
 
+function quoteDownloadUrl(url: string) {
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/api/')) return url
+  return `/api${url.startsWith('/') ? url : `/${url}`}`
+}
+
+function QuoteDetail({ quoteId }: { quoteId: number }) {
+  const [quote, setQuote] = useState<QuoteData | null>(null)
+  const [attachments, setAttachments] = useState<OrcamentoAnexo[]>([])
+  const [history, setHistory] = useState<AuditLogEntry[]>([])
+  const [orcamentoConfig, setOrcamentoConfig] = useState<OrcamentoConfig | null>(null)
+  const [link, setLink] = useState<PortalLink | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [feedback, setFeedback] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+    Promise.all([getQuote(quoteId), listQuoteAttachments(quoteId), getQuoteHistory(quoteId)])
+      .then(([quoteData, attachmentData, historyData]) => {
+        if (!mounted) return
+        setQuote(quoteData)
+        setAttachments(attachmentData)
+        setHistory(historyData)
+      })
+      .catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar o orçamento.') })
+      .finally(() => { if (mounted) setLoading(false) })
+    getOrcamentoConfig().then(data => { if (mounted) setOrcamentoConfig(data) }).catch(() => undefined)
+    return () => { mounted = false }
+  }, [quoteId])
+
+  const cnpjOptions = [
+    { cnpj: orcamentoConfig?.empresa1_cnpj, nome: orcamentoConfig?.empresa1_nome },
+    { cnpj: orcamentoConfig?.empresa2_cnpj, nome: orcamentoConfig?.empresa2_nome },
+  ].filter((option): option is CnpjOption => !!option.cnpj)
+
+  const { moveQuote, approvalModal } = useQuoteStatusTransition(
+    cnpjOptions,
+    updated => setQuote(current => current ? { ...current, ...updated } : current),
+    setFeedback,
+    setError,
+  )
+
+  async function refreshQuote() {
+    const updated = await getQuote(quoteId)
+    setQuote(updated)
+  }
+
+  async function regeneratePdf() {
+    setBusy(true); setError('')
+    try { await regenerateQuotePdf(quoteId); await refreshQuote(); setFeedback('PDF do orçamento regenerado.') }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao gerar PDF.') }
+    finally { setBusy(false) }
+  }
+
+  async function sendPortalLink() {
+    setBusy(true); setError('')
+    try { setLink(await gerarPortalLink(quoteId)); setFeedback('Link do portal gerado e enviado.') }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao enviar link.') }
+    finally { setBusy(false) }
+  }
+
+  async function revokePortalLink() {
+    if (!confirm('Revogar o link atual? O cliente perderá o acesso imediatamente.')) return
+    setBusy(true); setError('')
+    try { await revogarPortalLink(quoteId); setLink(null); setFeedback('Link do portal revogado.') }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao revogar link.') }
+    finally { setBusy(false) }
+  }
+
+  async function toggleAttachment(attachment: OrcamentoAnexo) {
+    setBusy(true); setError('')
+    try {
+      const updated = await alterarVisibilidadeAnexo(quoteId, attachment.id, !attachment.visivel_cliente)
+      setAttachments(current => current.map(item => item.id === updated.id ? updated : item))
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao alterar visibilidade.') }
+    finally { setBusy(false) }
+  }
+
+  async function copyLink() {
+    if (!link) return
+    try { await navigator.clipboard?.writeText(link.url); setFeedback('Link copiado.') }
+    catch { setError('Não foi possível copiar o link.') }
+  }
+
+  if (loading) return <article className="card empty-state">Carregando orçamento…</article>
+  if (!quote) return <article className="card empty-state"><p>{error || 'Orçamento não encontrado.'}</p><Button variant="secondary" onClick={() => { location.hash = 'pipeline' }}>Voltar ao pipeline</Button></article>
+
+  const quoteCard = quoteToCard(quote)
+  const total = quote.valor_total ?? quote.itens.reduce((sum, item) => sum + item.quantidade * item.preco_unitario_aplicado, 0)
+  const sortedHistory = [...history].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  return <>
+    <PageHead eyebrow={`${quoteCard.id} · ${quote.tipo_orcamento.toUpperCase()}`} title={quote.cliente_nome || 'Orçamento'} actions={<>
+      <select aria-label="Status do orçamento" value={quoteCard.status} onChange={event => void moveQuote(quoteCard, event.target.value as Status)}>{statusValues.map(([status]) => <option key={status} value={status}>{status}</option>)}</select>
+      <button className="button secondary" disabled title="O Builder ainda não carrega orçamentos existentes.">Editar</button>
+      <Button variant="secondary" onClick={() => void regeneratePdf()} disabled={busy}>Gerar PDF</Button>
+      <Button onClick={() => void sendPortalLink()} disabled={busy || !quote.cliente_email} title={!quote.cliente_email ? 'Cadastre um e-mail para enviar o link.' : undefined}>Enviar link ao cliente</Button>
+    </>} />
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <div className="quote-detail-grid">
+      <div className="quote-detail-main">
+        <article className="card"><div className="card-title"><h2>Itens do orçamento</h2><span className="mono">{quoteCard.id}</span></div><div className="table-wrap"><table><thead><tr><th>DESCRIÇÃO</th><th>QTD</th><th>UNITÁRIO</th><th>TOTAL</th></tr></thead><tbody>{quote.itens.map((item, index) => <tr key={`${item.nome || 'item'}-${index}`}><td><b>{item.nome || 'Item'}</b></td><td>{item.quantidade}</td><td>{money(item.preco_unitario_aplicado)}</td><td>{money(item.quantidade * item.preco_unitario_aplicado)}</td></tr>)}</tbody></table></div></article>
+        <article className="card"><div className="card-title"><h2>Histórico</h2><span className="mono">{history.length} REGISTROS</span></div><div className="timeline">{sortedHistory.length ? sortedHistory.map(entry => <div key={entry.id}><i /><div><b>{entry.acao}</b><p>{entry.detalhes}</p><small>{entry.usuario_nome || 'Cliente / sistema'} · {portalDate(entry.created_at)}</small></div></div>) : <p className="empty-state">Nenhum evento registrado.</p>}</div></article>
+      </div>
+      <aside className="quote-detail-aside">
+        <article className="card total-card"><p className="mono">VALOR TOTAL</p><strong>{money(total)}</strong><dl><div><dt>Cliente</dt><dd>{quote.cliente_nome || 'Não informado'}</dd></div><div><dt>Vendedor</dt><dd>{quote.vendedor_nome || 'Não informado'}</dd></div><div><dt>Tipo</dt><dd>{quote.tipo_orcamento}</dd></div><div><dt>Criado em</dt><dd>{portalDate(quote.created_at)}</dd></div><div><dt>Status</dt><dd><Badge>{quote.status}</Badge></dd></div></dl></article>
+        <article className="card documents"><div className="card-title"><h2>Anexos</h2><span className="mono">{attachments.length}</span></div>{attachments.length ? attachments.map(attachment => <div className="quote-attachment" key={attachment.id}><a href={quoteDownloadUrl(attachment.url)} download>{attachment.nome_original}</a><small>{portalBytes(attachment.tamanho)} · {attachment.visivel_cliente ? 'Visível ao cliente' : 'Interno'}</small><label><input type="checkbox" checked={attachment.visivel_cliente} disabled={busy} onChange={() => void toggleAttachment(attachment)}/> Visível ao cliente</label></div>) : <p className="empty-state">Nenhum anexo cadastrado.</p>}{quote.anexo_url && <a className="text-action" href={quoteDownloadUrl(quote.anexo_url)} download>Baixar PDF da proposta</a>}</article>
+        {quote.decisao_cliente && <article className="card decision quote-decision"><p className="mono">DECISÃO DO CLIENTE</p><strong>{quote.decisao_cliente === 'aprovado' ? 'Aprovou a proposta' : 'Pediu ajuste'}</strong><span>{quote.decisao_cliente_nome || 'Nome não informado'} · {portalDate(quote.decisao_cliente_em || null)}</span>{quote.decisao_cliente === 'recusado' && <p><b>Motivo:</b> {quote.decisao_cliente_motivo || 'Não informado'}</p>}</article>}
+        <article className="card portal-detail-card"><p className="mono">PORTAL DO CLIENTE</p><p>Gerar um link novo invalida o anterior.</p>{link ? <><input readOnly value={link.url} aria-label="URL completa do portal"/><button className="text-action" onClick={() => void copyLink()}>Copiar URL</button><small>Enviado para {link.enviado_para} · expira em {portalDate(link.expira_em)}</small><Button variant="secondary" onClick={() => void revokePortalLink()} disabled={busy}>Revogar link</Button></> : <Button onClick={() => void sendPortalLink()} disabled={busy || !quote.cliente_email} title={!quote.cliente_email ? 'Cadastre um e-mail para enviar o link.' : undefined}>Enviar link ao cliente</Button>}</article>
+      </aside>
+    </div>
+    {approvalModal}
+    {feedback && <Feedback message={feedback} close={() => setFeedback('')}/>} 
+  </>
+}
+
 function QuotePortalModal({ quoteId, close }: { quoteId: number; close: () => void }) {
-  const [quote, setQuote] = useState<QuoteDetail | null>(null)
+  const [quote, setQuote] = useState<QuoteData | null>(null)
   const [attachments, setAttachments] = useState<OrcamentoAnexo[]>([])
   const [link, setLink] = useState<PortalLink | null>(null)
   const [loading, setLoading] = useState(true)
@@ -1265,7 +1424,10 @@ export default function App() {
   }, [])
   useEffect(()=>{ if(!authenticated) return; getSessionUser().catch(()=>{ /* cookie may be unavailable during static visual review */ }) },[authenticated])
   const go=(next:Route, id?: number)=>{ location.hash = id === undefined ? next : `${next}/${id}`; window.scrollTo(0,0) }
-  const page=useMemo(()=>({dashboard:<Dashboard/>,clients:<Clients/>,pipeline:<Pipeline/>,builder:<Builder/>,projects:<Projects/>,catalog:<Catalog/>,inventory:<Inventory/>,suppliers:<Suppliers/>,schedule:<Schedule/>,finance:<Finance/>,team:<Team/>,integrations:<Integrations/>,logs:<Logs/>} as Partial<Record<Route, ReactNode>>)[rota.nome],[rota.nome])
+  const page = useMemo(() => {
+    if (rota.nome === 'orcamento') return rota.id === undefined ? <Pipeline/> : <QuoteDetail quoteId={rota.id}/>
+    return ({ dashboard: <Dashboard/>, clients: <Clients/>, pipeline: <Pipeline/>, builder: <Builder/>, projects: <Projects/>, catalog: <Catalog/>, inventory: <Inventory/>, suppliers: <Suppliers/>, schedule: <Schedule/>, finance: <Finance/>, team: <Team/>, integrations: <Integrations/>, logs: <Logs/> } as Partial<Record<Route, ReactNode>>)[rota.nome]
+  }, [rota.nome, rota.id])
   if(portalToken) return <Portal token={portalToken}/>
   if(location.pathname==='/reset-password') return <ResetPassword/>
   if(!authenticated) return <Login onSuccess={()=>setAuthenticated(true)}/>
