@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from database import get_db
 import models, schemas, auth
 from anexo_utils import read_upload_limited
-from rate_limiter import limiter
+from rate_limiter import api_key_or_ip, limiter
 
 router = APIRouter(prefix="/projetos", tags=["Projetos (Integrações)"])
 
@@ -267,7 +267,7 @@ async def importar_projeto_csv(
 
 
 @router.post("/push", response_model=schemas.ProjetoDetailOut)
-@limiter.limit("20/minute")
+@limiter.limit("20/minute", key_func=api_key_or_ip)
 def push_projeto(
     request: Request,
     response: Response,

@@ -9,12 +9,15 @@ def _rate_limit_ip(request) -> str:
     return request.headers.get("X-Real-IP") or get_remote_address(request)
 
 
-def _rate_limit_key(request) -> str:
-    """Separa integrações por chave e usuários web por IP.
+def api_key_or_ip(request) -> str:
+    """Chave de rate limit para rotas de integração autenticadas por API key.
 
-    Extensões atrás de Cloudflare podem compartilhar o mesmo IP de borda. Usar
-    hash da API key evita que uma extensão consuma o limite de outra e nunca
-    armazena o segredo bruto no estado do limiter.
+    Extensões atrás de Cloudflare compartilham o IP de borda, então sem isto uma integração
+    consumiria o limite da outra. O hash evita guardar o segredo em claro no estado do limiter.
+
+    Use SOMENTE em rota que exija uma API key válida como dependência. Em rota pública, o
+    cliente escolheria o próprio balde trocando o header a cada requisição, e o limite deixaria
+    de existir — foi exatamente o que aconteceu quando esta função era o key_func global.
     """
     api_key = request.headers.get("X-API-Key")
     if api_key and len(api_key) <= 128:
@@ -25,4 +28,4 @@ def _rate_limit_key(request) -> str:
     return _rate_limit_ip(request)
 
 
-limiter = Limiter(key_func=_rate_limit_key, default_limits=["100/minute"])
+limiter = Limiter(key_func=_rate_limit_ip, default_limits=["100/minute"])
