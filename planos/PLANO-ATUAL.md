@@ -225,6 +225,20 @@ Se houver falhas, **não as corrija**. Liste-as. Falha antiga e falha nova são 
 diferentes e precisam de decisão separada — corrigir tudo junto apaga a informação de qual
 mudança quebrou o quê.
 
+### Uma falha já conhecida — não gaste tempo rediagnosticando
+
+O orquestrador já rodou a suíte completa em `49733a1`: **98 passaram, 1 falhou**.
+
+`tests/test_projetos_push.py::test_push_revisao_nova_cria_projeto_preservando_anterior` falha com
+`assert 8 == 2`. **Não é defeito de produção.** O teste conta *todos* os projetos com
+`origem_ref == "projeto-versionado"` no banco inteiro, sem filtrar pelo usuário que ele mesmo
+criou. Como o `conftest.py` não limpa as tabelas entre execuções, as linhas se acumulam: passa na
+primeira rodada num banco novo e falha da segunda em diante.
+
+Confirme que ainda é essa a única falha e registre. **Não corrija aqui** — é defeito
+pré-existente, veio do trabalho Med-Stone e não deste plano. A correção (escopar a contagem por
+`usuario_id`) é decisão do usuário e vira tarefa própria.
+
 **Verificação:** a própria execução. O que não puder rodar deve ser dito explicitamente.
 
 ---
