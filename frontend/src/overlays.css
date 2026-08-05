@@ -1,10 +1,26 @@
 .modal-backdrop{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:20px;background:rgba(46,44,41,.45);backdrop-filter:blur(2px)}
-.modal{width:min(100%,560px);background:var(--surface);border-radius:16px;box-shadow:0 24px 60px -16px rgba(46,44,41,.28);overflow:hidden}
+.modal{width:min(100%,560px);background:var(--surface);border-radius:16px;box-shadow:0 24px 60px -16px rgba(46,44,41,.28)}
 .modal>header{display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid var(--line)}
 .modal>header h2{font-size:20px}.modal>header button{width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink2);font-size:20px}
 .modal-form{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:22px}.modal-form label{font-size:12px;font-weight:500}
-.modal-form input,.modal-form textarea{display:block;width:100%;margin-top:6px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);color:var(--ink);font:inherit;box-sizing:border-box}.modal-form input{height:44px}.modal-form textarea{min-height:88px;resize:vertical;line-height:1.4}.modal-form label:has(textarea){grid-column:1/-1}
+/* Caixas de seleção mantêm o desenho nativo; só campos de texto viram caixas de 44px. */
+.modal-form input:not([type=checkbox]):not([type=radio]),.modal-form textarea{display:block;width:100%;margin-top:6px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface);color:var(--ink);font:inherit;box-sizing:border-box}.modal-form input:not([type=checkbox]):not([type=radio]){height:44px}.modal-form textarea{min-height:88px;resize:vertical;line-height:1.4}.modal-form label:has(textarea){grid-column:1/-1}
+.modal-form>small{grid-column:1/-1;margin:0;color:var(--ink2);font-size:11px;line-height:16px}
+/* Campos dentro de tabela do modal alinham na linha, sem o respiro dos formulários. */
+.modal-form .table-wrap input,.modal-form .table-wrap select{margin-top:0}
 .modal-form footer{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;padding-top:8px}
 .toast{position:fixed;right:24px;bottom:24px;z-index:40;display:flex;align-items:center;gap:10px;min-width:340px;padding:15px 18px;border-radius:12px;background:var(--ink);color:#fff;box-shadow:0 8px 24px -8px rgba(46,44,41,.28);font-size:13px}
 .toast i{width:8px;height:8px;border-radius:50%;background:var(--gold)}.toast button{margin-left:auto;border:0;background:none;color:#c8c0b4;font-size:18px}
 @media(max-width:560px){.modal-form{grid-template-columns:1fr}.toast{left:14px;right:14px;bottom:78px;min-width:0}}
+
+/* ==== Gaveta lateral (formulário longo) ====
+   Entra pela direita, altura cheia, rola sozinha. No celular ocupa a largura toda. */
+.drawer-backdrop{place-items:stretch;justify-items:end;padding:0}
+.drawer{display:flex;flex-direction:column;width:min(100%,420px);max-height:100dvh;background:var(--surface);box-shadow:-16px 0 40px -12px rgba(46,44,41,.28);animation:entrandoDaDireita .22s ease}
+.drawer>header{display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.drawer>header h2{font-size:20px}
+.drawer>header button{width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink2);font-size:20px}
+.drawer>form,.drawer>div{overflow:auto;grid-template-columns:1fr}
+@keyframes entrandoDaDireita{from{transform:translateX(100%)}}
+@media(prefers-reduced-motion:reduce){.drawer{animation:none}}
+@media(max-width:560px){.drawer{width:100%}}

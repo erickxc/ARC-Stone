@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { FormEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, createApiKey, createCatalogProduct, createClient, createLancamento, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuoteAttachments, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetPassword, revogarPortalLink, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, verifyMfa } from './api'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, createApiKey, createCatalogProduct, createClient, createLancamento, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, encerrarSessao, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuoteAttachments, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetPassword, revogarPortalLink, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, verifyMfa } from './api'
 import type { ApiKey, ApiKeyCreated, AuditLog, AuditLogEntry, CalendarEvent, Client, ClientInput, FinanceiroResumo, FluxoMensalItem, Lancamento, OrcamentoAnexo, OrcamentoConfig, PaymentCondition, PortalLink, PortalProposta, Product, Projeto, ProjetoDetail, Quote, QuoteDetail as QuoteData, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
-import { money, quotes } from './data'
+import { money } from './data'
 import type { Status } from './data'
 
 type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'projects' | 'catalog' | 'inventory' | 'suppliers' | 'schedule' | 'finance' | 'team' | 'integrations' | 'logs' | 'orcamento'
@@ -50,8 +50,122 @@ function Badge({ children, tone }: { children: ReactNode; tone?: string }) {
   return <span className={`badge ${tone || String(children).toLowerCase()}`}>{children}</span>
 }
 
-function Button({ children, variant = 'primary', onClick, type = 'button', disabled = false, title }: { children: ReactNode; variant?: string; onClick?: () => void; type?: 'button' | 'submit'; disabled?: boolean; title?: string }) {
-  return <button className={`button ${variant}`} onClick={onClick} type={type} disabled={disabled} title={title}>{children}</button>
+function Button({ children, variant = 'primary', onClick, type = 'button', disabled = false, loading = false, title }: { children: ReactNode; variant?: string; onClick?: () => void; type?: 'button' | 'submit'; disabled?: boolean; loading?: boolean; title?: string }) {
+  return <button className={`button ${variant}${loading ? ' loading' : ''}`} onClick={onClick} type={type} disabled={disabled || loading} aria-busy={loading || undefined} title={title}>{children}</button>
+}
+
+/** Estado vazio do design system: marca, título, descrição e uma ação de saída. */
+function EmptyState({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
+  return <div className="empty-state"><Logo compact /><h2>{title}</h2>{description && <p>{description}</p>}{action}</div>
+}
+
+/** Esqueleto de carregamento: ocupa o lugar do conteúdo em vez de trocar a tela por texto. */
+function Skeleton({ rows = 4, label = 'Carregando' }: { rows?: number; label?: string }) {
+  return <div className="skeleton" role="status" aria-label={label}>{Array.from({ length: rows }, (_, i) => <i key={i} />)}</div>
+}
+
+/** Liga/desliga do design system, para ação booleana de efeito real (não para filtro). */
+function Toggle({ checked, onChange, label, disabled = false, ariaLabel }: { checked: boolean; onChange: (valor: boolean) => void; label?: string; disabled?: boolean; ariaLabel?: string }) {
+  return <button type="button" role="switch" aria-checked={checked} aria-label={ariaLabel} disabled={disabled}
+    className={`toggle${checked ? ' on' : ''}`} onClick={() => onChange(!checked)}><i />{label && <span>{label}</span>}</button>
+}
+
+export type ComboOption = { value: string; label: string; meta?: string }
+
+/**
+ * Combobox do design system: rótulo acima, busca dentro do campo, meta à direita em mono
+ * e criação inline opcional. Substitui o select nativo, cuja lista o SO desenha fora do padrão.
+ * Publica `name` como input oculto para continuar funcionando com FormData.
+ */
+function Combobox({ options, value, onChange, placeholder = 'Selecionar…', searchPlaceholder = 'Buscar…', name, ariaLabel, disabled = false, compact = false, onCreate, createLabel = 'Criar' }: {
+  options: ComboOption[]
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  searchPlaceholder?: string
+  name?: string
+  ariaLabel?: string
+  disabled?: boolean
+  compact?: boolean
+  onCreate?: (termo: string) => void
+  createLabel?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [termo, setTermo] = useState('')
+  const [ativo, setAtivo] = useState(0)
+  const idLista = useId()
+  const raiz = useRef<HTMLDivElement>(null)
+  const campo = useRef<HTMLInputElement>(null)
+  const gatilho = useRef<HTMLButtonElement>(null)
+
+  const filtradas = options.filter(option => `${option.label} ${option.meta || ''}`.toLowerCase().includes(termo.trim().toLowerCase()))
+  const podeCriar = Boolean(onCreate && termo.trim() && !options.some(option => option.label.toLowerCase() === termo.trim().toLowerCase()))
+  const selecionada = options.find(option => option.value === value)
+
+  useEffect(() => {
+    if (!open) return
+    campo.current?.focus()
+    const foraDoCampo = (event: PointerEvent) => { if (!raiz.current?.contains(event.target as Node)) setOpen(false) }
+    document.addEventListener('pointerdown', foraDoCampo)
+    return () => document.removeEventListener('pointerdown', foraDoCampo)
+  }, [open])
+
+  function abrir() {
+    if (disabled) return
+    setTermo(''); setAtivo(0); setOpen(true)
+  }
+
+  function fechar(devolverFoco = true) {
+    setOpen(false)
+    if (devolverFoco) gatilho.current?.focus()
+  }
+
+  function escolher(option: ComboOption) {
+    onChange(option.value)
+    fechar()
+  }
+
+  function aoDigitar(event: ReactKeyboardEvent<HTMLInputElement>) {
+    // Sem resultado a faixa é vazia: o índice precisa parar em 0, senão o Enter escolhe undefined.
+    const ultimo = Math.max(0, filtradas.length - (podeCriar ? 0 : 1))
+    if (event.key === 'ArrowDown') { event.preventDefault(); setAtivo(indice => Math.min(indice + 1, ultimo)) }
+    else if (event.key === 'ArrowUp') { event.preventDefault(); setAtivo(indice => Math.max(indice - 1, 0)) }
+    else if (event.key === 'Enter') {
+      event.preventDefault()
+      const escolhida = filtradas[ativo]
+      if (escolhida) escolher(escolhida)
+      else if (podeCriar) { onCreate?.(termo.trim()); fechar() }
+    }
+    else if (event.key === 'Escape') { event.preventDefault(); fechar() }
+    else if (event.key === 'Tab') setOpen(false)
+  }
+
+  // O cartão do kanban abre o orçamento no clique e no Enter; o campo não pode disparar isso.
+  return <div className={`combobox${open ? ' open' : ''}${compact ? ' compact' : ''}`} ref={raiz} data-combobox
+    onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
+    {name && <input type="hidden" name={name} value={value} />}
+    {open
+      ? <input ref={campo} className="combobox-busca" value={termo} placeholder={searchPlaceholder} aria-label={ariaLabel || searchPlaceholder}
+          role="combobox" aria-expanded aria-controls={idLista} aria-autocomplete="list"
+          onChange={event => { setTermo(event.target.value); setAtivo(0) }} onKeyDown={aoDigitar} />
+      : <button ref={gatilho} type="button" className="combobox-gatilho" disabled={disabled} aria-label={ariaLabel}
+          aria-expanded={false} aria-haspopup="listbox" onClick={abrir}
+          onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); abrir() } }}>
+          <span className={selecionada ? '' : 'combobox-vazio'}>{selecionada?.label || placeholder}</span>
+          {selecionada?.meta && <em className="combobox-meta">{selecionada.meta}</em>}
+        </button>}
+    {open && <div className="combobox-pop" id={idLista} role="listbox" aria-label={ariaLabel}>
+      {filtradas.map((option, indice) => <button key={option.value} type="button" role="option" aria-selected={option.value === value}
+        className={indice === ativo ? 'ativo' : ''} onPointerEnter={() => setAtivo(indice)} onClick={() => escolher(option)}>
+        <span>{option.label}</span>{option.meta && <em className="combobox-meta">{option.meta}</em>}
+      </button>)}
+      {podeCriar && <button type="button" className={`combobox-criar${ativo >= filtradas.length ? ' ativo' : ''}`}
+        onPointerEnter={() => setAtivo(filtradas.length)} onClick={() => { onCreate?.(termo.trim()); fechar() }}>
+        + {createLabel} “{termo.trim()}”
+      </button>}
+      {!filtradas.length && !podeCriar && <p className="combobox-nada">Nada encontrado.</p>}
+    </div>}
+  </div>
 }
 
 function Sidebar({ route, go, collapsed, setCollapsed, mobileOpen, closeMobile }: { route: Route; go: (r: Route) => void; collapsed: boolean; setCollapsed: (v: boolean) => void; mobileOpen: boolean; closeMobile: () => void }) {
@@ -87,6 +201,9 @@ function Kpi({ label, value, note, dark }: { label: string; value: string; note:
 }
 
 const statusValues: [Status, number, number][] = [['Gerando', 14, 22], ['Planejando', 26, 41], ['Enviado', 43, 68], ['Ajuste', 8, 30], ['Aprovado', 34, 53], ['Perdido', 11, 17]]
+const tipoOrcamentoOptions: ComboOption[] = [{ value: 'Venda', label: 'Venda' }, { value: 'Locacao', label: 'Locação' }, { value: 'Producao', label: 'Produção' }]
+const perfilOptions: ComboOption[] = [{ value: 'vendedor', label: 'Vendedor' }, { value: 'estoquista', label: 'Estoquista' }, { value: 'admin', label: 'Admin' }]
+const statusOptions: ComboOption[] = statusValues.map(([status]) => ({ value: status, label: status }))
 function StatusBars({ rows = statusValues }: { rows?: [Status, number, number][] }) { return <div className="status-bars">{rows.map(([s, n, w]) => <div key={s}><span>{s}</span><i><b className={s.toLowerCase()} style={{ width: `${w}%` }} /></i><em>{n}</em></div>)}</div> }
 
 function Dashboard() {
@@ -158,13 +275,13 @@ function Dashboard() {
 
 const backendStatusByColumn: Record<Status, string> = { Gerando: 'Gerando orçamento', Planejando: 'Planejando', Enviado: 'Orçamento gerado', Ajuste: 'Ajuste solicitado', Aprovado: 'Aprovado', Perdido: 'Orçamento negado' }
 const columnByBackendStatus: Record<string, Status> = { 'Gerando orçamento': 'Gerando', 'Planejando': 'Planejando', 'Orçamento gerado': 'Enviado', 'Ajuste solicitado': 'Ajuste', 'Aprovado': 'Aprovado', 'Orçamento negado': 'Perdido', 'Entregue': 'Aprovado', 'Faturado': 'Aprovado', 'Devolvido': 'Perdido' }
-type KanbanQuote = { id: string; backendId?: number; project: string; client: string; status: Status; value: number; date: string; owner: string }
+type KanbanQuote = { id: string; backendId?: number; project: string; client: string; status: Status; value: number; date: string; owner: string; vendedor: string }
 
 function quoteToCard(quote: Quote): KanbanQuote {
   const owner = (quote.vendedor_nome || 'ARC').split(' ').map(part => part[0]).slice(0, 2).join('')
   const dateValue = quote.data_entrega || quote.created_at
   const date = dateValue ? new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(dateValue)) : 'sem data'
-  return { id: `ORC-${String(quote.id).padStart(4, '0')}`, backendId: quote.id, project: quote.cliente_nome || quote.tipo_orcamento, client: quote.cliente_nome || 'Cliente sem nome', status: columnByBackendStatus[quote.status] || 'Gerando', value: quote.valor_total || 0, date, owner }
+  return { id: `ORC-${String(quote.id).padStart(4, '0')}`, backendId: quote.id, project: quote.cliente_nome || quote.tipo_orcamento, client: quote.cliente_nome || 'Cliente sem nome', status: columnByBackendStatus[quote.status] || 'Gerando', value: quote.valor_total || 0, date, owner, vendedor: quote.vendedor_nome || '' }
 }
 
 type CnpjOption = { cnpj: string; nome: string | null }
@@ -211,7 +328,7 @@ function useQuoteStatusTransition(
   }
 
   const approvalModal = approveCard && <Modal title={`Aprovar ${approveCard.id}`} close={() => setApproveCard(null)}><form className="modal-form" onSubmit={confirmApproval}>
-    <label>CNPJ de faturamento<select value={approveCnpj} onChange={event => setApproveCnpj(event.target.value)} required autoFocus>{cnpjOptions.map(option => <option key={option.cnpj} value={option.cnpj}>{option.nome || option.cnpj} — {option.cnpj}</option>)}</select></label>
+    <label>CNPJ de faturamento<Combobox ariaLabel="CNPJ de faturamento" searchPlaceholder="Buscar CNPJ…" options={cnpjOptions.map(option => ({ value: option.cnpj, label: option.nome || option.cnpj, meta: option.cnpj }))} value={approveCnpj} onChange={setApproveCnpj} /></label>
     <footer><Button variant="secondary" onClick={() => setApproveCard(null)}>Cancelar</Button><Button type="submit">Aprovar orçamento</Button></footer>
   </form></Modal>
 
@@ -230,6 +347,10 @@ function Pipeline() {
   const [saving, setSaving] = useState(false)
   const [orcamentoConfig, setOrcamentoConfig] = useState<OrcamentoConfig | null>(null)
   const [selectedQuoteId, setSelectedQuoteId] = useState<number | null>(null)
+  const [vendedor, setVendedor] = useState('')
+  const [novoCliente, setNovoCliente] = useState('')
+  const [novoTipo, setNovoTipo] = useState('Venda')
+  const abrirNovo = () => { setNovoCliente(''); setNovoTipo('Venda'); setQuoteError(''); setOpen(true) }
 
   useEffect(() => {
     let mounted = true
@@ -244,8 +365,11 @@ function Pipeline() {
     { cnpj: orcamentoConfig?.empresa2_cnpj, nome: orcamentoConfig?.empresa2_nome },
   ].filter((o): o is { cnpj: string; nome: string | null } => !!o.cnpj)
 
-  const cards: KanbanQuote[] = remoteQuotes === null ? quotes : remoteQuotes.map(quoteToCard)
-  const filtered = cards.filter(q => `${q.project} ${q.client} ${q.id}`.toLowerCase().includes(query.toLowerCase()))
+  const cards: KanbanQuote[] = (remoteQuotes || []).map(quoteToCard)
+  const vendedores = [...new Set(cards.map(card => card.vendedor).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  const filtered = cards
+    .filter(q => `${q.project} ${q.client} ${q.id}`.toLowerCase().includes(query.toLowerCase()))
+    .filter(q => !vendedor || q.vendedor === vendedor)
   async function submitQuote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setQuoteError('')
     const form = new FormData(event.currentTarget); const clienteId = Number(form.get('cliente_id') || 0)
@@ -264,6 +388,8 @@ function Pipeline() {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<Status | null>(null)
   const dragRef = useRef<{ card: KanbanQuote; pointerId: number; startX: number; startY: number; active: boolean; origin: Status; target: Status | null } | null>(null)
+  /** O navegador emite `click` no fim do arrasto; sem isso soltar o cartão abriria o detalhe. */
+  const arrastouRef = useRef(false)
 
   function statusAtPoint(x: number, y: number) {
     const column = document.elementFromPoint(x, y)?.closest<HTMLElement>('.kanban-col')
@@ -272,7 +398,8 @@ function Pipeline() {
   }
 
   function beginDrag(event: ReactPointerEvent<HTMLElement>, card: KanbanQuote) {
-    if (!card.backendId || (event.target as HTMLElement).closest('button,select')) return
+    arrastouRef.current = false
+    if (!card.backendId || (event.target as HTMLElement).closest('button,select,[data-combobox]')) return
     event.currentTarget.setPointerCapture(event.pointerId)
     dragRef.current = { card, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, active: false, origin: card.status, target: null }
   }
@@ -282,6 +409,7 @@ function Pipeline() {
     if (!drag || drag.pointerId !== event.pointerId) return
     if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= 8) {
       drag.active = true
+      arrastouRef.current = true
       setDraggingId(drag.card.id)
     }
     if (drag.active) {
@@ -297,6 +425,8 @@ function Pipeline() {
     dragRef.current = null
     setDraggingId(null)
     setDropTarget(null)
+    // O clique fantasma chega antes de qualquer timer; zerar aqui libera o Enter seguinte.
+    if (drag.active) setTimeout(() => { arrastouRef.current = false }, 0)
     if (cancelled || !drag.active || !drag.target || drag.target === drag.origin) return
     const target = drag.target
     if (target !== 'Aprovado') setRemoteQuotes(current => (current || []).map(item => item.id === drag.card.backendId ? { ...item, status: backendStatusByColumn[target] } : item))
@@ -304,10 +434,10 @@ function Pipeline() {
       if (result === false && target !== 'Aprovado') setRemoteQuotes(current => (current || []).map(item => item.id === drag.card.backendId ? { ...item, status: backendStatusByColumn[drag.origin] } : item))
     })
   }
-  const openQuote = (card: KanbanQuote) => { if (card.backendId) { window.history.pushState(null, '', `#orcamento/${card.backendId}`); window.dispatchEvent(new Event('hashchange')) } }
-  const kanban = <div className="kanban">{statusValues.map(([status, fallbackTotal]) => { const columnCards = filtered.filter(q => q.status === status); return <section className={`kanban-col ${status.toLowerCase()} ${dropTarget === status ? 'drop-target' : ''}`} key={status}><header><h2><i />{status}</h2><Badge>{remoteQuotes === null ? fallbackTotal : columnCards.length}</Badge><p className="mono">{money(columnCards.reduce((total, card) => total + card.value, 0))}</p></header>{columnCards.map(card => <article className={`quote-card ${draggingId === card.id ? 'dragging' : ''}`} key={card.id} role="button" tabIndex={0} onClick={() => openQuote(card)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openQuote(card) } }} onPointerDown={event => beginDrag(event, card)} onPointerMove={updateDrag} onPointerUp={event => finishDrag(event)} onPointerCancel={event => finishDrag(event, true)}><div><span className="mono">{card.id}</span><b>{money(card.value)}</b></div><h3>{card.project}</h3><p>{card.client}</p><footer><span>{card.owner}</span><em>{card.date}</em>{remoteQuotes !== null && card.backendId && <button className="text-action" onClick={event => { event.stopPropagation(); setSelectedQuoteId(card.backendId!) }}>Portal</button>}</footer>{remoteQuotes !== null && card.backendId && <select aria-label={`Status de ${card.id}`} value={card.status} onClick={event => event.stopPropagation()} onChange={event => void moveQuote(card, event.target.value as Status)}>{statusValues.map(([option]) => <option key={option} value={option}>{option}</option>)}</select>}</article>)}{status === 'Gerando' && <button className="add-card" onClick={() => setOpen(true)}>+ Adicionar</button>}</section>})}</div>
-  return <><PageHead eyebrow="VENDAS · PIPELINE" title={view === 'Kanban' ? 'Kanban dos orçamentos' : 'Lista de orçamentos'} subtitle={`${remoteQuotes === null ? 'visão local' : `${remoteQuotes.length} orçamentos do backend`} · ${loading ? 'sincronizando…' : 'sincronizado'}`} actions={<><input className="search" placeholder="Buscar projeto ou cliente…" value={query} onChange={event => setQuery(event.target.value)} /><Button variant="secondary" onClick={() => setFeedback('Filtro de vendedor será ligado ao endpoint de equipe.')}>Vendedor⌄</Button><div className="segmented"><button className={view === 'Lista' ? 'active' : ''} onClick={() => setView('Lista')}>Lista</button><button className={view === 'Kanban' ? 'active' : ''} onClick={() => setView('Kanban')}>Kanban</button></div><Button onClick={() => setOpen(true)}>+ Orçamento</Button></>} />{quoteError && <p className="form-error" role="alert">{quoteError}</p>}
-    {view === 'Kanban' ? kanban : <article className="card list-card"><DataTable headers={['ORÇAMENTO', 'PROJETO', 'CLIENTE', 'STATUS', 'VALOR']} rows={filtered.map(q => [<span className="mono">{q.id}</span>, <b>{q.project}</b>, q.client, <Badge>{q.status}</Badge>, money(q.value)])}/></article>}{open && <Modal title="Novo orçamento" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitQuote}><label>Cliente<select name="cliente_id" required autoFocus defaultValue=""><option value="" disabled>Selecione um cliente…</option>{quoteClients.map(client => <option key={client.id} value={client.id}>{client.nome_fantasia}</option>)}</select></label><label>Tipo de orçamento<select name="tipo_orcamento" defaultValue="Venda"><option>Venda</option><option>Locacao</option><option>Producao</option></select></label>{quoteError && <p className="form-error" role="alert">{quoteError}</p>}<footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Criar orçamento'}</Button></footer></form></Modal>}{approveCard && <Modal title={`Aprovar ${approveCard.id}`} close={() => setApproveCard(null)}><form className="modal-form" onSubmit={confirmApproval}><label>CNPJ de faturamento<select value={approveCnpj} onChange={event => setApproveCnpj(event.target.value)} required autoFocus>{cnpjOptions.map(option => <option key={option.cnpj} value={option.cnpj}>{option.nome || option.cnpj} — {option.cnpj}</option>)}</select></label><footer><Button variant="secondary" onClick={() => setApproveCard(null)}>Cancelar</Button><Button type="submit">Aprovar orçamento</Button></footer></form></Modal>}{selectedQuoteId && <QuotePortalModal quoteId={selectedQuoteId} close={() => setSelectedQuoteId(null)} />}{feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}</>
+  const openQuote = (card: KanbanQuote) => { if (arrastouRef.current) return; if (card.backendId) { window.history.pushState(null, '', `#orcamento/${card.backendId}`); window.dispatchEvent(new Event('hashchange')) } }
+  const kanban = <div className="kanban">{statusValues.map(([status]) => { const columnCards = filtered.filter(q => q.status === status); return <section className={`kanban-col ${status.toLowerCase()} ${dropTarget === status ? 'drop-target' : ''}`} key={status}><header><h2><i />{status}</h2><Badge>{columnCards.length}</Badge><p className="mono">{money(columnCards.reduce((total, card) => total + card.value, 0))}</p></header>{columnCards.map(card => <article className={`quote-card ${draggingId === card.id ? 'dragging' : ''}`} key={card.id} role="button" tabIndex={0} onClick={() => openQuote(card)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openQuote(card) } }} onPointerDown={event => beginDrag(event, card)} onPointerMove={updateDrag} onPointerUp={event => finishDrag(event)} onPointerCancel={event => finishDrag(event, true)}><div><span className="mono">{card.id}</span><b>{money(card.value)}</b></div><h3>{card.project}</h3><p>{card.client}</p><footer><span>{card.owner}</span><em>{card.date}</em>{card.backendId && <button className="text-action" onClick={event => { event.stopPropagation(); setSelectedQuoteId(card.backendId!) }}>Portal</button>}</footer>{card.backendId && <Combobox compact ariaLabel={`Status de ${card.id}`} options={statusOptions} value={card.status} onChange={valor => void moveQuote(card, valor as Status)} />}</article>)}{status === 'Gerando' && <button className="add-card" onClick={abrirNovo}>+ Adicionar</button>}</section>})}</div>
+  return <><PageHead eyebrow="VENDAS · PIPELINE" title={view === 'Kanban' ? 'Kanban dos orçamentos' : 'Lista de orçamentos'} subtitle={loading ? 'sincronizando…' : `${cards.length} orçamento${cards.length === 1 ? '' : 's'} · sincronizado`} actions={<><input className="search" placeholder="Buscar projeto ou cliente…" value={query} onChange={event => setQuery(event.target.value)} /><Combobox ariaLabel="Filtrar por vendedor" placeholder="Todos os vendedores" searchPlaceholder="Buscar vendedor…" options={[{ value: '', label: 'Todos os vendedores' }, ...vendedores.map(nome => ({ value: nome, label: nome }))]} value={vendedor} onChange={setVendedor} /><div className="segmented"><button className={view === 'Lista' ? 'active' : ''} onClick={() => setView('Lista')}>Lista</button><button className={view === 'Kanban' ? 'active' : ''} onClick={() => setView('Kanban')}>Kanban</button></div><Button onClick={abrirNovo}>+ Orçamento</Button></>} />{quoteError && <p className="form-error" role="alert">{quoteError}</p>}
+    {view === 'Kanban' ? kanban : <article className="card list-card"><DataTable headers={['ORÇAMENTO', 'PROJETO', 'CLIENTE', 'STATUS', '#VALOR']} rows={filtered.map(q => [<span className="mono">{q.id}</span>, <b>{q.project}</b>, q.client, <Badge>{q.status}</Badge>, money(q.value)])}/></article>}{open && <Modal title="Novo orçamento" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitQuote}><label>Cliente<Combobox name="cliente_id" ariaLabel="Cliente" placeholder="Selecione um cliente…" searchPlaceholder="Buscar cliente…" options={quoteClients.map(client => ({ value: String(client.id), label: client.nome_fantasia, meta: client.cpf_cnpj || undefined }))} value={novoCliente} onChange={setNovoCliente} /></label><label>Tipo de orçamento<Combobox name="tipo_orcamento" ariaLabel="Tipo de orçamento" options={tipoOrcamentoOptions} value={novoTipo} onChange={setNovoTipo} /></label>{quoteError && <p className="form-error" role="alert">{quoteError}</p>}<footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Criar orçamento'}</Button></footer></form></Modal>}{approveCard && <Modal title={`Aprovar ${approveCard.id}`} close={() => setApproveCard(null)}><form className="modal-form" onSubmit={confirmApproval}><label>CNPJ de faturamento<Combobox ariaLabel="CNPJ de faturamento" searchPlaceholder="Buscar CNPJ…" options={cnpjOptions.map(option => ({ value: option.cnpj, label: option.nome || option.cnpj, meta: option.cnpj }))} value={approveCnpj} onChange={setApproveCnpj} /></label><footer><Button variant="secondary" onClick={() => setApproveCard(null)}>Cancelar</Button><Button type="submit">Aprovar orçamento</Button></footer></form></Modal>}{selectedQuoteId && <QuotePortalModal quoteId={selectedQuoteId} close={() => setSelectedQuoteId(null)} />}{feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}</>
 }
 
 type BuilderItem = { key: string; productId: number | null; name: string; quantity: number; unit: string; unitPrice: number; isExternal: boolean; projetoItemId: number | null }
@@ -398,7 +528,7 @@ function QuoteDetail({ quoteId }: { quoteId: number }) {
     catch { setError('Não foi possível copiar o link.') }
   }
 
-  if (loading) return <article className="card empty-state">Carregando orçamento…</article>
+  if (loading) return <article className="card" style={{ padding: 20 }}><Skeleton rows={5} label="Carregando orçamento" /></article>
   if (!quote) return <article className="card empty-state"><p>{error || 'Orçamento não encontrado.'}</p><Button variant="secondary" onClick={() => { location.hash = 'pipeline' }}>Voltar ao pipeline</Button></article>
 
   const quoteCard = quoteToCard(quote)
@@ -407,9 +537,9 @@ function QuoteDetail({ quoteId }: { quoteId: number }) {
 
   return <>
     <PageHead eyebrow={`${quoteCard.id} · ${quote.tipo_orcamento.toUpperCase()}`} title={quote.cliente_nome || 'Orçamento'} actions={<>
-      <select aria-label="Status do orçamento" value={quoteCard.status} onChange={event => void moveQuote(quoteCard, event.target.value as Status)}>{statusValues.map(([status]) => <option key={status} value={status}>{status}</option>)}</select>
+      <Combobox ariaLabel="Status do orçamento" options={statusOptions} value={quoteCard.status} onChange={valor => void moveQuote(quoteCard, valor as Status)} />
       <button className="button secondary" disabled title="O Builder ainda não carrega orçamentos existentes.">Editar</button>
-      <Button variant="secondary" onClick={() => void regeneratePdf()} disabled={busy}>Gerar PDF</Button>
+      <Button variant="secondary" onClick={() => void regeneratePdf()} loading={busy}>Gerar PDF</Button>
       <Button onClick={() => void sendPortalLink()} disabled={busy || !quote.cliente_email} title={!quote.cliente_email ? 'Cadastre um e-mail para enviar o link.' : undefined}>Enviar link ao cliente</Button>
     </>} />
     {error && <p className="form-error" role="alert">{error}</p>}
@@ -420,9 +550,9 @@ function QuoteDetail({ quoteId }: { quoteId: number }) {
       </div>
       <aside className="quote-detail-aside">
         <article className="card total-card"><p className="mono">VALOR TOTAL</p><strong>{money(total)}</strong><dl><div><dt>Cliente</dt><dd>{quote.cliente_nome || 'Não informado'}</dd></div><div><dt>Vendedor</dt><dd>{quote.vendedor_nome || 'Não informado'}</dd></div><div><dt>Tipo</dt><dd>{quote.tipo_orcamento}</dd></div><div><dt>Criado em</dt><dd>{portalDate(quote.created_at)}</dd></div><div><dt>Status</dt><dd><Badge>{quote.status}</Badge></dd></div></dl></article>
-        <article className="card documents"><div className="card-title"><h2>Anexos</h2><span className="mono">{attachments.length}</span></div>{attachments.length ? attachments.map(attachment => <div className="quote-attachment" key={attachment.id}><a href={quoteDownloadUrl(attachment.url)} download>{attachment.nome_original}</a><small>{portalBytes(attachment.tamanho)} · {attachment.visivel_cliente ? 'Visível ao cliente' : 'Interno'}</small><label><input type="checkbox" checked={attachment.visivel_cliente} disabled={busy} onChange={() => void toggleAttachment(attachment)}/> Visível ao cliente</label></div>) : <p className="empty-state">Nenhum anexo cadastrado.</p>}{quote.anexo_url && <a className="text-action" href={quoteDownloadUrl(quote.anexo_url)} download>Baixar PDF da proposta</a>}</article>
+        <article className="card documents"><div className="card-title"><h2>Anexos</h2><span className="mono">{attachments.length}</span></div>{attachments.length ? attachments.map(attachment => <div className="quote-attachment" key={attachment.id}><a href={quoteDownloadUrl(attachment.url)} download>{attachment.nome_original}</a><small>{portalBytes(attachment.tamanho)} · {attachment.visivel_cliente ? 'Visível ao cliente' : 'Interno'}</small><Toggle checked={attachment.visivel_cliente} disabled={busy} label="Visível ao cliente" onChange={() => void toggleAttachment(attachment)}/></div>) : <p className="empty-state">Nenhum anexo cadastrado.</p>}{quote.anexo_url && <a className="text-action" href={quoteDownloadUrl(quote.anexo_url)} download>Baixar PDF da proposta</a>}</article>
         {quote.decisao_cliente && <article className="card decision quote-decision"><p className="mono">DECISÃO DO CLIENTE</p><strong>{quote.decisao_cliente === 'aprovado' ? 'Aprovou a proposta' : 'Pediu ajuste'}</strong><span>{quote.decisao_cliente_nome || 'Nome não informado'} · {portalDate(quote.decisao_cliente_em || null)}</span>{quote.decisao_cliente === 'recusado' && <p><b>Motivo:</b> {quote.decisao_cliente_motivo || 'Não informado'}</p>}</article>}
-        <article className="card portal-detail-card"><p className="mono">PORTAL DO CLIENTE</p><p>Gerar um link novo invalida o anterior.</p>{link ? <><input readOnly value={link.url} aria-label="URL completa do portal"/><button className="text-action" onClick={() => void copyLink()}>Copiar URL</button><small>Enviado para {link.enviado_para} · expira em {portalDate(link.expira_em)}</small><Button variant="secondary" onClick={() => void revokePortalLink()} disabled={busy}>Revogar link</Button></> : <Button onClick={() => void sendPortalLink()} disabled={busy || !quote.cliente_email} title={!quote.cliente_email ? 'Cadastre um e-mail para enviar o link.' : undefined}>Enviar link ao cliente</Button>}</article>
+        <article className="card portal-detail-card"><p className="mono">PORTAL DO CLIENTE</p><p>Gerar um link novo invalida o anterior.</p>{link ? <><input readOnly value={link.url} aria-label="URL completa do portal"/><button className="text-action" onClick={() => void copyLink()}>Copiar URL</button><small>Enviado para {link.enviado_para} · expira em {portalDate(link.expira_em)}</small><Button variant="secondary" onClick={() => void revokePortalLink()} loading={busy}>Revogar link</Button></> : <Button onClick={() => void sendPortalLink()} disabled={busy || !quote.cliente_email} title={!quote.cliente_email ? 'Cadastre um e-mail para enviar o link.' : undefined}>Enviar link ao cliente</Button>}</article>
       </aside>
     </div>
     {approvalModal}
@@ -465,12 +595,12 @@ function QuotePortalModal({ quoteId, close }: { quoteId: number; close: () => vo
   }
 
   return <Modal title={`Portal · ORC-${String(quoteId).padStart(4, '0')}`} close={close}><div className="modal-form portal-erp-detail">
-    {loading ? <p className="empty-state">Carregando dados do orçamento…</p> : quote && <>
+    {loading ? <Skeleton rows={4} label="Carregando dados do orçamento" /> : quote && <>
       <p>Envie um link seguro para <strong>{quote.cliente_email || 'cliente sem e-mail'}</strong>. Reenviar invalida o link anterior.</p>
-      <div className="portal-link-actions"><Button onClick={sendPortalLink} disabled={busy || !quote.cliente_email}>{busy ? 'Processando…' : 'Enviar ao cliente'}</Button>{link && <Button variant="secondary" onClick={revokePortalLink} disabled={busy}>Revogar link</Button>}</div>
+      <div className="portal-link-actions"><Button onClick={sendPortalLink} disabled={busy || !quote.cliente_email}>{busy ? 'Processando…' : 'Enviar ao cliente'}</Button>{link && <Button variant="secondary" onClick={revokePortalLink} loading={busy}>Revogar link</Button>}</div>
       {link && <div className="portal-link-result"><input readOnly value={link.url} aria-label="Link do portal"/><button className="text-action" onClick={() => void navigator.clipboard?.writeText(link.url)}>Copiar</button><small>Expira em {portalDate(link.expira_em)} · enviado para {link.enviado_para}</small></div>}
       {quote.decisao_cliente && <article className="portal-decision"><p className="mono">DECISÃO DO CLIENTE</p><strong>{quote.decisao_cliente === 'aprovado' ? 'Aprovou a proposta' : 'Pediu ajuste'}</strong><span>{quote.decisao_cliente_nome || 'Nome não informado'} · {portalDate(quote.decisao_cliente_em || null)}</span>{quote.decisao_cliente === 'recusado' && <p><b>Motivo:</b> {quote.decisao_cliente_motivo}</p>}</article>}
-      <div className="portal-attachments"><p className="mono">DOCUMENTOS · VISIBILIDADE EXTERNA</p><small>Ligar publica o arquivo fora da empresa.</small>{attachments.length ? attachments.map(attachment => <label key={attachment.id}><span>{attachment.nome_original}</span><input type="checkbox" checked={attachment.visivel_cliente} disabled={busy} onChange={() => void toggleAttachment(attachment)}/><b>{attachment.visivel_cliente ? 'Visível ao cliente' : 'Interno'}</b></label>) : <p>Nenhum anexo cadastrado.</p>}</div>
+      <div className="portal-attachments"><p className="mono">DOCUMENTOS · VISIBILIDADE EXTERNA</p><small>Ligar publica o arquivo fora da empresa.</small>{attachments.length ? attachments.map(attachment => <div className="portal-anexo" key={attachment.id}><span>{attachment.nome_original}</span><b>{attachment.visivel_cliente ? 'Visível ao cliente' : 'Interno'}</b><Toggle checked={attachment.visivel_cliente} disabled={busy} ariaLabel={`Publicar ${attachment.nome_original} para o cliente`} onChange={() => void toggleAttachment(attachment)}/></div>) : <p>Nenhum anexo cadastrado.</p>}</div>
     </>}
     {error && <p className="form-error" role="alert">{error}</p>}
   </div></Modal>
@@ -486,6 +616,7 @@ function Builder() {
   const [items, setItems] = useState<BuilderItem[]>([])
   const [quoteId, setQuoteId] = useState<number | null>(null)
   const [itemModal, setItemModal] = useState<'catalog'|'free'|'project'|'project-validate'|null>(null)
+  const [novoProduto, setNovoProduto] = useState('')
   const [projetosList, setProjetosList] = useState<Projeto[]>([])
   const [projectDraft, setProjectDraft] = useState<ProjetoDetail | null>(null)
   const [validationRows, setValidationRows] = useState<ValidationRow[]>([])
@@ -589,10 +720,10 @@ function Builder() {
     event.preventDefault(); const form = new FormData(event.currentTarget); setItems(current => [...current, { key: `free-${Date.now()}`, productId: null, name: String(form.get('nome') || 'Item livre'), quantity: Number(form.get('quantidade') || 1), unit: String(form.get('unidade') || 'un.'), unitPrice: Math.round(Number(form.get('preco') || 0) * 100), isExternal: true, projetoItemId: null }]); setItemModal(null)
   }
 
-  return <><PageHead eyebrow={quoteId ? `ORC-${String(quoteId).padStart(4, '0')} · RASCUNHO` : 'NOVO ORÇAMENTO · RASCUNHO'} title={`${selectedClientName} — orçamento`} actions={<><Badge>Gerando</Badge><Button variant="secondary" onClick={() => saveQuote()} disabled={saving}>{saving ? 'Salvando…' : 'Salvar rascunho'}</Button><Button onClick={regeneratePdf}>Gerar PDF e enviar</Button></>} />{error && <p className="form-error" role="alert">{error}</p>}{loading ? <article className="card empty-state"><h2>Carregando clientes e catálogo…</h2></article> : <form onSubmit={saveQuote}><div className="builder"><div><article className="card fields"><label>Cliente<select value={selectedClient} onChange={event => setSelectedClient(Number(event.target.value) || '')} required><option value="" disabled>Selecione um cliente…</option>{clientsList.map(client => <option key={client.id} value={client.id}>{client.nome_fantasia}</option>)}</select></label><label>Tipo de orçamento<select value={quoteType} onChange={event => setQuoteType(event.target.value as 'Venda'|'Locacao'|'Producao')}><option>Venda</option><option>Locacao</option><option>Producao</option></select></label><label>Pagamento{paymentOptions.length ? <select value={payment} onChange={event => setPayment(event.target.value)} required><option value="" disabled>Selecione uma condição…</option>{paymentOptions.map(option => <option key={option.id} value={option.nome}>{option.nome}</option>)}</select> : <input value={payment} onChange={event => setPayment(event.target.value)} placeholder="40% entrada + 3x…"/>}</label></article><article className="card items"><div className="card-title"><h2>Itens <small>· {items.length}</small></h2><span><Button type="button" variant="secondary" onClick={() => setItemModal('catalog')}>Do catálogo</Button> <Button type="button" variant="dark" onClick={() => setItemModal('free')}>+ Item livre</Button> <Button type="button" variant="secondary" onClick={() => setItemModal('project')}>Importar de um projeto</Button></span></div><div className="item-head mono"><span>DESCRIÇÃO</span><span>QTD / M²</span><span>UN.</span><span>UNITÁRIO</span><span>TOTAL</span></div>{items.map((item, index) => <div className={`item-row ${index === items.length - 1 ? 'editing' : ''}`} key={item.key}><div><b>{item.name}</b><small>{item.isExternal ? 'ITEM LIVRE · especificação do projeto' : `CAT-${String(item.productId).padStart(4, '0')} · catálogo`}</small></div><span>{item.quantity}</span><span>{item.unit}</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.unitPrice / 100)}</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.quantity * item.unitPrice / 100)}</span><button type="button" aria-label={`Remover ${item.name}`} onClick={() => setItems(current => current.filter(currentItem => currentItem.key !== item.key))}>×</button></div>)}{!items.length && <p className="empty-state">Nenhum item adicionado ainda.</p>}</article></div><aside><article className="card total-card"><p className="mono">TOTAL DA PROPOSTA</p><strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total / 100)}</strong><dl><dt>Itens</dt><dd>{items.length}</dd><dt>Cliente</dt><dd>{selectedClientName}</dd><dt>Tipo</dt><dd>{quoteType}</dd></dl></article><article className="card attachments"><p className="mono">ANEXOS</p><span>PDF gerado automaticamente ao salvar</span></article></aside></div></form>}{itemModal === 'catalog' && <Modal title="Adicionar do catálogo" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addCatalogItem}><label>Produto<select name="produto_id" required autoFocus defaultValue=""><option value="" disabled>Selecione um produto…</option>{productsList.map(product => <option key={product.id} value={product.id}>{product.nome}</option>)}</select></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}{itemModal === 'free' && <Modal title="Adicionar item livre" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addFreeItem}><label>Descrição<input name="nome" required autoFocus placeholder="Bancada especial…"/></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><label>Unidade<input name="unidade" defaultValue="un." required/></label><label>Preço unitário<input name="preco" type="number" min="0" step="0.01" required placeholder="0,00"/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}
+  return <><PageHead eyebrow={quoteId ? `ORC-${String(quoteId).padStart(4, '0')} · RASCUNHO` : 'NOVO ORÇAMENTO · RASCUNHO'} title={`${selectedClientName} — orçamento`} actions={<><Badge>Gerando</Badge><Button variant="secondary" onClick={() => saveQuote()} loading={saving}>{saving ? 'Salvando…' : 'Salvar rascunho'}</Button><Button onClick={regeneratePdf}>Gerar PDF e enviar</Button></>} />{error && <p className="form-error" role="alert">{error}</p>}{loading ? <article className="card" style={{ padding: 20 }}><Skeleton rows={4} label="Carregando clientes e catálogo" /></article> : <form onSubmit={saveQuote}><div className="builder"><div><article className="card fields"><label>Cliente<Combobox ariaLabel="Cliente" placeholder="Selecione um cliente…" searchPlaceholder="Buscar cliente…" options={clientsList.map(client => ({ value: String(client.id), label: client.nome_fantasia, meta: client.cpf_cnpj || undefined }))} value={selectedClient === '' ? '' : String(selectedClient)} onChange={valor => setSelectedClient(valor ? Number(valor) : '')} /></label><label>Tipo de orçamento<Combobox ariaLabel="Tipo de orçamento" options={tipoOrcamentoOptions} value={quoteType} onChange={valor => setQuoteType(valor as 'Venda'|'Locacao'|'Producao')} /></label><label>Pagamento{paymentOptions.length ? <Combobox ariaLabel="Condição de pagamento" placeholder="Selecione uma condição…" searchPlaceholder="Buscar condição…" options={paymentOptions.map(option => ({ value: option.nome, label: option.nome }))} value={payment} onChange={setPayment} /> : <input value={payment} onChange={event => setPayment(event.target.value)} placeholder="40% entrada + 3x…"/>}</label></article><article className="card items"><div className="card-title"><h2>Itens <small>· {items.length}</small></h2><span><Button type="button" variant="secondary" onClick={() => { setNovoProduto(''); setItemModal('catalog') }}>Do catálogo</Button> <Button type="button" variant="secondary" onClick={() => setItemModal('free')}>+ Item livre</Button> <Button type="button" variant="secondary" onClick={() => setItemModal('project')}>Importar de um projeto</Button></span></div><div className="item-head mono"><span>DESCRIÇÃO</span><span>QTD / M²</span><span>UN.</span><span>UNITÁRIO</span><span>TOTAL</span></div>{items.map((item, index) => <div className={`item-row ${index === items.length - 1 ? 'editing' : ''}`} key={item.key}><div><b>{item.name}</b><small>{item.isExternal ? 'ITEM LIVRE · especificação do projeto' : `CAT-${String(item.productId).padStart(4, '0')} · catálogo`}</small></div><span>{item.quantity}</span><span>{item.unit}</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.unitPrice / 100)}</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.quantity * item.unitPrice / 100)}</span><button type="button" aria-label={`Remover ${item.name}`} onClick={() => setItems(current => current.filter(currentItem => currentItem.key !== item.key))}>×</button></div>)}{!items.length && <EmptyState title="Nenhum item no orçamento" description="Puxe do catálogo, crie um item livre ou importe de um projeto." action={<Button variant="secondary" onClick={() => { setNovoProduto(''); setItemModal('catalog') }}>Do catálogo</Button>} />}</article></div><aside><article className="card total-card"><p className="mono">TOTAL DA PROPOSTA</p><strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total / 100)}</strong><dl><dt>Itens</dt><dd>{items.length}</dd><dt>Cliente</dt><dd>{selectedClientName}</dd><dt>Tipo</dt><dd>{quoteType}</dd></dl></article><article className="card attachments"><p className="mono">ANEXOS</p><span>PDF gerado automaticamente ao salvar</span></article></aside></div></form>}{itemModal === 'catalog' && <Modal title="Adicionar do catálogo" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addCatalogItem}><label>Produto<Combobox name="produto_id" ariaLabel="Produto" placeholder="Selecione um produto…" searchPlaceholder="Buscar produto…" options={productsList.map(product => ({ value: String(product.id), label: product.nome, meta: product.material || undefined }))} value={novoProduto} onChange={setNovoProduto} /></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}{itemModal === 'free' && <Modal title="Adicionar item livre" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addFreeItem}><label>Descrição<input name="nome" required autoFocus placeholder="Bancada especial…"/></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><label>Unidade<input name="unidade" defaultValue="un." required/></label><label>Preço unitário<input name="preco" type="number" min="0" step="0.01" required placeholder="0,00"/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}
     {itemModal === 'project' && <Modal title="Importar de um projeto" close={() => setItemModal(null)}>
       <div className="modal-form" style={{ gridTemplateColumns: '1fr' }}>
-        {projetosList.length ? <DataTable headers={['PROJETO', 'ORIGEM', 'CLIENTE', 'ITENS', '']} rows={sortedProjects.map(p => [
+        {projetosList.length ? <DataTable headers={['PROJETO', 'ORIGEM', 'CLIENTE', '#ITENS', '']} rows={sortedProjects.map(p => [
           <b>{p.nome}</b>,
           projetoOrigemLabel[p.origem] || p.origem,
           p.cliente_nome || 'Sem cliente',
@@ -603,14 +734,14 @@ function Builder() {
     </Modal>}
     {itemModal === 'project-validate' && projectDraft && <Modal title={`Validar itens · ${projectDraft.nome}`} close={() => setItemModal(null)}>
       <div className="modal-form" style={{ gridTemplateColumns: '1fr' }}>
-        <p className="empty-state">Confira cada item antes de adicionar ao orçamento — nada é incluído automaticamente.</p>
-        <DataTable headers={['ITEM', 'QTD', 'PRODUTO DO CATÁLOGO', 'PREÇO UNIT.', 'INCLUIR']} rows={validationRows.map((row, index) => [
+        <p className="subtitle">Confira cada item antes de adicionar ao orçamento — nada é incluído automaticamente.</p>
+        <DataTable headers={['ITEM', '#QTD', 'PRODUTO DO CATÁLOGO', '#PREÇO UNIT.', 'INCLUIR']} rows={validationRows.map((row, index) => [
           <div><b>{row.nome}</b>{row.material && <small>{row.material}</small>}</div>,
           <input type="number" min="1" step="1" value={row.quantidade} onChange={e => updateValidationRow(index, { quantidade: Number(e.target.value) || 1 })}/>,
-          <select value={row.matchedProductId ?? ''} onChange={e => { const id = e.target.value ? Number(e.target.value) : null; const produto = productsList.find(p => p.id === id); updateValidationRow(index, { matchedProductId: id, unitPrice: produto ? produto.preco_venda : row.unitPrice }) }}>
-            <option value="">— manter como item externo —</option>
-            {productsList.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-          </select>,
+          <Combobox ariaLabel={`Produto do catálogo para ${row.nome}`} placeholder="— manter como item externo —" searchPlaceholder="Buscar produto…"
+            options={[{ value: '', label: '— manter como item externo —' }, ...productsList.map(p => ({ value: String(p.id), label: p.nome, meta: p.material || undefined }))]}
+            value={row.matchedProductId === null ? '' : String(row.matchedProductId)}
+            onChange={valor => { const id = valor ? Number(valor) : null; const produto = productsList.find(p => p.id === id); updateValidationRow(index, { matchedProductId: id, unitPrice: produto ? produto.preco_venda : row.unitPrice }) }} />,
           <input type="number" min="0" step="0.01" value={(row.unitPrice / 100).toFixed(2)} onChange={e => updateValidationRow(index, { unitPrice: Math.round(Number(e.target.value || 0) * 100) })}/>,
           <input type="checkbox" checked={row.included} onChange={e => updateValidationRow(index, { included: e.target.checked })} aria-label={`Incluir ${row.nome}`}/>,
         ])}/>
@@ -626,6 +757,7 @@ function Projects() {
   const [items, setItems] = useState<Projeto[]>([])
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  const [importCliente, setImportCliente] = useState('')
   const [detail, setDetail] = useState<ProjetoDetail | null>(null)
   const [clientsList, setClientsList] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
@@ -672,33 +804,33 @@ function Projects() {
     catch (err) { setError(err instanceof Error ? err.message : 'Falha ao excluir projeto.') }
   }
 
-  return <><PageHead eyebrow="VENDAS · PROJETOS" title="Projetos" subtitle={`${items.length} projeto(s) importado(s) de softwares de arquitetura`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar projeto, origem ou cliente..."/><Button onClick={() => setOpen(true)}>+ Importar CSV</Button></>}/>
+  return <><PageHead eyebrow="VENDAS · PROJETOS" title="Projetos" subtitle={`${items.length} projeto(s) importado(s) de softwares de arquitetura`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar projeto, origem ou cliente..."/><Button onClick={() => { setImportCliente(''); setOpen(true) }}>+ Importar CSV</Button></>}/>
     {error && <p className="form-error" role="alert">{error}</p>}
     <article className="card list-card">
       <div className="card-title"><h2>Projetos importados</h2><Badge>{filtered.length} resultados</Badge></div>
-      {loading ? <p className="empty-state">Carregando projetos…</p> : filtered.length ? <DataTable headers={['PROJETO', 'ORIGEM', 'CLIENTE', 'ITENS', 'IMPORTADO EM', 'AÇÕES']} rows={filtered.map(item => [
+      {loading ? <Skeleton rows={5} label="Carregando projetos" /> : filtered.length ? <DataTable headers={['PROJETO', 'ORIGEM', 'CLIENTE', '#ITENS', '#IMPORTADO EM', 'AÇÕES']} rows={filtered.map(item => [
         <b>{item.nome}</b>,
         <span><Badge tone="neutral">{projetoOrigemLabel[item.origem] || item.origem}</Badge>{item.origem_status === 'rascunho' && <Badge tone="warning">Rascunho · pode mudar</Badge>}</span>,
         item.cliente_nome || 'Sem cliente definido',
         String(item.total_itens ?? 0),
         new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(item.created_at)),
         <span className="row-actions"><button className="text-action" onClick={() => openDetail(item.id)}>Ver itens</button> <button className="text-action" onClick={() => removeProjeto(item)}>Excluir</button></span>,
-      ])}/> : <p className="empty-state">Nenhum projeto importado ainda. Use "+ Importar CSV" para trazer uma lista de itens do SketchUp.</p>}
+      ])}/> : <EmptyState title="Nenhum projeto importado" description="Traga a lista de itens do SketchUp num arquivo CSV para começar." action={<Button onClick={() => { setImportCliente(''); setOpen(true) }}>+ Importar CSV</Button>} />}
     </article>
     {open && <Modal title="Importar projeto (CSV)" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitImport}>
       <label>Nome do projeto<input name="nome" autoFocus required placeholder="Apto 302 - Torre B"/></label>
-      <label>Cliente (opcional)<select name="cliente_id" defaultValue=""><option value="">Sem cliente definido</option>{clientsList.map(client => <option key={client.id} value={client.id}>{client.nome_fantasia}</option>)}</select></label>
+      <label>Cliente (opcional)<Combobox name="cliente_id" ariaLabel="Cliente" placeholder="Sem cliente definido" searchPlaceholder="Buscar cliente…" options={[{ value: '', label: 'Sem cliente definido' }, ...clientsList.map(client => ({ value: String(client.id), label: client.nome_fantasia }))]} value={importCliente} onChange={setImportCliente} /></label>
       <label>Arquivo CSV<input name="file" type="file" accept=".csv,.txt" required/></label>
       <small>Exporte a lista de componentes pelo "Generate Report" do SketchUp (colunas nome/quantidade/material/dimensões) e envie aqui.</small>
       {error && <p className="form-error" role="alert">{error}</p>}
-      <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Importando…' : 'Importar'}</Button></footer>
+      <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Importando…' : 'Importar'}</Button></footer>
     </form></Modal>}
     {detail && <Modal title={`Projeto · ${detail.nome}`} close={() => setDetail(null)}>
       <div className="modal-form" style={{ gridTemplateColumns: '1fr' }}>
         <p><Badge tone="neutral">{projetoOrigemLabel[detail.origem] || detail.origem}</Badge>{detail.origem_status === 'rascunho' && <Badge tone="warning">Rascunho · confirme antes de orçar</Badge>}</p>
         {detail.origem_rev && <p className="mono">REVISÃO DA ORIGEM · {detail.origem_rev}</p>}
       </div>
-      <DataTable headers={['ITEM', 'QTD', 'MATERIAL', 'PRODUTO SUGERIDO']} rows={detail.itens.map(item => [
+      <DataTable headers={['ITEM', '#QTD', 'MATERIAL', 'PRODUTO SUGERIDO']} rows={detail.itens.map(item => [
         <b>{item.nome}</b>, item.quantidade, item.material || '—', item.produto_nome_sugerido || <span className="danger-text">Sem correspondência</span>,
       ])}/>
     </Modal>}
@@ -706,9 +838,52 @@ function Projects() {
   </>
 }
 
-function DataTable({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) { return <div className="table-wrap"><table><thead><tr>{headers.map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}>{cell}</td>)}</tr>)}</tbody></table><footer>Exibindo {rows.length} registros <span>‹ <b>1</b> 2 ›</span></footer></div> }
+// Cabeçalho prefixado com '#' marca coluna numérica: à direita e em mono tabular, como no design system.
+function DataTable({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) { const num = headers.map(h => h.startsWith('#')); return <div className="table-wrap"><table><thead><tr>{headers.map((h,j)=><th key={h} className={num[j] ? 'num' : undefined}>{h.replace(/^#/,'')}</th>)}</tr></thead><tbody>{rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j} className={num[j] ? 'num' : undefined}>{cell}</td>)}</tr>)}</tbody></table><footer>Exibindo {rows.length} {rows.length === 1 ? 'registro' : 'registros'}</footer></div> }
 
-function Modal({ title, close, children }: { title: string; close: () => void; children: ReactNode }) { return <div className="modal-backdrop" role="presentation" onMouseDown={close}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" onMouseDown={e=>e.stopPropagation()}><header><h2 id="modal-title">{title}</h2><button aria-label="Fechar" onClick={close}>×</button></header>{children}</section></div> }
+/** Painel sobreposto: Esc fecha, foco entra no painel e Tab circula dentro dele. */
+function usePainelSobreposto(close: () => void) {
+  const painel = useRef<HTMLElement>(null)
+  // `close` muda de identidade a cada render do pai; sem o ref o efeito reexecutaria e
+  // roubaria o foco de volta pro primeiro campo a cada tecla digitada.
+  const fechar = useRef(close)
+  // Guardado no render (antes de qualquer efeito mover o foco) para devolver o foco ao gatilho.
+  const gatilho = useRef(document.activeElement as HTMLElement | null)
+  useEffect(() => { fechar.current = close }, [close])
+  useEffect(() => {
+    const anterior = gatilho.current
+    const focaveis = () => [...(painel.current?.querySelectorAll<HTMLElement>('a[href],button:not(:disabled),input:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])') || [])]
+    focaveis()[0]?.focus()
+    const aoTeclar = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); fechar.current(); return }
+      if (event.key !== 'Tab') return
+      const alvos = focaveis()
+      if (!alvos.length) return
+      const primeiro = alvos[0], ultimo = alvos[alvos.length - 1]
+      if (!event.shiftKey && document.activeElement === ultimo) { event.preventDefault(); primeiro.focus() }
+      else if (event.shiftKey && document.activeElement === primeiro) { event.preventDefault(); ultimo.focus() }
+    }
+    document.addEventListener('keydown', aoTeclar)
+    return () => { document.removeEventListener('keydown', aoTeclar); anterior?.focus() }
+  }, [])
+  return painel
+}
+
+/** Gaveta lateral do design system: formulário longo entra pela direita, sem cobrir a tela toda. */
+function Drawer({ title, close, children }: { title: string; close: () => void; children: ReactNode }) {
+  const painel = usePainelSobreposto(close)
+  return <div className="modal-backdrop drawer-backdrop" role="presentation" onMouseDown={close}>
+    <section className="drawer" ref={painel as React.RefObject<HTMLElement>} role="dialog" aria-modal="true" aria-labelledby="drawer-title" onMouseDown={event => event.stopPropagation()}>
+      <header><h2 id="drawer-title">{title}</h2><button aria-label="Fechar" onClick={close}>×</button></header>
+      {children}
+    </section>
+  </div>
+}
+
+function Modal({ title, close, children }: { title: string; close: () => void; children: ReactNode }) {
+  const painel = usePainelSobreposto(close)
+  return <div className="modal-backdrop" role="presentation" onMouseDown={close}><section className="modal" ref={painel as React.RefObject<HTMLElement>} role="dialog" aria-modal="true" aria-labelledby="modal-title" onMouseDown={e=>e.stopPropagation()}><header><h2 id="modal-title">{title}</h2><button aria-label="Fechar" onClick={close}>×</button></header>{children}</section></div>
+}
 
 function Feedback({ message, close }: { message: string; close: () => void }) {
   return <div className="toast" role="status" aria-live="polite"><i />{message}<button aria-label="Fechar aviso" onClick={close}>×</button></div>
@@ -749,7 +924,7 @@ function Clients() {
     try { await deleteClient(item.id); setItems(current => current.filter(current_item => current_item.id !== item.id)) }
     catch (err) { setError(err instanceof Error ? err.message : 'Falha ao excluir cliente.') }
   }
-  return <><PageHead eyebrow="VENDAS · CARTEIRA" title="Carteira de clientes" subtitle={`${items.length} clientes carregados do backend`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar nome, CPF/CNPJ ou contato..."/><Button onClick={() => setOpen(true)}>+ Novo cliente</Button></>}/>{error && <p className="form-error" role="alert">{error}</p>}<section className="kpi-grid"><Kpi label="CLIENTES ATIVOS" value={String(items.filter(item => item.status === 'ativo').length)} note="vindos da API"/><Kpi label="RESULTADOS" value={String(filtered.length)} note="filtro atual"/><Kpi label="COM CONTATO" value={String(items.filter(item => item.email || item.contato).length)} note="e-mail ou telefone"/><Kpi dark label="STATUS" value={loading ? '...' : 'OK'} note="sincronização concluída"/></section><article className="card list-card"><div className="card-title"><h2>Clientes</h2><Badge>{filtered.length} resultados</Badge></div>{loading ? <p className="empty-state">Carregando clientes…</p> : <DataTable headers={['CLIENTE','CONTATO','DOCUMENTO','STATUS','ENDEREÇO','AÇÕES']} rows={filtered.map(item => [<div className="person"><span>{item.nome_fantasia.split(' ').map(part => part[0]).slice(0, 2).join('')}</span><b>{item.nome_fantasia}<small>{item.nome_responsavel || item.cpf_cnpj || 'Sem documento'}</small></b></div>, item.email || item.contato || 'Sem contato', item.cpf_cnpj || 'Não informado', <Badge tone={item.status === 'ativo' ? 'success' : 'warning'}>{item.status || 'indefinido'}</Badge>, item.endereco_entrega || 'Não informado', <button className="text-action" onClick={() => removeClient(item)}>Excluir</button>])}/>}</article>{open && <Modal title="Novo cliente" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitClient}><label>Nome ou razão social<input name="nome_fantasia" autoFocus required placeholder="Studio Aroeira"/></label><label>CPF / CNPJ<input name="cpf_cnpj" placeholder="12.345.678/0001-90"/></label><label>Responsável<input name="nome_responsavel" placeholder="Ana Prado"/></label><label>E-mail<input name="email" type="email" placeholder="contato@studio.com.br"/></label><label>Telefone<input name="contato" placeholder="(11) 99999-9999"/></label><label>Endereço de entrega<input name="endereco_entrega" placeholder="Rua, número, cidade/UF"/></label><footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar cliente'}</Button></footer></form></Modal>}</>
+  return <><PageHead eyebrow="VENDAS · CARTEIRA" title="Carteira de clientes" subtitle={`${items.length} clientes carregados do backend`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar nome, CPF/CNPJ ou contato..."/><Button onClick={() => setOpen(true)}>+ Novo cliente</Button></>}/>{error && <p className="form-error" role="alert">{error}</p>}<section className="kpi-grid"><Kpi label="CLIENTES ATIVOS" value={String(items.filter(item => item.status === 'ativo').length)} note="vindos da API"/><Kpi label="RESULTADOS" value={String(filtered.length)} note="filtro atual"/><Kpi label="COM CONTATO" value={String(items.filter(item => item.email || item.contato).length)} note="e-mail ou telefone"/><Kpi dark label="STATUS" value={loading ? '...' : 'OK'} note="sincronização concluída"/></section><article className="card list-card"><div className="card-title"><h2>Clientes</h2><Badge>{filtered.length} resultados</Badge></div>{loading ? <Skeleton rows={5} label="Carregando clientes" /> : <DataTable headers={['CLIENTE','CONTATO','DOCUMENTO','STATUS','ENDEREÇO','AÇÕES']} rows={filtered.map(item => [<div className="person"><span>{item.nome_fantasia.split(' ').map(part => part[0]).slice(0, 2).join('')}</span><b>{item.nome_fantasia}<small>{item.nome_responsavel || item.cpf_cnpj || 'Sem documento'}</small></b></div>, item.email || item.contato || 'Sem contato', item.cpf_cnpj || 'Não informado', <Badge tone={item.status === 'ativo' ? 'success' : 'warning'}>{item.status || 'indefinido'}</Badge>, item.endereco_entrega || 'Não informado', <button className="text-action" onClick={() => removeClient(item)}>Excluir</button>])}/>}</article>{open && <Drawer title="Novo cliente" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitClient}><label>Nome ou razão social<input name="nome_fantasia" autoFocus required placeholder="Studio Aroeira"/></label><label>CPF / CNPJ<input name="cpf_cnpj" placeholder="12.345.678/0001-90"/></label><label>Responsável<input name="nome_responsavel" placeholder="Ana Prado"/></label><label>E-mail<input name="email" type="email" placeholder="contato@studio.com.br"/></label><label>Telefone<input name="contato" placeholder="(11) 99999-9999"/></label><label>Endereço de entrega<input name="endereco_entrega" placeholder="Rua, número, cidade/UF"/></label><footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Salvar cliente'}</Button></footer></form></Drawer>}</>
 }
 
 function Inventory() {
@@ -778,7 +953,7 @@ function Inventory() {
     } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao atualizar produto.') } finally { setSaving(false) }
   }
   const critical = items.filter(item => item.quantidade_estoque <= item.estoque_minimo).length
-  return <><PageHead eyebrow="GALPÃO · ESTOQUE" title="Controle de estoque" subtitle={`${items.length} itens sincronizados com o backend`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar código ou material..."/></>}/>{error && <p className="form-error" role="alert">{error}</p>}<section className="kpi-grid"><Kpi label="ITENS EM ESTOQUE" value={String(items.length)} note="ativos na API"/><Kpi label="ABAIXO DO MÍNIMO" value={String(critical)} note="repor esta semana"/><Kpi label="UNIDADES" value={String(items.reduce((total, item) => total + item.quantidade_estoque, 0))} note="saldo atual"/><Kpi dark label="STATUS" value={loading ? '...' : 'OK'} note="sincronização concluída"/></section><article className="card list-card"><div className="card-title"><h2>Itens</h2><Badge>{filtered.length} resultados</Badge></div>{loading ? <p className="empty-state">Carregando estoque…</p> : <DataTable headers={['CÓDIGO','MATERIAL','CATEGORIA','SALDO','MÍNIMO','SITUAÇÃO','AÇÃO']} rows={filtered.map(item => { const low = item.quantidade_estoque <= item.estoque_minimo; return [<span className="mono">CAT-{String(item.id).padStart(4, '0')}</span>, <b>{item.nome}</b>, item.material || 'Sem material', item.quantidade_estoque, item.estoque_minimo, <Badge tone={low ? 'danger' : 'success'}>{low ? 'Crítico' : 'Normal'}</Badge>, <span className="row-actions"><Button variant="secondary" onClick={() => setOpen(item)}>Movimentar</Button> <button className="text-action" onClick={() => setEditing(item)}>Editar</button></span>] })}/>}</article>{open && <Modal title={`Movimentar · ${open.nome}`} close={() => setOpen(null)}><form className="modal-form" onSubmit={submitMovement}><label>Quantidade<input name="quantidade" type="number" min="1" step="1" required autoFocus placeholder="1"/></label><label>Justificativa<textarea name="justificativa" required placeholder="Reposição recebida, ajuste ou baixa operacional"/></label>{error && <p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={() => setOpen(null)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Registrar movimentação'}</Button></footer></form></Modal>}{editing && <Modal title={`Editar · ${editing.nome}`} close={() => setEditing(null)}><form className="modal-form" onSubmit={submitEdit}><label>Nome<input name="nome" defaultValue={editing.nome} autoFocus required/></label><label>Categoria<input name="tipo" defaultValue={editing.tipo || ''}/></label><label>Material<input name="material" defaultValue={editing.material || ''}/></label><label>Preço de venda<input name="preco_venda" type="number" min="0" step="0.01" defaultValue={(editing.preco_venda/100).toFixed(2)} required/></label><label>Estoque mínimo<input name="estoque_minimo" type="number" min="0" step="1" defaultValue={editing.estoque_minimo}/></label>{error && <p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={() => setEditing(null)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar alterações'}</Button></footer></form></Modal>}</>
+  return <><PageHead eyebrow="GALPÃO · ESTOQUE" title="Controle de estoque" subtitle={`${items.length} itens sincronizados com o backend`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar código ou material..."/></>}/>{error && <p className="form-error" role="alert">{error}</p>}<section className="kpi-grid"><Kpi label="ITENS EM ESTOQUE" value={String(items.length)} note="ativos na API"/><Kpi label="ABAIXO DO MÍNIMO" value={String(critical)} note="repor esta semana"/><Kpi label="UNIDADES" value={String(items.reduce((total, item) => total + item.quantidade_estoque, 0))} note="saldo atual"/><Kpi dark label="STATUS" value={loading ? '...' : 'OK'} note="sincronização concluída"/></section><article className="card list-card"><div className="card-title"><h2>Itens</h2><Badge>{filtered.length} resultados</Badge></div>{loading ? <Skeleton rows={6} label="Carregando estoque" /> : <DataTable headers={['CÓDIGO','MATERIAL','CATEGORIA','#SALDO','#MÍNIMO','SITUAÇÃO','AÇÃO']} rows={filtered.map(item => { const low = item.quantidade_estoque <= item.estoque_minimo; return [<span className="mono">CAT-{String(item.id).padStart(4, '0')}</span>, <b>{item.nome}</b>, item.material || 'Sem material', item.quantidade_estoque, item.estoque_minimo, <Badge tone={low ? 'danger' : 'success'}>{low ? 'Crítico' : 'Normal'}</Badge>, <span className="row-actions"><Button variant="secondary" onClick={() => setOpen(item)}>Movimentar</Button> <button className="text-action" onClick={() => setEditing(item)}>Editar</button></span>] })}/>}</article>{open && <Modal title={`Movimentar · ${open.nome}`} close={() => setOpen(null)}><form className="modal-form" onSubmit={submitMovement}><label>Quantidade<input name="quantidade" type="number" min="1" step="1" required autoFocus placeholder="1"/></label><label>Justificativa<textarea name="justificativa" required placeholder="Reposição recebida, ajuste ou baixa operacional"/></label>{error && <p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={() => setOpen(null)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Registrar movimentação'}</Button></footer></form></Modal>}{editing && <Modal title={`Editar · ${editing.nome}`} close={() => setEditing(null)}><form className="modal-form" onSubmit={submitEdit}><label>Nome<input name="nome" defaultValue={editing.nome} autoFocus required/></label><label>Categoria<input name="tipo" defaultValue={editing.tipo || ''}/></label><label>Material<input name="material" defaultValue={editing.material || ''}/></label><label>Preço de venda<input name="preco_venda" type="number" min="0" step="0.01" defaultValue={(editing.preco_venda/100).toFixed(2)} required/></label><label>Estoque mínimo<input name="estoque_minimo" type="number" min="0" step="1" defaultValue={editing.estoque_minimo}/></label>{error && <p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={() => setEditing(null)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Salvar alterações'}</Button></footer></form></Modal>}</>
 }
 
 function Catalog() {
@@ -850,7 +1025,7 @@ function Catalog() {
     }
   }
 
-  return <><PageHead eyebrow="GALPÃO · CATÁLOGO" title="Catálogo de produtos" subtitle={`${products.length} materiais vindos do estoque`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar produto, código ou material..."/><Button onClick={() => setOpen(true)}>+ Produto</Button></>}/>{error&&<p className="form-error" role="alert">{error}</p>}<div className="filter-row" role="group" aria-label="Filtrar categoria">{categories.map(item => <button key={item} className={category===item?'active':''} onClick={() => setCategory(item)}>{item}</button>)}</div>{loading?<article className="card empty-state"><h2>Carregando catálogo…</h2></article>:<section className="product-grid">{filtered.map((product,index) => { const low = product.quantidade_estoque <= product.estoque_minimo; return <article className="card product-card" key={product.id}><div className={`material-swatch swatch-${index%6+1}`}><span>{product.tipo || 'Material'}</span></div><div className="product-copy"><p className="mono">CAT-{String(product.id).padStart(4,'0')}</p><h2>{product.nome}</h2><small>{product.material || 'Sem material informado'}</small><footer><b>{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(product.preco_venda/100)}</b><Badge tone={low?'warning':'success'}>{low?'Baixo estoque':'Disponível'}</Badge></footer><button className="text-action" onClick={() => setEditing(product)}>Editar</button></div></article> })}</section>}{!loading&&!filtered.length&&<article className="card empty-state"><Logo compact/><h2>Nenhum produto encontrado</h2><p>Ajuste busca ou escolha outra categoria.</p></article>}{open&&<Modal title="Novo produto" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitProduct}><label>Nome<input name="nome" autoFocus required placeholder="MDF Carvalho Natural"/></label><label>Categoria<input name="tipo" required placeholder="Painéis"/></label><label>Material<input name="material" placeholder="Carvalho natural"/></label><label>Preço de venda<input name="preco_venda" type="number" min="0" step="0.01" required placeholder="0,00"/></label>{error&&<p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving?'Salvando…':'Salvar produto'}</Button></footer></form></Modal>}{editing&&<Modal title={`Editar · ${editing.nome}`} close={() => setEditing(null)}><form className="modal-form" onSubmit={submitEdit}><label>Nome<input name="nome" defaultValue={editing.nome} autoFocus required/></label><label>Categoria<input name="tipo" defaultValue={editing.tipo || ''} required/></label><label>Material<input name="material" defaultValue={editing.material || ''}/></label><label>Preço de venda<input name="preco_venda" type="number" min="0" step="0.01" defaultValue={(editing.preco_venda/100).toFixed(2)} required/></label><label>Estoque mínimo<input name="estoque_minimo" type="number" min="0" step="1" defaultValue={editing.estoque_minimo}/></label>{error&&<p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={() => setEditing(null)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving?'Salvando…':'Salvar alterações'}</Button></footer></form></Modal>}</>
+  return <><PageHead eyebrow="GALPÃO · CATÁLOGO" title="Catálogo de produtos" subtitle={`${products.length} materiais vindos do estoque`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar produto, código ou material..."/><Button onClick={() => setOpen(true)}>+ Produto</Button></>}/>{error&&<p className="form-error" role="alert">{error}</p>}<div className="filter-row" role="group" aria-label="Filtrar categoria">{categories.map(item => <button key={item} className={category===item?'active':''} onClick={() => setCategory(item)}>{item}</button>)}</div>{loading?<article className="card" style={{ padding: 20 }}><Skeleton rows={4} label="Carregando catálogo" /></article>:<section className="product-grid">{filtered.map((product,index) => { const low = product.quantidade_estoque <= product.estoque_minimo; return <article className="card product-card" key={product.id}><div className={`material-swatch swatch-${index%6+1}`}><span>{product.tipo || 'Material'}</span></div><div className="product-copy"><p className="mono">CAT-{String(product.id).padStart(4,'0')}</p><h2>{product.nome}</h2><small>{product.material || 'Sem material informado'}</small><footer><b>{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(product.preco_venda/100)}</b><Badge tone={low?'warning':'success'}>{low?'Baixo estoque':'Disponível'}</Badge></footer><button className="text-action" onClick={() => setEditing(product)}>Editar</button></div></article> })}</section>}{!loading&&!filtered.length&&<article className="card"><EmptyState title="Nenhum produto encontrado" description="Ajuste a busca ou escolha outra categoria." action={<Button variant="secondary" onClick={() => { setQuery(''); setCategory('Todos') }}>Limpar filtros</Button>} /></article>}{open&&<Modal title="Novo produto" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitProduct}><label>Nome<input name="nome" autoFocus required placeholder="MDF Carvalho Natural"/></label><label>Categoria<input name="tipo" required placeholder="Painéis"/></label><label>Material<input name="material" placeholder="Carvalho natural"/></label><label>Preço de venda<input name="preco_venda" type="number" min="0" step="0.01" required placeholder="0,00"/></label>{error&&<p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving?'Salvando…':'Salvar produto'}</Button></footer></form></Modal>}{editing&&<Modal title={`Editar · ${editing.nome}`} close={() => setEditing(null)}><form className="modal-form" onSubmit={submitEdit}><label>Nome<input name="nome" defaultValue={editing.nome} autoFocus required/></label><label>Categoria<input name="tipo" defaultValue={editing.tipo || ''} required/></label><label>Material<input name="material" defaultValue={editing.material || ''}/></label><label>Preço de venda<input name="preco_venda" type="number" min="0" step="0.01" defaultValue={(editing.preco_venda/100).toFixed(2)} required/></label><label>Estoque mínimo<input name="estoque_minimo" type="number" min="0" step="1" defaultValue={editing.estoque_minimo}/></label>{error&&<p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={() => setEditing(null)}>Cancelar</Button><Button type="submit" loading={saving}>{saving?'Salvando…':'Salvar alterações'}</Button></footer></form></Modal>}</>
 }
 
 function Suppliers() {
@@ -888,7 +1063,7 @@ function Suppliers() {
     try { await deleteSupplier(item.id); setItems(current => current.filter(current_item => current_item.id !== item.id)) }
     catch (err) { setError(err instanceof Error ? err.message : 'Falha ao excluir fornecedor.') }
   }
-  return <><PageHead eyebrow="GALPÃO · PARCEIROS" title="Fornecedores" subtitle={`${items.length} fornecedores ativos carregados do backend`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar fornecedor, CNPJ ou contato..."/><Button onClick={() => setOpen(true)}>+ Fornecedor</Button></>}/>{error && <p className="form-error" role="alert">{error}</p>}<section className="kpi-grid compact-kpis"><Kpi label="FORNECEDORES ATIVOS" value={String(items.filter(item => item.ativo !== false).length)} note="sincronizados"/><Kpi label="RESULTADOS" value={String(filtered.length)} note="filtro atual"/><Kpi label="COM E-MAIL" value={String(items.filter(item => item.email).length)} note="contato digital"/><Kpi dark label="STATUS" value={loading ? '...' : 'OK'} note="sincronização concluída"/></section><article className="card list-card"><div className="card-title"><h2>Base de fornecedores</h2><Badge>{filtered.length} resultados</Badge></div>{loading ? <p className="empty-state">Carregando fornecedores…</p> : <DataTable headers={['FORNECEDOR','CONTATO','DOCUMENTO','TELEFONE','STATUS','AÇÕES']} rows={filtered.map(item => [<b>{item.nome_fantasia}</b>, item.contato || item.email || 'Sem contato', item.cnpj || 'Não informado', item.telefone || 'Não informado', <Badge tone={item.ativo === false ? 'warning' : 'success'}>{item.ativo === false ? 'Inativo' : item.status || 'Ativo'}</Badge>, <button className="text-action" onClick={() => removeSupplier(item)}>Excluir</button>])}/>}</article>{open && <Modal title="Novo fornecedor" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitSupplier}><label>Razão social<input name="nome_fantasia" autoFocus required placeholder="Duratex"/></label><label>CNPJ<input name="cnpj" placeholder="00.000.000/0001-00"/></label><label>Contato<input name="contato" placeholder="Marina Lopes"/></label><label>E-mail<input name="email" type="email" placeholder="contato@fornecedor.com.br"/></label><label>Telefone<input name="telefone" placeholder="(11) 3442-8801"/></label><label>Endereço<input name="endereco" placeholder="Rua, número, cidade/UF"/></label><label>Observações<textarea name="observacoes" placeholder="Condições comerciais, prazo e homologação"/></label><footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar fornecedor'}</Button></footer></form></Modal>}</>
+  return <><PageHead eyebrow="GALPÃO · PARCEIROS" title="Fornecedores" subtitle={`${items.length} fornecedores ativos carregados do backend`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar fornecedor, CNPJ ou contato..."/><Button onClick={() => setOpen(true)}>+ Fornecedor</Button></>}/>{error && <p className="form-error" role="alert">{error}</p>}<section className="kpi-grid compact-kpis"><Kpi label="FORNECEDORES ATIVOS" value={String(items.filter(item => item.ativo !== false).length)} note="sincronizados"/><Kpi label="RESULTADOS" value={String(filtered.length)} note="filtro atual"/><Kpi label="COM E-MAIL" value={String(items.filter(item => item.email).length)} note="contato digital"/><Kpi dark label="STATUS" value={loading ? '...' : 'OK'} note="sincronização concluída"/></section><article className="card list-card"><div className="card-title"><h2>Base de fornecedores</h2><Badge>{filtered.length} resultados</Badge></div>{loading ? <Skeleton rows={5} label="Carregando fornecedores" /> : <DataTable headers={['FORNECEDOR','CONTATO','DOCUMENTO','TELEFONE','STATUS','AÇÕES']} rows={filtered.map(item => [<b>{item.nome_fantasia}</b>, item.contato || item.email || 'Sem contato', item.cnpj || 'Não informado', item.telefone || 'Não informado', <Badge tone={item.ativo === false ? 'warning' : 'success'}>{item.ativo === false ? 'Inativo' : item.status || 'Ativo'}</Badge>, <button className="text-action" onClick={() => removeSupplier(item)}>Excluir</button>])}/>}</article>{open && <Modal title="Novo fornecedor" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitSupplier}><label>Razão social<input name="nome_fantasia" autoFocus required placeholder="Duratex"/></label><label>CNPJ<input name="cnpj" placeholder="00.000.000/0001-00"/></label><label>Contato<input name="contato" placeholder="Marina Lopes"/></label><label>E-mail<input name="email" type="email" placeholder="contato@fornecedor.com.br"/></label><label>Telefone<input name="telefone" placeholder="(11) 3442-8801"/></label><label>Endereço<input name="endereco" placeholder="Rua, número, cidade/UF"/></label><label>Observações<textarea name="observacoes" placeholder="Condições comerciais, prazo e homologação"/></label><footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Salvar fornecedor'}</Button></footer></form></Modal>}</>
 }
 
 const deliveryEvents: Record<number, [string,string,string][]> = { 3:[['Entrega','Casa Ibiúna','09:00'],['Reunião','Incorporadora Ventura','14:30']], 8:[['Medição','Escritório Faria Lima','10:00']], 12:[['Faturamento','Apto Vila Madalena','08:30']], 17:[['Retirada','MDF · Duratex','16:00']], 24:[['Entrega','Loja Pinheiros','11:00']], 29:[['Montagem','Hotel Santa Cecília','07:30']] }
@@ -923,6 +1098,7 @@ function Team() {
   const [items, setItems] = useState<TeamMember[]>([])
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  const [novoPerfil, setNovoPerfil] = useState('vendedor')
   const [editing, setEditing] = useState<TeamMember | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -1012,7 +1188,7 @@ function Team() {
   const suspendedCount = items.length - activeCount
   const mfaCount = items.filter(item => item.mfa_enabled).length
 
-  return <><PageHead eyebrow="GESTÃO · ACESSOS" title="Equipe" subtitle={`${items.length} pessoas · ${activeCount} acessos ativos`} actions={<><input className="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar nome ou e-mail…"/><Button onClick={()=>setOpen(true)}>+ Conceder acesso</Button></>}/>{error&&<p className="form-error" role="alert">{error}</p>}<section className="team-stats"><article className="card"><span>{String(activeCount).padStart(2,'0')}</span><div><h2>Acessos ativos</h2><p>Colaboradores com acesso imediato.</p></div></article><article className="card"><span>{String(suspendedCount).padStart(2,'0')}</span><div><h2>Acesso suspenso</h2><p>Conta preservada sem login permitido.</p></div></article><article className="card security-card"><span>{mfaCount}</span><div><h2>Com MFA ativo</h2><p>Segundo fator habilitado.</p></div></article></section><article className="card list-card"><div className="card-title"><h2>Membros</h2><Badge>{rows.length} pessoas</Badge></div>{loading ? <p className="empty-state">Carregando equipe…</p> : <DataTable headers={['NOME / E-MAIL','CARGO','STATUS DO ACESSO','MFA','AÇÕES']} rows={rows.map(item=>[<div className="person"><span>{item.nome.split(' ').map(part=>part[0]).slice(0,2).join('')}</span><b>{item.nome}<small>{item.email}</small></b></div>,<Badge tone="neutral">{roleLabel[item.role]||item.role}</Badge>,<Badge tone={item.ativo?'success':'danger'}>{item.ativo?'Ativo':'Suspenso'}</Badge>,item.mfa_enabled?'✓':'—',<button className="text-action" onClick={()=>setEditing(item)}>Gerenciar</button>])}/>}</article>{open&&<Modal title="Conceder acesso" close={()=>setOpen(false)}><form className="modal-form" onSubmit={submitInvite}><label>Nome<input name="nome" autoFocus required/></label><label>E-mail<input name="email" type="email" required/></label><label>Senha provisória<input name="password" type="password" required minLength={8} placeholder="Mín. 8 caracteres, maiúscula, minúscula, número e símbolo"/></label><label>Telefone<input name="contato" placeholder="(11) 99999-9999"/></label><label>Perfil<select name="role" defaultValue="vendedor"><option value="vendedor">Vendedor</option><option value="estoquista">Estoquista</option><option value="admin">Admin</option></select></label>{error&&<p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={()=>setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving?'Salvando…':'Conceder acesso'}</Button></footer></form></Modal>}{editing&&<Modal title={`Gerenciar · ${editing.nome}`} close={closeEditing}><form className="modal-form" onSubmit={submitEdit}><label>Nome<input name="nome" defaultValue={editing.nome} autoFocus required/></label><label>Telefone<input name="contato" defaultValue={editing.contato||''}/></label>{error&&<p className="form-error" role="alert">{error}</p>}<footer>{editing.ativo&&<Button variant="secondary" onClick={()=>deactivate(editing)}>Desligar acesso</Button>}<Button type="submit" disabled={saving}>{saving?'Salvando…':'Salvar'}</Button></footer></form>
+  return <><PageHead eyebrow="GESTÃO · ACESSOS" title="Equipe" subtitle={`${items.length} pessoas · ${activeCount} acessos ativos`} actions={<><input className="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar nome ou e-mail…"/><Button onClick={()=>{ setNovoPerfil('vendedor'); setOpen(true) }}>+ Conceder acesso</Button></>}/>{error&&<p className="form-error" role="alert">{error}</p>}<section className="team-stats"><article className="card"><span>{String(activeCount).padStart(2,'0')}</span><div><h2>Acessos ativos</h2><p>Colaboradores com acesso imediato.</p></div></article><article className="card"><span>{String(suspendedCount).padStart(2,'0')}</span><div><h2>Acesso suspenso</h2><p>Conta preservada sem login permitido.</p></div></article><article className="card security-card"><span>{mfaCount}</span><div><h2>Com MFA ativo</h2><p>Segundo fator habilitado.</p></div></article></section><article className="card list-card"><div className="card-title"><h2>Membros</h2><Badge>{rows.length} pessoas</Badge></div>{loading ? <Skeleton rows={4} label="Carregando equipe" /> : <DataTable headers={['NOME / E-MAIL','CARGO','STATUS DO ACESSO','MFA','AÇÕES']} rows={rows.map(item=>[<div className="person"><span>{item.nome.split(' ').map(part=>part[0]).slice(0,2).join('')}</span><b>{item.nome}<small>{item.email}</small></b></div>,<Badge tone="neutral">{roleLabel[item.role]||item.role}</Badge>,<Badge tone={item.ativo?'success':'danger'}>{item.ativo?'Ativo':'Suspenso'}</Badge>,item.mfa_enabled?'✓':'—',<button className="text-action" onClick={()=>setEditing(item)}>Gerenciar</button>])}/>}</article>{open&&<Modal title="Conceder acesso" close={()=>setOpen(false)}><form className="modal-form" onSubmit={submitInvite}><label>Nome<input name="nome" autoFocus required/></label><label>E-mail<input name="email" type="email" required/></label><label>Senha provisória<input name="password" type="password" required minLength={8} placeholder="Mín. 8 caracteres, maiúscula, minúscula, número e símbolo"/></label><label>Telefone<input name="contato" placeholder="(11) 99999-9999"/></label><label>Perfil<Combobox name="role" ariaLabel="Perfil" options={perfilOptions} value={novoPerfil} onChange={setNovoPerfil} /></label>{error&&<p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={()=>setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving?'Salvando…':'Conceder acesso'}</Button></footer></form></Modal>}{editing&&<Modal title={`Gerenciar · ${editing.nome}`} close={closeEditing}><form className="modal-form" onSubmit={submitEdit}><label>Nome<input name="nome" defaultValue={editing.nome} autoFocus required/></label><label>Telefone<input name="contato" defaultValue={editing.contato||''}/></label>{error&&<p className="form-error" role="alert">{error}</p>}<footer>{editing.ativo&&<Button variant="secondary" onClick={()=>deactivate(editing)}>Desligar acesso</Button>}<Button type="submit" loading={saving}>{saving?'Salvando…':'Salvar'}</Button></footer></form>
   {editing.id===selfId && <div className="modal-form" style={{ gridTemplateColumns: '1fr', borderTop: '1px solid var(--border, #e5e5e5)', paddingTop: '1rem', marginTop: '1rem' }}>
     <p className="mono">AUTENTICAÇÃO EM DUAS ETAPAS</p>
     {editing.mfa_enabled ? (disableMfaOpen ? <form onSubmit={confirmDisableMfa} className="modal-form" style={{ gridTemplateColumns: '1fr' }}>
@@ -1077,19 +1253,19 @@ function Integrations() {
     {error && <p className="form-error" role="alert">{error}</p>}
     <article className="card list-card">
       <div className="card-title"><h2>Chaves de API</h2><Badge>{items.length} chave(s)</Badge></div>
-      {loading ? <p className="empty-state">Carregando chaves…</p> : items.length ? <DataTable headers={['NOME', 'PREFIXO', 'STATUS', 'CRIADA EM', 'ÚLTIMO USO', 'AÇÕES']} rows={items.map(key => [
+      {loading ? <Skeleton rows={3} label="Carregando chaves" /> : items.length ? <DataTable headers={['NOME', 'PREFIXO', 'STATUS', '#CRIADA EM', '#ÚLTIMO USO', 'AÇÕES']} rows={items.map(key => [
         <b>{key.nome}</b>,
         <span className="mono">{key.prefixo}…</span>,
         <Badge tone={key.ativo ? 'success' : 'danger'}>{key.ativo ? 'Ativa' : 'Revogada'}</Badge>,
         new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(key.created_at)),
         key.last_used_at ? new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(key.last_used_at)) : 'Nunca usada',
         key.ativo ? <button className="text-action" onClick={() => revoke(key)}>Revogar</button> : '—',
-      ])}/> : <p className="empty-state">Nenhuma chave gerada ainda. Gere uma para conectar SketchUp ou Med-Stone.</p>}
+      ])}/> : <EmptyState title="Nenhuma chave de API" description="Gere uma chave para conectar o SketchUp ou o Med-Stone a este ateliê." action={<Button onClick={() => setOpen(true)}>+ Gerar chave</Button>} />}
     </article>
     {open && <Modal title="Gerar chave de API" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitCreate}>
       <label>Nome da chave<input name="nome" autoFocus required placeholder="SketchUp ou Med-Stone - Notebook Ana"/></label>
       {error && <p className="form-error" role="alert">{error}</p>}
-      <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Gerando…' : 'Gerar chave'}</Button></footer>
+      <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Gerando…' : 'Gerar chave'}</Button></footer>
     </form></Modal>}
     {created && <Modal title="Chave gerada" close={() => setCreated(null)}><div className="modal-form">
       <p className="form-error" role="alert">Esta chave só é mostrada uma vez. Copie e guarde em local seguro agora.</p>
@@ -1122,14 +1298,14 @@ function Logs() {
     {error && <p className="form-error" role="alert">{error}</p>}
     <article className="card list-card">
       <div className="card-title"><h2>Ações recentes</h2><Badge>{filtered.length} resultados</Badge></div>
-      {loading ? <p className="empty-state">Carregando logs…</p> : filtered.length ? <DataTable headers={['DATA/HORA', 'USUÁRIO', 'AÇÃO', 'ENTIDADE', 'DETALHES', 'IP']} rows={filtered.map(item => [
+      {loading ? <Skeleton rows={6} label="Carregando logs" /> : filtered.length ? <DataTable headers={['#DATA/HORA', 'USUÁRIO', 'AÇÃO', 'ENTIDADE', 'DETALHES', 'IP']} rows={filtered.map(item => [
         new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(item.created_at)),
         item.usuario_nome || 'Sistema',
         <Badge tone={acaoTone[item.acao] || 'neutral'}>{item.acao}</Badge>,
         item.entidade ? `${item.entidade}${item.entidade_id ? ` #${item.entidade_id}` : ''}` : '—',
         item.detalhes,
         item.ip || '—',
-      ])}/> : <p className="empty-state">Nenhum log encontrado ainda.</p>}
+      ])}/> : <EmptyState title="Nenhum log encontrado" description="As ações da equipe aparecem aqui conforme acontecem." />}
     </article>
   </>
 }
@@ -1225,7 +1401,7 @@ function Finance() {
 
   return <><PageHead eyebrow="GESTÃO · FINANCEIRO" title="Painel financeiro" subtitle={`${period} · dados reais do ledger financeiro`} actions={<><div className="segmented"><button className={period === 'Trimestre' ? 'active' : ''} onClick={() => setPeriod('Trimestre')}>Trimestre</button><button className={period === 'Mês' ? 'active' : ''} onClick={() => setPeriod('Mês')}>Mês</button></div><Button variant="secondary" onClick={exportarCsv}>Exportar</Button><Button onClick={() => setOpen(true)}>+ Lançamento</Button></>}/>
     {error && <p className="form-error" role="alert">{error}</p>}
-    {loading ? <p className="empty-state">Carregando dados financeiros…</p> : <>
+    {loading ? <Skeleton rows={5} label="Carregando dados financeiros" /> : <>
       <section className="kpi-grid">
         <Kpi label="A RECEBER" value={brl(resumo?.a_receber ?? 0)} note={`${resumo?.titulos_abertos ?? 0} títulos abertos`}/>
         <Kpi label="RECEBIDO NO PERÍODO" value={brl(resumo?.recebido_no_periodo ?? 0)} note={period}/>
@@ -1253,7 +1429,7 @@ function Finance() {
       </section>
       <article className="card list-card">
         <div className="card-title"><h2>Títulos a receber</h2><Badge>{receivables.length} resultados</Badge></div>
-        {receivables.length ? <DataTable headers={['TÍTULO', 'DESCRIÇÃO', 'SITUAÇÃO', 'VALOR', 'VENCE', 'AÇÃO']} rows={receivables.map(l => [
+        {receivables.length ? <DataTable headers={['TÍTULO', 'DESCRIÇÃO', 'SITUAÇÃO', '#VALOR', '#VENCE', 'AÇÃO']} rows={receivables.map(l => [
           `FT${l.orcamento_id ?? l.id}`,
           l.descricao,
           <Badge tone={l.status === 'pago' ? 'success' : l.vencido ? 'danger' : 'info'}>{l.status === 'pago' ? 'Pago' : l.vencido ? 'Vencido' : 'Em aberto'}</Badge>,
@@ -1268,7 +1444,7 @@ function Finance() {
       <label>Valor<input name="amount" type="number" min="0.01" step="0.01" required placeholder="0,00"/></label>
       <label>Data<input name="date" type="date" required/></label>
       {error && <p className="form-error" role="alert">{error}</p>}
-      <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar lançamento'}</Button></footer>
+      <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Salvar lançamento'}</Button></footer>
     </form></Modal>}
     {feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}
   </>
@@ -1350,7 +1526,7 @@ function Portal({ token }: { token: string }) {
   if (loading) return <div className="portal"><header><Logo/><span>Portal de aprovações</span></header><main><section className="card empty-state"><p className="mono">PORTAL</p><h1>Carregando proposta…</h1></section></main></div>
   if (error || !proposal) return <div className="portal"><header><Logo/><span>Portal de aprovações</span></header><main><section className="card empty-state"><p className="mono">LINK INDISPONÍVEL</p><h1>Este link expirou ou foi substituído.</h1><p>Peça um novo link ao seu arquiteto.</p></section></main></div>
 
-  const moneyPortal = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value / 100)
+  const moneyPortal = money
   const decided = Boolean(proposal.decisao_cliente)
   const canDecide = proposal.status_publico === 'Aguardando sua aprovação' && !decided
   const steps = ['Proposta enviada', 'Sua decisão', 'Confirmação do arquiteto', 'Produção', 'Entrega e montagem']
@@ -1363,9 +1539,9 @@ function Portal({ token }: { token: string }) {
       <article className="card proposal"><h2>O que está incluído</h2>{proposal.itens.map(item => <div key={`${item.nome}-${item.local_instalacao}`}><b>{item.nome}</b><span>{item.quantidade} {item.prazo_entrega_unidade || 'un.'}</span><em>{moneyPortal(item.subtotal)}</em></div>)}<footer>Total da proposta <strong>{moneyPortal(proposal.valor_total)}</strong></footer>{proposal.condicoes_pagamento && <p className="subtitle">Condições: {proposal.condicoes_pagamento}</p>}</article>
       {documentsVisible && <article className="card documents"><p className="mono">DOCUMENTOS DA PROPOSTA</p>{proposal.tem_pdf_proposta && <button className="text-action" disabled={downloadBusy === 'pdf'} onClick={() => void download('pdf', () => baixarPdfPropostaPortal(token))}>Proposta em PDF {downloadBusy === 'pdf' ? '…' : '↓'}</button>}{proposal.documentos.map(document => <button className="text-action" disabled={downloadBusy === document.id} key={document.id} onClick={() => void download(document.id, () => baixarDocumentoPortal(token, document.id))}>{document.nome_original} {portalBytes(document.tamanho)} {downloadBusy === document.id ? '…' : '↓'}</button>)}</article>}
     </div><aside>
-      <article className="card decision"><p className="mono">SUA DECISÃO</p>{decided ? <><h2>{proposal.decisao_cliente === 'aprovado' ? 'Intenção de aprovação registrada.' : 'Pedido de ajuste registrado.'}</h2><p>Registrado por {proposal.decisao_cliente_nome || name} em {portalDate(proposal.decisao_cliente_em)}.</p>{proposal.decisao_cliente === 'recusado' && <p><strong>Motivo informado:</strong> {proposal.decisao_cliente_motivo}</p>}</> : canDecide ? <><h2>Aprovar esta proposta?</h2><p>Registre sua decisão para que o arquiteto possa dar sequência ao atendimento.</p><form className="modal-form" onSubmit={approve}><label>Seu nome<input value={name} onChange={event => setName(event.target.value)} minLength={2} maxLength={200} required autoComplete="name"/></label>{decisionError && <p className="form-error" role="alert">{decisionError}</p>}<Button type="submit" disabled={busy}>{busy ? 'Registrando…' : 'Aprovar proposta'}</Button></form><Button variant="secondary" onClick={() => setAdjustOpen(true)} disabled={busy}>Pedir ajuste</Button></> : <><h2>{proposal.status_publico}</h2><p>Esta proposta não está aberta para uma nova decisão.</p></>}{proposal.arquiteto_nome && <small>Em caso de dúvida, fale com {proposal.arquiteto_nome}{proposal.arquiteto_contato ? ` · ${proposal.arquiteto_contato}` : ''}.</small>}</article>
+      <article className="card decision"><p className="mono">SUA DECISÃO</p>{decided ? <><h2>{proposal.decisao_cliente === 'aprovado' ? 'Intenção de aprovação registrada.' : 'Pedido de ajuste registrado.'}</h2><p>Registrado por {proposal.decisao_cliente_nome || name} em {portalDate(proposal.decisao_cliente_em)}.</p>{proposal.decisao_cliente === 'recusado' && <p><strong>Motivo informado:</strong> {proposal.decisao_cliente_motivo}</p>}</> : canDecide ? <><h2>Aprovar esta proposta?</h2><p>Registre sua decisão para que o arquiteto possa dar sequência ao atendimento.</p><form className="modal-form" onSubmit={approve}><label>Seu nome<input value={name} onChange={event => setName(event.target.value)} minLength={2} maxLength={200} required autoComplete="name"/></label>{decisionError && <p className="form-error" role="alert">{decisionError}</p>}<Button type="submit" loading={busy}>{busy ? 'Registrando…' : 'Aprovar proposta'}</Button></form><Button variant="secondary" onClick={() => setAdjustOpen(true)} loading={busy}>Pedir ajuste</Button></> : <><h2>{proposal.status_publico}</h2><p>Esta proposta não está aberta para uma nova decisão.</p></>}{proposal.arquiteto_nome && <small>Em caso de dúvida, fale com {proposal.arquiteto_nome}{proposal.arquiteto_contato ? ` · ${proposal.arquiteto_contato}` : ''}.</small>}</article>
       <article className="card timeline"><h2>Andamento</h2>{steps.map((step, index) => <div className={index < currentStep ? 'done' : index === currentStep ? 'current' : ''} key={step}><i/><b>{step}<small>{index === 0 ? portalDate(proposal.criado_em) : index === 1 ? (decided ? portalDate(proposal.decisao_cliente_em) : 'aguardando sua decisão') : index === 2 && decided ? 'aguardando confirmação' : 'após confirmação'}</small></b></div>)}</article>
-    </aside></div></main>{adjustOpen && <Modal title="Pedir ajuste" close={() => setAdjustOpen(false)}><form className="modal-form" onSubmit={requestAdjustment}><label>O que precisa revisar?<textarea value={motive} onChange={event => { setMotive(event.target.value); if (motiveError) setMotiveError('') }} minLength={10} maxLength={2000} required autoFocus aria-invalid={Boolean(motiveError)} placeholder="Descreva o acabamento, prazo ou item…"/></label>{motiveError && <p className="form-error" role="alert">{motiveError}</p>}{decisionError && <p className="form-error" role="alert">{decisionError}</p>}<footer><Button variant="secondary" onClick={() => setAdjustOpen(false)}>Cancelar</Button><Button type="submit" disabled={busy}>{busy ? 'Enviando…' : 'Enviar pedido'}</Button></footer></form></Modal>}</div>
+    </aside></div></main>{adjustOpen && <Modal title="Pedir ajuste" close={() => setAdjustOpen(false)}><form className="modal-form" onSubmit={requestAdjustment}><label>O que precisa revisar?<textarea value={motive} onChange={event => { setMotive(event.target.value); if (motiveError) setMotiveError('') }} minLength={10} maxLength={2000} required autoFocus aria-invalid={Boolean(motiveError)} placeholder="Descreva o acabamento, prazo ou item…"/></label>{motiveError && <p className="form-error" role="alert">{motiveError}</p>}{decisionError && <p className="form-error" role="alert">{decisionError}</p>}<footer><Button variant="secondary" onClick={() => setAdjustOpen(false)}>Cancelar</Button><Button type="submit" loading={busy}>{busy ? 'Enviando…' : 'Enviar pedido'}</Button></footer></form></Modal>}</div>
 }
 
 function ForgotPasswordModal({ close }: { close: () => void }) {
@@ -1384,7 +1560,7 @@ function ForgotPasswordModal({ close }: { close: () => void }) {
     : <form className="modal-form" onSubmit={submit}>
         <label>E-mail<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="marina@estudio.com.br" autoFocus required/></label>
         {error && <p className="form-error" role="alert">{error}</p>}
-        <footer><Button variant="secondary" onClick={close}>Cancelar</Button><Button type="submit" disabled={busy}>{busy ? 'Enviando…' : 'Enviar instruções'}</Button></footer>
+        <footer><Button variant="secondary" onClick={close}>Cancelar</Button><Button type="submit" loading={busy}>{busy ? 'Enviando…' : 'Enviar instruções'}</Button></footer>
       </form>}
   </Modal>
 }
@@ -1465,7 +1641,7 @@ export default function App() {
     window.addEventListener('hashchange', aoMudarHash)
     return () => window.removeEventListener('hashchange', aoMudarHash)
   }, [])
-  useEffect(()=>{ if(!authenticated) return; getSessionUser().catch(()=>{ /* cookie may be unavailable during static visual review */ }) },[authenticated])
+  useEffect(()=>{ if(!authenticated || previewMode) return; getSessionUser().catch(()=> encerrarSessao()) },[authenticated,previewMode])
   const go=(next:Route, id?: number)=>{ location.hash = id === undefined ? next : `${next}/${id}`; window.scrollTo(0,0) }
   const page = useMemo(() => {
     if (rota.nome === 'orcamento') return rota.id === undefined ? <Pipeline/> : <QuoteDetail quoteId={rota.id}/>
