@@ -5,10 +5,10 @@ import type { ApiKey, ApiKeyCreated, AuditLog, CalendarEvent, Client, ClientInpu
 import { money, quotes } from './data'
 import type { Status } from './data'
 
-type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'projects' | 'catalog' | 'inventory' | 'suppliers' | 'schedule' | 'finance' | 'team' | 'integrations' | 'logs'
+type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'projects' | 'catalog' | 'inventory' | 'suppliers' | 'schedule' | 'finance' | 'team' | 'integrations' | 'logs' | 'orcamento'
 const routes: Route[] = ['dashboard', 'clients', 'pipeline', 'builder', 'projects', 'catalog', 'inventory', 'suppliers', 'schedule', 'finance', 'team', 'integrations', 'logs']
 
-type IconName = Route | 'menu' | 'close'
+type IconName = Exclude<Route, 'orcamento'> | 'menu' | 'close'
 const iconPaths: Record<IconName, ReactNode> = {
   dashboard: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
   clients: <><circle cx="12" cy="8" r="3.25"/><path d="M5.5 21v-2.2a6.5 6.5 0 0 1 13 0V21"/></>,
@@ -29,6 +29,17 @@ const iconPaths: Record<IconName, ReactNode> = {
 
 function Icon({ name }: { name: IconName }) {
   return <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{iconPaths[name]}</svg>
+}
+
+type Rota = { nome: Route; id?: number }
+
+function lerHash(): Rota {
+  const bruto = location.hash.slice(1)
+  const [nome, param] = bruto.split('/')
+  if (nome === 'orcamento' && param && /^\d+$/.test(param)) {
+    return { nome: 'orcamento', id: Number(param) }
+  }
+  return { nome: routes.includes(bruto as Route) ? (bruto as Route) : 'dashboard' }
 }
 
 function Logo({ compact = false }: { compact?: boolean }) {
@@ -1246,12 +1257,17 @@ export default function App() {
   })
   const previewMode = import.meta.env.DEV && new URLSearchParams(location.search).get('preview') === '1'
   const [authenticated,setAuthenticated] = useState(sessionStorage.getItem('arc-session')==='1' || previewMode)
-  const [route,setRoute] = useState<Route>(() => { const hash=location.hash.slice(1) as Route; return routes.includes(hash)?hash:'dashboard' })
+  const [rota,setRota] = useState<Rota>(() => lerHash())
+  useEffect(() => {
+    const aoMudarHash = () => setRota(lerHash())
+    window.addEventListener('hashchange', aoMudarHash)
+    return () => window.removeEventListener('hashchange', aoMudarHash)
+  }, [])
   useEffect(()=>{ if(!authenticated) return; getSessionUser().catch(()=>{ /* cookie may be unavailable during static visual review */ }) },[authenticated])
-  const go=(next:Route)=>{setRoute(next);location.hash=next;window.scrollTo(0,0)}
-  const page=useMemo(()=>({dashboard:<Dashboard/>,clients:<Clients/>,pipeline:<Pipeline/>,builder:<Builder/>,projects:<Projects/>,catalog:<Catalog/>,inventory:<Inventory/>,suppliers:<Suppliers/>,schedule:<Schedule/>,finance:<Finance/>,team:<Team/>,integrations:<Integrations/>,logs:<Logs/>} as Partial<Record<Route, ReactNode>>)[route],[route])
+  const go=(next:Route, id?: number)=>{ location.hash = id === undefined ? next : `${next}/${id}`; window.scrollTo(0,0) }
+  const page=useMemo(()=>({dashboard:<Dashboard/>,clients:<Clients/>,pipeline:<Pipeline/>,builder:<Builder/>,projects:<Projects/>,catalog:<Catalog/>,inventory:<Inventory/>,suppliers:<Suppliers/>,schedule:<Schedule/>,finance:<Finance/>,team:<Team/>,integrations:<Integrations/>,logs:<Logs/>} as Partial<Record<Route, ReactNode>>)[rota.nome],[rota.nome])
   if(portalToken) return <Portal token={portalToken}/>
   if(location.pathname==='/reset-password') return <ResetPassword/>
   if(!authenticated) return <Login onSuccess={()=>setAuthenticated(true)}/>
-  return <AppShell route={route} go={go}>{page}</AppShell>
+  return <AppShell route={rota.nome} go={go}>{page}</AppShell>
 }
