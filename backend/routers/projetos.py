@@ -10,7 +10,8 @@ import os
 import unicodedata
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from database import get_db
@@ -32,6 +33,26 @@ _CSV_ALIASES = {
     "altura": "altura", "height": "altura",
     "referencia_externa": "referencia_externa", "guid": "referencia_externa", "definition guid": "referencia_externa",
 }
+
+
+def _buscar_projeto_por_origem(
+    db: Session,
+    usuario_id: int,
+    origem: str,
+    origem_ref: str,
+    origem_rev: Optional[str],
+) -> models.Projeto | None:
+    """Busca a revisão existente com o mesmo escopo da chave de idempotência."""
+    return db.query(models.Projeto).options(
+        selectinload(models.Projeto.itens),
+        joinedload(models.Projeto.cliente),
+        joinedload(models.Projeto.usuario),
+    ).filter(
+        models.Projeto.usuario_id == usuario_id,
+        models.Projeto.origem == origem,
+        models.Projeto.origem_ref == origem_ref,
+        models.Projeto.origem_rev == origem_rev,
+    ).first()
 
 
 def _normalizar(texto: str) -> str:
@@ -117,6 +138,10 @@ def _criar_projeto_com_itens(
     itens: list[schemas.ProjetoItemCreate],
     usuario: models.Usuario,
     db: Session,
+    origem_ref: Optional[str] = None,
+    origem_rev: Optional[str] = None,
+    origem_status: Optional[str] = None,
+    unidade_dimensao: str = "cm",
 ) -> models.Projeto:
     if cliente_id:
         cliente = db.query(models.Cliente).filter(models.Cliente.id == cliente_id).first()
@@ -127,13 +152,21 @@ def _criar_projeto_com_itens(
 
     projeto = models.Projeto(
         nome=nome, cliente_id=cliente_id, usuario_id=usuario.id,
-        origem=origem, origem_meta=origem_meta,
+        origem=origem, origem_meta=origem_meta, origem_ref=origem_ref,
+        origem_rev=origem_rev, origem_status=origem_status,
     )
     db.add(projeto)
     db.flush()  # gera o id sem commitar ainda
 
     catalogo = _sugerir_produtos(db)
     for item in itens:
+        # O banco mantém uma unidade única (cm). Apenas o contrato Med-Stone
+        # envia mm; SketchUp/CSV continuam retrocompatíveis com cm.
+        fator_unidade = 0.1 if unidade_dimensao == "mm" else 1
+
+        def dimensao_em_cm(valor: Optional[float]) -> Optional[float]:
+            return round(valor * fator_unidade, 2) if valor is not None else None
+
         produto_id = item.produto_id
         preco_sugerido = item.preco_sugerido_centavos
         if not produto_id:
@@ -146,9 +179,9 @@ def _criar_projeto_com_itens(
             nome=item.nome,
             quantidade=item.quantidade,
             material=item.material,
-            comprimento=item.comprimento,
-            largura=item.largura,
-            altura=item.altura,
+            comprimento=dimensao_em_cm(item.comprimento),
+            largura=dimensao_em_cm(item.largura),
+            altura=dimensao_em_cm(item.altura),
             referencia_externa=item.referencia_externa,
             produto_id=produto_id,
             preco_sugerido_centavos=preco_sugerido,
@@ -233,18 +266,60 @@ async def importar_projeto_csv(
     return _enrich_projeto(projeto, db, detail=True)
 
 
-@router.post("/push", response_model=schemas.ProjetoDetailOut, status_code=status.HTTP_201_CREATED)
+@router.post("/push", response_model=schemas.ProjetoDetailOut)
 @limiter.limit("20/minute")
 def push_projeto(
     request: Request,
+    response: Response,
     payload: schemas.ProjetoCreatePush,
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(auth.get_api_key_identity),
 ):
-    projeto = _criar_projeto_com_itens(
-        nome=payload.nome, cliente_id=payload.cliente_id, origem=payload.origem,
-        origem_meta=payload.origem_meta, itens=payload.itens, usuario=current_user, db=db,
-    )
+    # A chave é delimitada ao dono/API key e à origem. Revisões diferentes
+    # geram projetos separados para não alterar um projeto já orçado.
+    if payload.origem_ref:
+        existente = _buscar_projeto_por_origem(
+            db, current_user.id, payload.origem, payload.origem_ref, payload.origem_rev,
+        )
+        if existente:
+            db.add(models.AuditLog(
+                usuario_id=current_user.id, acao="PUSH_IDEMPOTENTE_IGNORADO",
+                detalhes=f"Push repetido do projeto de origem '{payload.origem_ref}' (revisão {payload.origem_rev or 'sem revisão'}); projeto ARC {existente.id} reutilizado",
+                entidade="Projeto", entidade_id=existente.id,
+                ip=request.headers.get("X-Real-IP", request.client.host if request.client else None),
+            ))
+            db.commit()
+            response.status_code = status.HTTP_200_OK
+            return _enrich_projeto(existente, db, detail=True)
+
+    try:
+        projeto = _criar_projeto_com_itens(
+            nome=payload.nome, cliente_id=payload.cliente_id, origem=payload.origem,
+            origem_meta=payload.origem_meta, origem_ref=payload.origem_ref,
+            origem_rev=payload.origem_rev, origem_status=payload.origem_status,
+            unidade_dimensao=payload.unidade_dimensao, itens=payload.itens,
+            usuario=current_user, db=db,
+        )
+    except IntegrityError:
+        # Dois pushes simultâneos podem passar pela consulta acima. O índice
+        # único é a autoridade; após rollback, devolvemos o projeto vencedor.
+        db.rollback()
+        if not payload.origem_ref:
+            raise
+        existente = _buscar_projeto_por_origem(
+            db, current_user.id, payload.origem, payload.origem_ref, payload.origem_rev,
+        )
+        if not existente:
+            raise
+        db.add(models.AuditLog(
+            usuario_id=current_user.id, acao="PUSH_IDEMPOTENTE_IGNORADO",
+            detalhes=f"Push concorrente do projeto de origem '{payload.origem_ref}' ignorado; projeto ARC {existente.id} reutilizado",
+            entidade="Projeto", entidade_id=existente.id,
+            ip=request.headers.get("X-Real-IP", request.client.host if request.client else None),
+        ))
+        db.commit()
+        response.status_code = status.HTTP_200_OK
+        return _enrich_projeto(existente, db, detail=True)
 
     db.add(models.AuditLog(
         usuario_id=current_user.id, acao="IMPORTOU_PROJETO",
@@ -254,11 +329,17 @@ def push_projeto(
     ))
     db.commit()
 
+    response.status_code = status.HTTP_201_CREATED
     return _enrich_projeto(projeto, db, detail=True)
 
 
 @router.get("/", response_model=list[schemas.ProjetoOut])
-def listar_projetos(db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+def listar_projetos(
+    origem: Optional[str] = None,
+    origem_ref: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(auth.get_current_user),
+):
     query = db.query(models.Projeto).options(
         selectinload(models.Projeto.itens),
         joinedload(models.Projeto.cliente),
@@ -266,6 +347,10 @@ def listar_projetos(db: Session = Depends(get_db), current_user: models.Usuario 
     )
     if current_user.role != "admin":
         query = query.filter(models.Projeto.usuario_id == current_user.id)
+    if origem is not None:
+        query = query.filter(models.Projeto.origem == origem)
+    if origem_ref is not None:
+        query = query.filter(models.Projeto.origem_ref == origem_ref)
     projetos = query.order_by(models.Projeto.created_at.desc()).all()
     return [_enrich_projeto(p, db) for p in projetos]
 

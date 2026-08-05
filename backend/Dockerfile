@@ -10,5 +10,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Inicia o servidor com hot-reload ativo
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Produção segura por padrão; desenvolvimento ativa --reload no compose local.
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

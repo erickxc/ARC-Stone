@@ -52,6 +52,9 @@ Thumbs.db
 # Plano de execução local (Claude Code)
 .claude/
 
+# Saídas locais da inspeção Graphify
+graphify-out/
+
 # Vari�veis de Ambiente
 .env
 
@@ -64,3 +67,6 @@ documentacao_tecnica.md
 # Banco SQLite de desenvolvimento (nao commitar)
 *.db
 backend/dilegno.db
+
+# Pacote local da skill de seguranca - nao versionar
+security-protocol.zip

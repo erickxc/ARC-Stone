@@ -6,9 +6,9 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER precisa estar definido no .env de produção}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD precisa estar definido no .env de produção}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB precisa estar definido no .env de produção}
     # Sem ports no host — acesso apenas pela rede Docker interna
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -28,13 +28,19 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:?POSTGRES_USER precisa estar definido}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD precisa estar definido}@db:5432/${POSTGRES_DB:?POSTGRES_DB precisa estar definido}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY precisa estar definido no .env de produção}
       - COOKIE_SECURE=true
       - ENVIRONMENT=production
       # Origem do frontend em producao (pode sobrescrever via .env)
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8080}
+      - CORS_ORIGINS=${CORS_ORIGINS:?CORS_ORIGINS precisa estar definido no .env de produção}
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"] # Sem flag --reload para produção
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db:
         condition: service_healthy
@@ -51,7 +57,8 @@ services:
     expose:
       - "80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -59,10 +66,12 @@ services:
     restart: always
     command: tunnel --no-autoupdate run
     environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN precisa estar definido no .env de produção}
     depends_on:
-      - frontend
-      - api
+      frontend:
+        condition: service_started
+      api:
+        condition: service_healthy
 
 volumes:
   postgres_data:

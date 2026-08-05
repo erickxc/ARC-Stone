@@ -1,9 +1,9 @@
-# Integração ARC ERP ↔ SketchUp
+# Integração ARC ERP ↔ SketchUp / Med-Stone
 
 ## Visão geral
 
 Um **Projeto** no ARC ERP é a lista de itens (móveis, materiais, componentes) importada de um
-software de arquitetura — hoje, o SketchUp. Um Projeto é salvo de forma **independente** de
+software de arquitetura — hoje, SketchUp e Med-Stone podem usar o mesmo contrato. Um Projeto é salvo de forma **independente** de
 qualquer orçamento: ele não vira orçamento automaticamente. Só quando um vendedor/arquiteto
 cria ou edita um orçamento é que ele opcionalmente seleciona um Projeto salvo, revisa item a
 item (casa com um produto do catálogo, ajusta quantidade/preço, ou mantém como item externo) e
@@ -19,7 +19,12 @@ Existem dois caminhos de entrada, e ambos produzem o mesmo resultado (um Projeto
 1. **Importação manual de CSV** — pela tela "Projetos" da ERP, com um arquivo exportado do
    "Generate Report" do SketchUp (ou qualquer planilha equivalente).
 2. **Push via API** — uma extensão rodando dentro do SketchUp envia o mesmo conjunto de dados
-   diretamente para a ERP, autenticada por uma chave de API.
+   diretamente para a ERP, autenticada por uma chave de API. O Med-Stone usa o mesmo endpoint,
+   enviando `origem: "stone"`.
+
+O repositório contém o contrato e o endpoint HTTP, não o código das extensões. Cada cliente
+desktop deve configurar a URL pública HTTPS da ERP e guardar a chave em armazenamento seguro do
+sistema operacional; nunca embutir a chave no instalador ou no código-fonte.
 
 ## Autenticação
 
@@ -55,9 +60,13 @@ X-API-Key: ak_...
 |---------------|------------------------|-------------|-----------|
 | `nome`        | string (máx. 200)      | sim         | Nome do projeto, ex. nome do arquivo/modelo. |
 | `cliente_id`  | int ou `null`          | não         | Cliente já cadastrado na ERP, se conhecido no momento do envio. |
-| `origem`      | string                 | não (default `"sketchup"`) | Identifica a origem — hoje aceita `"sketchup"` ou `"manual_csv"`. |
-| `origem_meta` | string ou `null`       | não         | Metadados livres (ex: versão do SketchUp, versão da extensão, nome do arquivo `.skp`). |
-| `itens`       | array (mín. 1 item)    | sim         | Lista de itens do projeto (ver abaixo). |
+| `origem`      | string                 | não (default `"sketchup"`) | Identifica a origem — aceita `"sketchup"`, `"manual_csv"` ou `"stone"`. |
+| `origem_meta` | string ou `null` (máx. 1000) | não     | Metadados livres (ex: versão do SketchUp, versão da extensão, nome do arquivo `.skp`). |
+| `origem_ref`  | string ou `null` (máx. 200) | não | Identificador estável do projeto na origem. Com `origem_rev`, forma a chave de idempotência. |
+| `origem_rev`  | string ou `null` (máx. 200) | não | Revisão na origem (ex: `atualizadoEm`). Revisão diferente cria novo Projeto ARC. |
+| `origem_status` | `"rascunho"`, `"finalizado"` ou `null` | não | Estado do projeto na origem; use `"rascunho"` para sinalizar que os dados ainda podem mudar. |
+| `unidade_dimensao` | `"mm"` ou `"cm"` (default `"cm"`) | não | Unidade das dimensões enviadas. O ARC grava sempre em cm e converte mm automaticamente. |
+| `itens`       | array (1–2000 itens)    | sim         | Lista de itens do projeto (ver abaixo). |
 
 Cada item em `itens`:
 
@@ -65,11 +74,11 @@ Cada item em `itens`:
 |---------------------------|------------------|-------------|-----------|
 | `nome`                    | string (máx. 200)| sim         | Nome do componente/bloco. |
 | `quantidade`               | int (≥ 1)        | sim         | Quantidade de instâncias do componente. |
-| `material`                | string ou `null` | não         | |
-| `comprimento`, `largura`, `altura` | number ou `null` | não | Dimensões, na unidade que a origem usar (a ERP não converte unidades). |
-| `referencia_externa`      | string ou `null` | não         | Identificador estável do componente na origem (ex: GUID da definição no SketchUp) — útil para rastrear o mesmo componente entre exportações futuras. |
+| `material`                | string ou `null` (máx. 200) | não | |
+| `comprimento`, `largura`, `altura` | number ou `null` | não | Dimensões na unidade declarada em `unidade_dimensao`; o ARC normaliza e grava em cm. |
+| `referencia_externa`      | string ou `null` (máx. 200) | não | Identificador estável do componente na origem (ex: GUID da definição no SketchUp) — útil para rastrear o mesmo componente entre exportações futuras. |
 | `preco_sugerido_centavos` | int ou `null`    | não         | Preço sugerido em centavos, se a origem já souber um valor de referência. |
-| `observacoes`             | string ou `null` | não         | |
+| `observacoes`             | string ou `null` (máx. 2000) | não | |
 
 `produto_id` **não** deve ser enviado pela extensão — o casamento com o catálogo é feito pela
 ERP (heurística por nome) ou manualmente pelo vendedor na tela de validação.
@@ -105,11 +114,13 @@ X-API-Key: ak_9f2c...
 }
 ```
 
-### Resposta — `201 Created`
+### Resposta — `201 Created` ou `200 OK`
 
-Retorna o Projeto criado, já com os itens e qualquer sugestão automática de produto do catálogo
+`201 Created` retorna um Projeto novo, já com os itens e qualquer sugestão automática de produto do catálogo
 (`produto_id`/`produto_nome_sugerido`, quando o nome do item bateu exatamente com um produto
-ativo do catálogo):
+ativo do catálogo). Quando o mesmo `(usuario, origem, origem_ref, origem_rev)` já foi recebido,
+o ARC retorna `200 OK` com o Projeto existente, sem duplicar itens. `origem_ref` deve ser enviado
+para habilitar essa garantia; revisão diferente cria outro Projeto e preserva o anterior.
 
 ```json
 {
@@ -119,6 +130,9 @@ ativo do catálogo):
   "usuario_id": 7,
   "origem": "sketchup",
   "origem_meta": "modelo.skp v12, exportado 2026-08-03 14:32",
+  "origem_ref": null,
+  "origem_rev": null,
+  "origem_status": null,
   "created_at": "2026-08-03T14:32:10Z",
   "cliente_nome": null,
   "usuario_nome": "Rafael Lima",
@@ -155,10 +169,13 @@ ativo do catálogo):
 
 ## Limite de taxa
 
-`POST /projetos/push` tem limite de **20 requisições por minuto** por IP de origem. Como a
-extensão roda localmente, isso é generoso para o uso esperado (poucos pushes por sessão de
-modelagem); se o limite for atingido, a resposta é `429` e a extensão deve aguardar antes de
-tentar de novo.
+`POST /projetos/push` tem limite de **20 requisições por minuto por API key**. Isso evita que
+clientes atrás do mesmo proxy/Cloudflare compartilhem o mesmo balde; se o limite for atingido,
+a resposta é `429` e a extensão deve aguardar antes de tentar de novo.
+
+O endpoint possui idempotência por `(usuario, origem, origem_ref, origem_rev)`. Em timeout, a
+extensão pode reenviar o mesmo payload com esses campos: o ARC retorna `200` e o mesmo `id` se o
+push já tiver sido persistido. Uma revisão nova (`origem_rev` diferente) cria um Projeto novo.
 
 ## Formato do CSV para importação manual
 

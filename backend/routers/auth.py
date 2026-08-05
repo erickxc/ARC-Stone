@@ -7,7 +7,7 @@ import models, auth, schemas
 from pydantic import BaseModel
 import pyotp
 
-from rate_limiter import limiter
+from rate_limiter import _rate_limit_ip, limiter
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 
@@ -72,7 +72,10 @@ def _issue_session_tokens(user: models.Usuario, response: Response, request: Req
 
 
 @router.post("/login")
-@limiter.limit("5/minute")
+# Autenticação precisa de um balde por IP. Se aceitasse X-API-Key aqui, um
+# atacante poderia trocar um header inválido a cada tentativa e escapar do
+# limite de senha/MFA/recuperação.
+@limiter.limit("5/minute", key_func=_rate_limit_ip)
 def login(
     request: Request,
     response: Response,
@@ -123,7 +126,7 @@ class MfaLoginRequest(BaseModel):
 
 
 @router.post("/mfa-login")
-@limiter.limit("5/minute")
+@limiter.limit("5/minute", key_func=_rate_limit_ip)
 def mfa_login(
     request: Request,
     response: Response,
@@ -205,7 +208,7 @@ class ForgotPasswordRequest(BaseModel):
 
 
 @router.post("/forgot-password")
-@limiter.limit("5/minute")
+@limiter.limit("5/minute", key_func=_rate_limit_ip)
 def forgot_password(request: Request, req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(models.Usuario).filter(models.Usuario.email == req.email).first()
 
@@ -225,7 +228,7 @@ class ResetPasswordRequest(BaseModel):
 
 
 @router.post("/reset-password")
-@limiter.limit("5/minute")
+@limiter.limit("5/minute", key_func=_rate_limit_ip)
 def reset_password(request: Request, body: ResetPasswordRequest, db: Session = Depends(get_db)):
     payload = auth.decode_token(body.token, expected_types={auth.TOKEN_TYPE_RESET})
     email = payload.get("sub")

@@ -1,11 +1,42 @@
 """Testes de integração para login, MFA, recuperação de senha e RBAC básico."""
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import pyotp
+from jose import jwt
 
 import auth as auth_module
 import models
+from main import health_check
+
+
+def test_create_access_token_usa_expiracao_configurada_por_padrao(monkeypatch):
+    """Regressão: token sem expires_delta deve respeitar configuração global."""
+    monkeypatch.setattr(auth_module, "ACCESS_TOKEN_EXPIRE_MINUTES", 37)
+    token = auth_module.create_access_token({"sub": "config@example.com"})
+    payload = jwt.decode(
+        token,
+        auth_module.SECRET_KEY,
+        algorithms=[auth_module.ALGORITHM],
+        options={"verify_exp": False},
+    )
+
+    expected_exp = datetime.now(timezone.utc).timestamp() + (37 * 60)
+    assert payload["type"] == auth_module.TOKEN_TYPE_ACCESS
+    assert abs(payload["exp"] - expected_exp) < 5
+
+
+def test_health_check_nao_vaza_detalhes_do_driver():
+    """Regressão: resposta pública não pode carregar DSN ou credenciais do banco."""
+    class FailingSession:
+        def execute(self, _query):
+            raise RuntimeError("postgresql://user:senha-secreta@db:5432/arc_erp")
+
+    response = health_check(FailingSession())
+
+    assert response.status_code == 503
+    assert b"senha-secreta" not in response.body
+    assert b"indispon" in response.body
 
 
 def test_login_sucesso(client, make_user):
