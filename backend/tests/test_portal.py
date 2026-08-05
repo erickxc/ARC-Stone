@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from routers.portal import STATUS_PUBLICO, _formatar_condicoes, _publicar_proposta
+from routers.portal import STATUS_PUBLICO, _foto_publica, _formatar_condicoes, _publicar_proposta
 from schemas import PortalDecisaoIn
 
 
@@ -34,7 +34,7 @@ def _proposta_fake():
         id=42,
         tipo_orcamento="Venda",
         status="Orçamento gerado",
-        cliente=SimpleNamespace(nome="Cliente Teste"),
+        cliente=SimpleNamespace(nome_fantasia="Cliente Teste"),
         itens=[item],
         anexos=[anexo],
         anexo_url="uploads/proposta.pdf",
@@ -64,6 +64,7 @@ def test_resposta_publica_e_lista_branca_sem_custo_ou_fornecedor():
     bruto = resposta.model_dump_json()
 
     assert resposta.valor_total == 30000
+    assert resposta.cliente_nome == "Cliente Teste"
     assert resposta.condicoes_pagamento == "40% entrada, 3x sem juros"
     assert "preco_custo" not in bruto
     assert "fornecedor_externo" not in bruto
@@ -74,3 +75,10 @@ def test_resposta_publica_e_lista_branca_sem_custo_ou_fornecedor():
 def test_status_publico_nao_expoe_kanban_interno():
     assert STATUS_PUBLICO["Orçamento gerado"] == "Aguardando sua aprovação"
     assert STATUS_PUBLICO["Orçamento negado"] == "Encerrada"
+
+
+def test_foto_publica_rejeita_caminhos_internos():
+    assert _foto_publica("https://cdn.example.com/foto.jpg") == "https://cdn.example.com/foto.jpg"
+    assert _foto_publica("http://cdn.example.com/foto.jpg") == "http://cdn.example.com/foto.jpg"
+    assert _foto_publica("/static/uploads/foto.jpg") is None
+    assert _foto_publica("/api/uploads/foto.jpg") is None

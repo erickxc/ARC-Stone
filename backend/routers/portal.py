@@ -77,7 +77,7 @@ def _foto_publica(value: str | None) -> str | None:
     """Nunca transforma caminho de disco interno em campo público."""
     if not value:
         return None
-    if value.startswith(("https://", "http://", "/static/", "/api/")):
+    if value.startswith(("https://", "http://")):
         return value
     return None
 
@@ -120,7 +120,7 @@ def _publicar_proposta(proposta: models.Orcamento) -> schemas.PortalPropostaOut:
         numero_exibicao=f"ORC-{proposta.id:04d}",
         tipo_orcamento=proposta.tipo_orcamento,
         status_publico=STATUS_PUBLICO.get(proposta.status, "Em elaboração"),
-        cliente_nome=proposta.cliente.nome,
+        cliente_nome=proposta.cliente.nome_fantasia,
         itens=itens,
         valor_total=sum(item.subtotal for item in itens),
         condicoes_pagamento=_formatar_condicoes(proposta.condicoes_pagamento_selecionadas),
