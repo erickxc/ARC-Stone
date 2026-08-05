@@ -247,6 +247,14 @@ export interface AuditLog {
   usuario_nome: string | null
 }
 
+export interface AuditLogEntry {
+  id: number
+  acao: string
+  detalhes: string
+  usuario_nome: string | null
+  created_at: string
+}
+
 export interface ApiKey {
   id: number
   nome: string
@@ -407,6 +415,10 @@ export function getQuote(id: number) {
 
 export function listQuoteAttachments(id: number) {
   return request<OrcamentoAnexo[]>(`/orcamentos/${id}/anexos`)
+}
+
+export function getQuoteHistory(id: number) {
+  return request<AuditLogEntry[]>(`/orcamentos/${id}/historico`)
 }
 
 export function createQuote(input: QuoteCreateInput) {
