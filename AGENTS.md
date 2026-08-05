@@ -28,3 +28,59 @@ Add focused pytest tests in `backend/tests/` using `test_*.py` files and `test_*
 ## Commit & Pull Request Guidelines
 
 Recent history uses short Conventional Commit-style prefixes such as `feat:`, `fix:`, `chore:`, `infra:`, `ci:`, and `seguranca:`. Keep subjects imperative and scoped. PRs should explain behavior changes, list validation commands, link the issue or task, and include screenshots for UI changes. Never commit `.env`, credentials, tokens, or generated/private uploads; use `.env.example` for configuration documentation.
+
+## Modo Executor de Planos
+
+Este protocolo substitui qualquer modo executor anterior e só se aplica enquanto o usuário mantiver o modo `/executor` ligado. Ative com `/executor`. Desative com `/executor off`. Com o modo desligado, pedidos comuns para executar, rodar, continuar ou concluir um plano não ativam este protocolo automaticamente.
+
+### Início obrigatório
+
+1. Leia integralmente as instruções aplicáveis já existentes, incluindo `AGENTS.md`, `CLAUDE.md` e instruções mais específicas dos diretórios envolvidos.
+2. Leia integralmente `planos/PLANO-ATUAL.md`. Se o usuário não indicar outro plano, esse é o único plano válido. Nunca substitua silenciosamente por outro arquivo.
+3. Leia `planos/ESTADO.md`. Arquivos em `planos/arquivo/` são históricos e nunca devem ser executados.
+4. Continue pela primeira tarefa ainda incompleta. Nunca refaça uma tarefa marcada como concluída.
+
+### Escopo de uma execução
+
+- Execute exatamente uma tarefa por chamada do usuário. Ao concluir ou bloquear essa tarefa, pare e devolva o controle.
+- Respeite rigorosamente a seção `arquivos que esta tarefa pode tocar`. Se precisar de qualquer arquivo fora da lista, pare e peça decisão; não improvise nem expanda escopo.
+- Siga o plano como contrato: não adicione melhorias, refatorações ou correções não solicitadas. Registre problema preexistente e não relacionado em `Dúvidas`; não o corrija nesta tarefa.
+- Preserve alterações preexistentes do usuário e nunca as sobrescreva.
+- Antes de alterar código, entenda o comportamento existente e mantenha segurança da informação, responsividade, documentação/comentários e o design já estabelecido.
+
+### Conclusão obrigatória
+
+Uma tarefa só está concluída quando a implementação e a verificação terminarem:
+
+1. Execute as validações previstas no plano e as validações relevantes para a mudança.
+2. Separe claramente verificações aprovadas de verificações não executadas. Nunca declare que tudo passou se algo não foi executado.
+3. Crie exatamente um commit exclusivo para a tarefa, com mensagem Conventional Commit no idioma do repositório, no formato obrigatório `plano(N): <o que foi feito>`.
+4. Acrescente ao final de `planos/ESTADO.md`, sem reescrever nem remover registros anteriores:
+
+   ```text
+   ## TAREFA N — concluída em AAAA-MM-DD HH:MM
+   Commit: <sha>
+   Arquivos: <lista>
+   Verificação: <o que foi executado e resultado, incluindo o que não pôde ser executado>
+   Desvios: <diferença e motivo ou "nenhum">
+   Dúvidas: <incerteza ou "nenhuma">
+   ```
+
+### Bloqueios e parada segura
+
+Pare imediatamente, sem criar commit de conclusão, quando ocorrer qualquer condição abaixo: necessidade de arquivo fora da lista permitida; contradição entre plano e código; teste existente quebrado pela mudança; duas escolhas razoáveis sem decisão; credencial, serviço externo ou dado ausente.
+
+Registre o bloqueio ao final de `planos/ESTADO.md`, sem apagar histórico:
+
+```text
+## TAREFA N — BLOQUEADA em AAAA-MM-DD HH:MM
+Onde parei: <arquivo:linha ou etapa do plano>
+O que encontrei: <fato concreto que contradiz o plano ou está ausente>
+O que preciso: <decisão, credencial ou correção do plano>
+```
+
+Após registrar o bloqueio, pare e informe o usuário. Não contorne a restrição, não escolha silenciosamente entre alternativas e não avance para outra tarefa.
+
+### Relato
+
+Ao final, informe a tarefa tratada, arquivos tocados, commit (quando houver), verificações aprovadas, verificações não executadas, desvios, dúvidas e bloqueios. O registro em `planos/ESTADO.md` é obrigatório e deve corresponder exatamente ao que ocorreu no ambiente.
