@@ -1,0 +1,9 @@
+# Só para desenvolvimento local fora do Docker.
+# A porta 5432 do host já é ocupada pelo serviço nativo "postgresql-x64-18" (IPv4),
+# então o banco do projeto ganha uma segunda porta para o backend rodar via uvicorn.
+# Descartável: apague este arquivo para voltar ao comportamento original.
+services:
+  db:
+    ports:
+      - "5432:5432"
+      - "5433:5432"
