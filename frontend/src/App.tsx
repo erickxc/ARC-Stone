@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { createApiKey, createCatalogProduct, createClient, createLancamento, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, forgotPassword, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getProjeto, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetPassword, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, verifyMfa } from './api'
-import type { ApiKey, ApiKeyCreated, AuditLog, CalendarEvent, Client, ClientInput, FinanceiroResumo, FluxoMensalItem, Lancamento, OrcamentoConfig, PaymentCondition, Product, Projeto, ProjetoDetail, Quote, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
+import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, createApiKey, createCatalogProduct, createClient, createLancamento, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuoteAttachments, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetPassword, revogarPortalLink, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, verifyMfa } from './api'
+import type { ApiKey, ApiKeyCreated, AuditLog, CalendarEvent, Client, ClientInput, FinanceiroResumo, FluxoMensalItem, Lancamento, OrcamentoAnexo, OrcamentoConfig, PaymentCondition, PortalLink, PortalProposta, Product, Projeto, ProjetoDetail, Quote, QuoteDetail, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
 import { money, quotes } from './data'
 import type { Status } from './data'
 
-type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'projects' | 'catalog' | 'inventory' | 'suppliers' | 'schedule' | 'finance' | 'team' | 'integrations' | 'logs' | 'portal'
-const routes: Route[] = ['dashboard', 'clients', 'pipeline', 'builder', 'projects', 'catalog', 'inventory', 'suppliers', 'schedule', 'finance', 'team', 'integrations', 'logs', 'portal']
+type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'projects' | 'catalog' | 'inventory' | 'suppliers' | 'schedule' | 'finance' | 'team' | 'integrations' | 'logs'
+const routes: Route[] = ['dashboard', 'clients', 'pipeline', 'builder', 'projects', 'catalog', 'inventory', 'suppliers', 'schedule', 'finance', 'team', 'integrations', 'logs']
 
-type IconName = Exclude<Route, 'portal'> | 'menu' | 'close'
+type IconName = Route | 'menu' | 'close'
 const iconPaths: Record<IconName, ReactNode> = {
   dashboard: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
   clients: <><circle cx="12" cy="8" r="3.25"/><path d="M5.5 21v-2.2a6.5 6.5 0 0 1 13 0V21"/></>,
@@ -75,7 +75,7 @@ function Kpi({ label, value, note, dark }: { label: string; value: string; note:
   return <article className={`card kpi ${dark ? 'dark' : ''}`}><p className="mono">{label}</p><strong>{value}</strong><small>{note}</small></article>
 }
 
-const statusValues: [Status, number, number][] = [['Gerando', 14, 22], ['Planejando', 26, 41], ['Enviado', 43, 68], ['Aprovado', 34, 53], ['Perdido', 11, 17]]
+const statusValues: [Status, number, number][] = [['Gerando', 14, 22], ['Planejando', 26, 41], ['Enviado', 43, 68], ['Ajuste', 8, 30], ['Aprovado', 34, 53], ['Perdido', 11, 17]]
 function StatusBars({ rows = statusValues }: { rows?: [Status, number, number][] }) { return <div className="status-bars">{rows.map(([s, n, w]) => <div key={s}><span>{s}</span><i><b className={s.toLowerCase()} style={{ width: `${w}%` }} /></i><em>{n}</em></div>)}</div> }
 
 function Dashboard() {
@@ -105,7 +105,7 @@ function Dashboard() {
   const criticalStock = productsData.filter(product => product.quantidade_estoque <= product.estoque_minimo).length
   const openQuotes = quotesData.filter(quote => !['Aprovado','Orçamento negado','Entregue','Faturado','Devolvido'].includes(quote.status))
   const openValue = openQuotes.reduce((total, quote) => total + (quote.valor_total || 0), 0)
-  const pendingApproval = quotesData.filter(quote => quote.status === 'Orçamento gerado').length
+  const pendingApproval = quotesData.filter(quote => ['Orçamento gerado', 'Ajuste solicitado'].includes(quote.status)).length
 
   const today = new Date()
   const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
@@ -135,7 +135,7 @@ function Dashboard() {
   const weekDays = Array.from({length: 7}, (_, i) => { const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d })
   const weekMonthLabel = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(weekDays[0])
 
-  return <><PageHead eyebrow="PAINEL DE CONTROLE · ADM" title={userName ? `Bom dia, ${userName}.` : 'Bom dia.'} subtitle={`${deliveriesThisWeek} entrega${deliveriesThisWeek===1?'':'s'} nesta semana · ${pendingApproval} orçamento${pendingApproval===1?'':'s'} aguardando sua aprovação.`} actions={<><Button variant="secondary" onClick={() => setReportOpen(true)}>Relatório mensal</Button><Button onClick={() => { location.hash = 'builder'; location.reload() }}>Novo orçamento</Button></>} />
+  return <><PageHead eyebrow="PAINEL DE CONTROLE · ADM" title={userName ? `Bom dia, ${userName}.` : 'Bom dia.'} subtitle={`${deliveriesThisWeek} entrega${deliveriesThisWeek===1?'':'s'} nesta semana · ${pendingApproval} proposta${pendingApproval===1?'':'s'} pendente${pendingApproval===1?'':'s'} de decisão ou ajuste.`} actions={<><Button variant="secondary" onClick={() => setReportOpen(true)}>Relatório mensal</Button><Button onClick={() => { location.hash = 'builder'; location.reload() }}>Novo orçamento</Button></>} />
     {error && <p className="form-error" role="alert">{error}</p>}
     <section className="kpi-grid"><Kpi label="ORÇAMENTOS GLOBAIS" value={loading?'...':String(quotesData.length)} note={`${openQuotes.length} em andamento`} /><Kpi label="CLIENTES NA BASE" value={loading?'...':String(clientsData.length)} note="cadastrados no CRM" /><Kpi label="ITENS NO GALPÃO" value={loading?'...':String(productsData.length)} note={`${criticalStock} abaixo do mínimo`} /><Kpi dark label="EM APROVAÇÃO" value={loading?'...':new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',notation:'compact'}).format(openValue/100)} note={`${openQuotes.length} propostas abertas`} /></section>
     <section className="dashboard-grid"><article className="card span-two"><div className="card-title"><h2>Orçamentos por status</h2><span className="mono">FUNIL · TODOS OS REGISTROS</span></div><StatusBars rows={statusRows} /></article>
@@ -145,8 +145,8 @@ function Dashboard() {
     </section>{reportOpen&&<Modal title="Relatório mensal" close={()=>setReportOpen(false)}><div className="modal-form"><p>Resumo pronto para exportação.</p><ul className="modal-summary"><li>{quotesData.length} orçamentos globais</li><li>{deliveriesThisWeek} entregas nesta semana</li><li>{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(openValue/100)} em aprovação</li></ul><footer><Button variant="secondary" onClick={()=>setReportOpen(false)}>Fechar</Button><Button onClick={()=>{setFeedback('Relatório preparado para download.');setReportOpen(false)}}>Exportar relatório</Button></footer></div></Modal>}{feedback&&<Feedback message={feedback} close={()=>setFeedback('')}/>}</>
 }
 
-const backendStatusByColumn: Record<Status, string> = { Gerando: 'Gerando orçamento', Planejando: 'Planejando', Enviado: 'Orçamento gerado', Aprovado: 'Aprovado', Perdido: 'Orçamento negado' }
-const columnByBackendStatus: Record<string, Status> = { 'Gerando orçamento': 'Gerando', 'Planejando': 'Planejando', 'Orçamento gerado': 'Enviado', 'Aprovado': 'Aprovado', 'Orçamento negado': 'Perdido', 'Entregue': 'Aprovado', 'Faturado': 'Aprovado', 'Devolvido': 'Perdido' }
+const backendStatusByColumn: Record<Status, string> = { Gerando: 'Gerando orçamento', Planejando: 'Planejando', Enviado: 'Orçamento gerado', Ajuste: 'Ajuste solicitado', Aprovado: 'Aprovado', Perdido: 'Orçamento negado' }
+const columnByBackendStatus: Record<string, Status> = { 'Gerando orçamento': 'Gerando', 'Planejando': 'Planejando', 'Orçamento gerado': 'Enviado', 'Ajuste solicitado': 'Ajuste', 'Aprovado': 'Aprovado', 'Orçamento negado': 'Perdido', 'Entregue': 'Aprovado', 'Faturado': 'Aprovado', 'Devolvido': 'Perdido' }
 type KanbanQuote = { id: string; backendId?: number; project: string; client: string; status: Status; value: number; date: string; owner: string }
 
 function quoteToCard(quote: Quote): KanbanQuote {
@@ -169,6 +169,7 @@ function Pipeline() {
   const [orcamentoConfig, setOrcamentoConfig] = useState<OrcamentoConfig | null>(null)
   const [approveCard, setApproveCard] = useState<KanbanQuote | null>(null)
   const [approveCnpj, setApproveCnpj] = useState('')
+  const [selectedQuoteId, setSelectedQuoteId] = useState<number | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -210,12 +211,57 @@ function Pipeline() {
     setApproveCard(null)
   }
   return <><PageHead eyebrow="VENDAS · PIPELINE" title={view==='Kanban'?'Kanban dos orçamentos':'Lista de orçamentos'} subtitle={`${remoteQuotes === null ? 'visão local' : `${remoteQuotes.length} orçamentos do backend`} · ${loading ? 'sincronizando…' : 'sincronizado'}`} actions={<><input className="search" placeholder="Buscar projeto ou cliente…" value={query} onChange={e=>setQuery(e.target.value)} /><Button variant="secondary" onClick={()=>setFeedback('Filtro de vendedor será ligado ao endpoint de equipe.')}>Vendedor⌄</Button><div className="segmented"><button className={view==='Lista'?'active':''} onClick={()=>setView('Lista')}>Lista</button><button className={view==='Kanban'?'active':''} onClick={()=>setView('Kanban')}>Kanban</button></div><Button onClick={()=>setOpen(true)}>+ Orçamento</Button></>} />{quoteError&&<p className="form-error" role="alert">{quoteError}</p>}
-    {view==='Kanban'?<div className="kanban">{statusValues.map(([status, fallbackTotal]) => { const columnCards = filtered.filter(q=>q.status===status); return <section className={`kanban-col ${status.toLowerCase()}`} key={status}><header><h2><i />{status}</h2><Badge>{remoteQuotes === null ? fallbackTotal : columnCards.length}</Badge><p className="mono">{money(columnCards.reduce((total, card) => total + card.value, 0))}</p></header>{columnCards.map(card=><article className="quote-card" key={card.id}><div><span className="mono">{card.id}</span><b>{money(card.value)}</b></div><h3>{card.project}</h3><p>{card.client}</p><footer><span>{card.owner}</span><em>{card.date}</em></footer>{remoteQuotes!==null&&card.backendId&&<select aria-label={`Status de ${card.id}`} value={card.status} onChange={event=>moveQuote(card,event.target.value as Status)}>{statusValues.map(([option])=><option key={option} value={option}>{option}</option>)}</select>}</article>)}{status==='Gerando'&&<button className="add-card" onClick={()=>setOpen(true)}>+ Adicionar</button>}</section>})}</div>:<article className="card list-card"><DataTable headers={['ORÇAMENTO','PROJETO','CLIENTE','STATUS','VALOR']} rows={filtered.map(q=>[<span className="mono">{q.id}</span>,<b>{q.project}</b>,q.client,<Badge>{q.status}</Badge>,money(q.value)])}/></article>}{open&&<Modal title="Novo orçamento" close={()=>setOpen(false)}><form className="modal-form" onSubmit={submitQuote}><label>Cliente<select name="cliente_id" required autoFocus defaultValue=""><option value="" disabled>Selecione um cliente…</option>{quoteClients.map(client=><option key={client.id} value={client.id}>{client.nome_fantasia}</option>)}</select></label><label>Tipo de orçamento<select name="tipo_orcamento" defaultValue="Venda"><option>Venda</option><option>Locacao</option><option>Producao</option></select></label>{quoteError&&<p className="form-error" role="alert">{quoteError}</p>}<footer><Button variant="secondary" onClick={()=>setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving?'Salvando…':'Criar orçamento'}</Button></footer></form></Modal>}{approveCard&&<Modal title={`Aprovar ${approveCard.id}`} close={()=>setApproveCard(null)}><form className="modal-form" onSubmit={confirmApproval}><label>CNPJ de faturamento<select value={approveCnpj} onChange={e=>setApproveCnpj(e.target.value)} required autoFocus>{cnpjOptions.map(o=><option key={o.cnpj} value={o.cnpj}>{o.nome||o.cnpj} — {o.cnpj}</option>)}</select></label><footer><Button variant="secondary" onClick={()=>setApproveCard(null)}>Cancelar</Button><Button type="submit">Aprovar orçamento</Button></footer></form></Modal>}{feedback&&<Feedback message={feedback} close={()=>setFeedback('')}/>}</>
+    {view==='Kanban'?<div className="kanban">{statusValues.map(([status, fallbackTotal]) => { const columnCards = filtered.filter(q=>q.status===status); return <section className={`kanban-col ${status.toLowerCase()}`} key={status}><header><h2><i />{status}</h2><Badge>{remoteQuotes === null ? fallbackTotal : columnCards.length}</Badge><p className="mono">{money(columnCards.reduce((total, card) => total + card.value, 0))}</p></header>{columnCards.map(card=><article className="quote-card" key={card.id}><div><span className="mono">{card.id}</span><b>{money(card.value)}</b></div><h3>{card.project}</h3><p>{card.client}</p><footer><span>{card.owner}</span><em>{card.date}</em>{remoteQuotes!==null&&card.backendId&&<button className="text-action" onClick={() => setSelectedQuoteId(card.backendId!)}>Portal</button>}</footer>{remoteQuotes!==null&&card.backendId&&<select aria-label={`Status de ${card.id}`} value={card.status} onChange={event=>moveQuote(card,event.target.value as Status)}>{statusValues.map(([option])=><option key={option} value={option}>{option}</option>)}</select>}</article>)}{status==='Gerando'&&<button className="add-card" onClick={()=>setOpen(true)}>+ Adicionar</button>}</section>})}</div>:<article className="card list-card"><DataTable headers={['ORÇAMENTO','PROJETO','CLIENTE','STATUS','VALOR']} rows={filtered.map(q=>[<span className="mono">{q.id}</span>,<b>{q.project}</b>,q.client,<Badge>{q.status}</Badge>,money(q.value)])}/></article>}{open&&<Modal title="Novo orçamento" close={()=>setOpen(false)}><form className="modal-form" onSubmit={submitQuote}><label>Cliente<select name="cliente_id" required autoFocus defaultValue=""><option value="" disabled>Selecione um cliente…</option>{quoteClients.map(client=><option key={client.id} value={client.id}>{client.nome_fantasia}</option>)}</select></label><label>Tipo de orçamento<select name="tipo_orcamento" defaultValue="Venda"><option>Venda</option><option>Locacao</option><option>Producao</option></select></label>{quoteError&&<p className="form-error" role="alert">{quoteError}</p>}<footer><Button variant="secondary" onClick={()=>setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving?'Salvando…':'Criar orçamento'}</Button></footer></form></Modal>}{approveCard&&<Modal title={`Aprovar ${approveCard.id}`} close={()=>setApproveCard(null)}><form className="modal-form" onSubmit={confirmApproval}><label>CNPJ de faturamento<select value={approveCnpj} onChange={e=>setApproveCnpj(e.target.value)} required autoFocus>{cnpjOptions.map(o=><option key={o.cnpj} value={o.cnpj}>{o.nome||o.cnpj} — {o.cnpj}</option>)}</select></label><footer><Button variant="secondary" onClick={()=>setApproveCard(null)}>Cancelar</Button><Button type="submit">Aprovar orçamento</Button></footer></form></Modal>}{selectedQuoteId && <QuotePortalModal quoteId={selectedQuoteId} close={() => setSelectedQuoteId(null)} />}{feedback&&<Feedback message={feedback} close={()=>setFeedback('')}/>}</>
 }
 
-const proposalItems = [['Marcenaria cozinha — MDF carvalho','12,40','m²','2.180','27.032'],['Bancada quartzo branco absoluto','4,10','m²','1.640','6.724'],['Painel ripado living — freijó','8,60','m²','1.290','11.094'],['Iluminação embutida — perfil linear','14','un','340','4.760'],['Instalação e montagem','3','diária','980','2.940'],['Frete e içamento','1','un','1.850','1.850']]
 type BuilderItem = { key: string; productId: number | null; name: string; quantity: number; unit: string; unitPrice: number; isExternal: boolean; projetoItemId: number | null }
 type ValidationRow = { projetoItemId: number; nome: string; quantidade: number; material: string | null; matchedProductId: number | null; unitPrice: number; included: boolean }
+
+function QuotePortalModal({ quoteId, close }: { quoteId: number; close: () => void }) {
+  const [quote, setQuote] = useState<QuoteDetail | null>(null)
+  const [attachments, setAttachments] = useState<OrcamentoAnexo[]>([])
+  const [link, setLink] = useState<PortalLink | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    Promise.all([getQuote(quoteId), listQuoteAttachments(quoteId)])
+      .then(([quoteData, attachmentData]) => { setQuote(quoteData); setAttachments(attachmentData) })
+      .catch(err => setError(err instanceof Error ? err.message : 'Falha ao carregar o orçamento.'))
+      .finally(() => setLoading(false))
+  }, [quoteId])
+
+  async function sendPortalLink() {
+    setBusy(true); setError('')
+    try { setLink(await gerarPortalLink(quoteId)) } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao enviar link.') } finally { setBusy(false) }
+  }
+
+  async function revokePortalLink() {
+    if (!confirm('Revogar o link atual? O cliente perderá o acesso imediatamente.')) return
+    setBusy(true); setError('')
+    try { await revogarPortalLink(quoteId); setLink(null) } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao revogar link.') } finally { setBusy(false) }
+  }
+
+  async function toggleAttachment(attachment: OrcamentoAnexo) {
+    setBusy(true); setError('')
+    try {
+      const updated = await alterarVisibilidadeAnexo(quoteId, attachment.id, !attachment.visivel_cliente)
+      setAttachments(current => current.map(item => item.id === updated.id ? updated : item))
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao alterar visibilidade.') } finally { setBusy(false) }
+  }
+
+  return <Modal title={`Portal · ORC-${String(quoteId).padStart(4, '0')}`} close={close}><div className="modal-form portal-erp-detail">
+    {loading ? <p className="empty-state">Carregando dados do orçamento…</p> : quote && <>
+      <p>Envie um link seguro para <strong>{quote.cliente_email || 'cliente sem e-mail'}</strong>. Reenviar invalida o link anterior.</p>
+      <div className="portal-link-actions"><Button onClick={sendPortalLink} disabled={busy || !quote.cliente_email}>{busy ? 'Processando…' : 'Enviar ao cliente'}</Button>{link && <Button variant="secondary" onClick={revokePortalLink} disabled={busy}>Revogar link</Button>}</div>
+      {link && <div className="portal-link-result"><input readOnly value={link.url} aria-label="Link do portal"/><button className="text-action" onClick={() => void navigator.clipboard?.writeText(link.url)}>Copiar</button><small>Expira em {portalDate(link.expira_em)} · enviado para {link.enviado_para}</small></div>}
+      {quote.decisao_cliente && <article className="portal-decision"><p className="mono">DECISÃO DO CLIENTE</p><strong>{quote.decisao_cliente === 'aprovado' ? 'Aprovou a proposta' : 'Pediu ajuste'}</strong><span>{quote.decisao_cliente_nome || 'Nome não informado'} · {portalDate(quote.decisao_cliente_em || null)}</span>{quote.decisao_cliente === 'recusado' && <p><b>Motivo:</b> {quote.decisao_cliente_motivo}</p>}</article>}
+      <div className="portal-attachments"><p className="mono">DOCUMENTOS · VISIBILIDADE EXTERNA</p><small>Ligar publica o arquivo fora da empresa.</small>{attachments.length ? attachments.map(attachment => <label key={attachment.id}><span>{attachment.nome_original}</span><input type="checkbox" checked={attachment.visivel_cliente} disabled={busy} onChange={() => void toggleAttachment(attachment)}/><b>{attachment.visivel_cliente ? 'Visível ao cliente' : 'Interno'}</b></label>) : <p>Nenhum anexo cadastrado.</p>}</div>
+    </>}
+    {error && <p className="form-error" role="alert">{error}</p>}
+  </div></Modal>
+}
 
 function Builder() {
   const [clientsList, setClientsList] = useState<Client[]>([])
@@ -361,7 +407,7 @@ function Builder() {
     {feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}</>
 }
 
-const projetoOrigemLabel: Record<string, string> = { sketchup: 'SketchUp', manual_csv: 'CSV manual' }
+const projetoOrigemLabel: Record<string, string> = { sketchup: 'SketchUp', manual_csv: 'CSV manual', stone: 'Med-Stone' }
 
 function Projects() {
   const [items, setItems] = useState<Projeto[]>([])
@@ -383,7 +429,7 @@ function Projects() {
     return () => { mounted = false }
   }, [])
 
-  const filtered = items.filter(item => `${item.nome} ${item.origem} ${item.cliente_nome || ''}`.toLowerCase().includes(query.toLowerCase()))
+  const filtered = items.filter(item => `${item.nome} ${item.origem} ${projetoOrigemLabel[item.origem] || ''} ${item.cliente_nome || ''}`.toLowerCase().includes(query.toLowerCase()))
 
   async function submitImport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError('')
@@ -419,7 +465,7 @@ function Projects() {
       <div className="card-title"><h2>Projetos importados</h2><Badge>{filtered.length} resultados</Badge></div>
       {loading ? <p className="empty-state">Carregando projetos…</p> : filtered.length ? <DataTable headers={['PROJETO', 'ORIGEM', 'CLIENTE', 'ITENS', 'IMPORTADO EM', 'AÇÕES']} rows={filtered.map(item => [
         <b>{item.nome}</b>,
-        <Badge tone="neutral">{projetoOrigemLabel[item.origem] || item.origem}</Badge>,
+        <span><Badge tone="neutral">{projetoOrigemLabel[item.origem] || item.origem}</Badge>{item.origem_status === 'rascunho' && <Badge tone="warning">Rascunho · pode mudar</Badge>}</span>,
         item.cliente_nome || 'Sem cliente definido',
         String(item.total_itens ?? 0),
         new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(item.created_at)),
@@ -435,6 +481,10 @@ function Projects() {
       <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Importando…' : 'Importar'}</Button></footer>
     </form></Modal>}
     {detail && <Modal title={`Projeto · ${detail.nome}`} close={() => setDetail(null)}>
+      <div className="modal-form" style={{ gridTemplateColumns: '1fr' }}>
+        <p><Badge tone="neutral">{projetoOrigemLabel[detail.origem] || detail.origem}</Badge>{detail.origem_status === 'rascunho' && <Badge tone="warning">Rascunho · confirme antes de orçar</Badge>}</p>
+        {detail.origem_rev && <p className="mono">REVISÃO DA ORIGEM · {detail.origem_rev}</p>}
+      </div>
       <DataTable headers={['ITEM', 'QTD', 'MATERIAL', 'PRODUTO SUGERIDO']} rows={detail.itens.map(item => [
         <b>{item.nome}</b>, item.quantidade, item.material || '—', item.produto_nome_sugerido || <span className="danger-text">Sem correspondência</span>,
       ])}/>
@@ -810,7 +860,7 @@ function Integrations() {
     catch (err) { setError(err instanceof Error ? err.message : 'Falha ao revogar chave.') }
   }
 
-  return <><PageHead eyebrow="GESTÃO · INTEGRAÇÕES" title="Integrações" subtitle="Chaves de API para extensões externas (ex: SketchUp) enviarem projetos direto para a ERP" actions={<><Button onClick={() => setOpen(true)}>+ Gerar chave</Button></>}/>
+  return <><PageHead eyebrow="GESTÃO · INTEGRAÇÕES" title="Integrações" subtitle="Chaves de API para extensões externas (ex: SketchUp ou Med-Stone) enviarem projetos direto para a ERP" actions={<><Button onClick={() => setOpen(true)}>+ Gerar chave</Button></>}/>
     {error && <p className="form-error" role="alert">{error}</p>}
     <article className="card list-card">
       <div className="card-title"><h2>Chaves de API</h2><Badge>{items.length} chave(s)</Badge></div>
@@ -821,10 +871,10 @@ function Integrations() {
         new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(key.created_at)),
         key.last_used_at ? new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(key.last_used_at)) : 'Nunca usada',
         key.ativo ? <button className="text-action" onClick={() => revoke(key)}>Revogar</button> : '—',
-      ])}/> : <p className="empty-state">Nenhuma chave gerada ainda. Gere uma para conectar a extensão do SketchUp.</p>}
+      ])}/> : <p className="empty-state">Nenhuma chave gerada ainda. Gere uma para conectar SketchUp ou Med-Stone.</p>}
     </article>
     {open && <Modal title="Gerar chave de API" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitCreate}>
-      <label>Nome da chave<input name="nome" autoFocus required placeholder="SketchUp - Notebook Ana"/></label>
+      <label>Nome da chave<input name="nome" autoFocus required placeholder="SketchUp ou Med-Stone - Notebook Ana"/></label>
       {error && <p className="form-error" role="alert">{error}</p>}
       <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Gerando…' : 'Gerar chave'}</Button></footer>
     </form></Modal>}
@@ -884,18 +934,27 @@ function Finance() {
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState('')
 
-  async function carregar() {
-    setLoading(true); setError('')
-    try {
-      const [resumoData, receivablesData, fluxoData] = await Promise.all([
-        getFinanceiroResumo(period), listLancamentos({ tipo: 'ENTRADA' }), getFluxoMensal(),
-      ])
-      setResumo(resumoData); setReceivables(receivablesData); setFluxo(fluxoData)
-    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao carregar dados financeiros.') }
-    finally { setLoading(false) }
-  }
+  useEffect(() => {
+    let mounted = true
 
-  useEffect(() => { carregar() }, [period])
+    async function carregarPeriodo() {
+      setLoading(true); setError('')
+      try {
+        const [resumoData, receivablesData, fluxoData] = await Promise.all([
+          getFinanceiroResumo(period), listLancamentos({ tipo: 'ENTRADA' }), getFluxoMensal(),
+        ])
+        if (!mounted) return
+        setResumo(resumoData); setReceivables(receivablesData); setFluxo(fluxoData)
+      } catch (err) {
+        if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar dados financeiros.')
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    void carregarPeriodo()
+    return () => { mounted = false }
+  }, [period])
 
   async function submitLancamento(e: FormEvent<HTMLFormElement>) {
     e.preventDefault(); setSaving(true); setError('')
@@ -937,7 +996,9 @@ function Finance() {
     setFeedback('Exportação em CSV concluída.')
   }
 
-  const agora = Date.now()
+  // Lazy initializer evita chamada impura durante cada render e mantém a
+  // referência temporal estável enquanto usuário consulta o painel.
+  const [agora] = useState(() => Date.now())
   const diasVencido = (venc: string) => Math.floor((agora - new Date(venc).getTime()) / 86400000)
   const pendentes = receivables.filter(l => l.status === 'pendente')
   const emDia = pendentes.filter(l => !l.vencido).length
@@ -1000,7 +1061,99 @@ function Finance() {
   </>
 }
 
-function Portal() { const [approved,setApproved]=useState(false); const [adjustOpen,setAdjustOpen]=useState(false); return <div className="portal"><header><Logo/><span>Portal de aprovações</span><b>Ana Prado <i>AP</i></b></header><main><PageHead eyebrow="PROPOSTA ORC-0413 · REV. 02" title="Cobertura Higienópolis" subtitle="Cozinha e living · entrega prevista 12/11/2026 · validade da proposta 15 dias"/><div className="portal-grid"><div><article className="card proposal"><h2>O que está incluído</h2>{proposalItems.map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]} {x[2]}</span><em>{x[4]}</em></div>)}<footer>Total da proposta <strong>R$ 54.400</strong></footer></article><article className="card documents"><p className="mono">DOCUMENTOS DO PROJETO</p><button className="text-action">planta-cozinha.pdf ↓</button> <button className="text-action">render-living.jpg ↓</button> <button className="text-action">memorial-acabamentos.pdf ↓</button></article></div><aside><article className="card decision"><p className="mono">SUA DECISÃO</p><h2>{approved?'Proposta aprovada.':'Aprovar esta proposta?'}</h2><p>{approved?'A produção foi liberada e uma cópia da aprovação seguirá por e-mail.':'Ao aprovar, a produção entra na fila e o pagamento de entrada (40%) é liberado para emissão.'}</p><Button onClick={()=>setApproved(true)}>{approved?'Aprovada':'Aprovar proposta'}</Button><Button variant="secondary" onClick={()=>setAdjustOpen(true)}>Pedir ajuste</Button><small>Você receberá uma cópia por e-mail.</small></article><article className="card timeline"><h2>Andamento</h2>{['Proposta enviada','Revisão de acabamentos','Aprovação do cliente','Produção','Entrega e montagem'].map((x,i)=><div className={i<2||approved&&i===2?'done':i===2?'current':''} key={x}><i/><b>{x}<small>{i<2?'04/08 · 09:12':i===2?(approved?'aprovado agora':'aguardando você'):'após aprovação'}</small></b></div>)}</article><article className="help">Dúvidas antes de decidir?<small>Fale com Rafael Lima · 11 99812-4402</small></article></aside></div></main>{approved&&<div className="toast"><i/>Proposta aprovada. Produção liberada.<button aria-label="Fechar aviso" onClick={()=>setApproved(false)}>×</button></div>}{adjustOpen&&<Modal title="Pedir ajuste" close={()=>setAdjustOpen(false)}><form className="modal-form" onSubmit={e=>{e.preventDefault();setAdjustOpen(false)}}><label>O que precisa revisar?<textarea name="request" required autoFocus placeholder="Descreva o acabamento, prazo ou item…"/></label><footer><Button variant="secondary" onClick={()=>setAdjustOpen(false)}>Cancelar</Button><Button type="submit">Enviar pedido</Button></footer></form></Modal>}</div> }
+function portalDate(value: string | null) {
+  if (!value) return 'Data não informada'
+  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+}
+
+function portalBytes(value: number | null) {
+  if (!value) return ''
+  if (value < 1024) return `${value} B`
+  if (value < 1024 * 1024) return `${(value / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} KB`
+  return `${(value / (1024 * 1024)).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} MB`
+}
+
+function Portal({ token }: { token: string }) {
+  const [proposal, setProposal] = useState<PortalProposta | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [name, setName] = useState('')
+  const [adjustOpen, setAdjustOpen] = useState(false)
+  const [motive, setMotive] = useState('')
+  const [motiveError, setMotiveError] = useState('')
+  const [decisionError, setDecisionError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [downloadBusy, setDownloadBusy] = useState<string | number | null>(null)
+
+  useEffect(() => {
+    getPortalProposta(token).then(setProposal).catch(err => setError(err instanceof Error ? err.message : 'PORTAL_LINK_INVALIDO')).finally(() => setLoading(false))
+  }, [token])
+
+  async function submitDecision(acao: 'aprovar' | 'recusar', motivo?: string) {
+    setDecisionError('')
+    if (name.trim().length < 2) {
+      setDecisionError('Informe seu nome para registrar a decisão.')
+      return
+    }
+    setBusy(true)
+    try {
+      const updated = await enviarDecisaoPortal(token, { acao, nome: name.trim(), motivo })
+      setProposal(updated)
+      setAdjustOpen(false)
+      setMotive('')
+    } catch (err) {
+      setDecisionError(err instanceof Error ? err.message : 'Não foi possível registrar a decisão.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function approve(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    void submitDecision('aprovar')
+  }
+
+  function requestAdjustment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (motive.trim().length < 10) {
+      setMotiveError('Descreva o ajuste com pelo menos 10 caracteres.')
+      return
+    }
+    setMotiveError('')
+    void submitDecision('recusar', motive.trim())
+  }
+
+  async function download(key: string | number, action: () => Promise<void>) {
+    setDownloadBusy(key)
+    try {
+      await action()
+    } catch (err) {
+      setDecisionError(err instanceof Error ? err.message : 'Não foi possível baixar o documento.')
+    } finally {
+      setDownloadBusy(null)
+    }
+  }
+
+  if (loading) return <div className="portal"><header><Logo/><span>Portal de aprovações</span></header><main><section className="card empty-state"><p className="mono">PORTAL</p><h1>Carregando proposta…</h1></section></main></div>
+  if (error || !proposal) return <div className="portal"><header><Logo/><span>Portal de aprovações</span></header><main><section className="card empty-state"><p className="mono">LINK INDISPONÍVEL</p><h1>Este link expirou ou foi substituído.</h1><p>Peça um novo link ao seu arquiteto.</p></section></main></div>
+
+  const moneyPortal = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value / 100)
+  const decided = Boolean(proposal.decisao_cliente)
+  const canDecide = proposal.status_publico === 'Aguardando sua aprovação' && !decided
+  const steps = ['Proposta enviada', 'Sua decisão', 'Confirmação do arquiteto', 'Produção', 'Entrega e montagem']
+  const currentStep = decided ? 2 : proposal.status_publico === 'Aguardando sua aprovação' ? 1 : proposal.status_publico === 'Aprovada — produção liberada' ? 3 : 0
+  const documentsVisible = proposal.tem_pdf_proposta || proposal.documentos.length > 0
+
+  return <div className="portal"><header><Logo/><span>Portal de aprovações</span><b>{proposal.cliente_nome}</b></header><main>
+    <PageHead eyebrow={`${proposal.numero_exibicao} · ${proposal.tipo_orcamento}`} title="Sua proposta" subtitle={proposal.data_entrega ? `Entrega prevista ${portalDate(proposal.data_entrega)}` : 'Confira os detalhes antes de decidir.'}/>
+    <div className="portal-grid"><div>
+      <article className="card proposal"><h2>O que está incluído</h2>{proposal.itens.map(item => <div key={`${item.nome}-${item.local_instalacao}`}><b>{item.nome}</b><span>{item.quantidade} {item.prazo_entrega_unidade || 'un.'}</span><em>{moneyPortal(item.subtotal)}</em></div>)}<footer>Total da proposta <strong>{moneyPortal(proposal.valor_total)}</strong></footer>{proposal.condicoes_pagamento && <p className="subtitle">Condições: {proposal.condicoes_pagamento}</p>}</article>
+      {documentsVisible && <article className="card documents"><p className="mono">DOCUMENTOS DA PROPOSTA</p>{proposal.tem_pdf_proposta && <button className="text-action" disabled={downloadBusy === 'pdf'} onClick={() => void download('pdf', () => baixarPdfPropostaPortal(token))}>Proposta em PDF {downloadBusy === 'pdf' ? '…' : '↓'}</button>}{proposal.documentos.map(document => <button className="text-action" disabled={downloadBusy === document.id} key={document.id} onClick={() => void download(document.id, () => baixarDocumentoPortal(token, document.id))}>{document.nome_original} {portalBytes(document.tamanho)} {downloadBusy === document.id ? '…' : '↓'}</button>)}</article>}
+    </div><aside>
+      <article className="card decision"><p className="mono">SUA DECISÃO</p>{decided ? <><h2>{proposal.decisao_cliente === 'aprovado' ? 'Intenção de aprovação registrada.' : 'Pedido de ajuste registrado.'}</h2><p>Registrado por {proposal.decisao_cliente_nome || name} em {portalDate(proposal.decisao_cliente_em)}.</p>{proposal.decisao_cliente === 'recusado' && <p><strong>Motivo informado:</strong> {proposal.decisao_cliente_motivo}</p>}</> : canDecide ? <><h2>Aprovar esta proposta?</h2><p>Registre sua decisão para que o arquiteto possa dar sequência ao atendimento.</p><form className="modal-form" onSubmit={approve}><label>Seu nome<input value={name} onChange={event => setName(event.target.value)} minLength={2} maxLength={200} required autoComplete="name"/></label>{decisionError && <p className="form-error" role="alert">{decisionError}</p>}<Button type="submit" disabled={busy}>{busy ? 'Registrando…' : 'Aprovar proposta'}</Button></form><Button variant="secondary" onClick={() => setAdjustOpen(true)} disabled={busy}>Pedir ajuste</Button></> : <><h2>{proposal.status_publico}</h2><p>Esta proposta não está aberta para uma nova decisão.</p></>}{proposal.arquiteto_nome && <small>Em caso de dúvida, fale com {proposal.arquiteto_nome}{proposal.arquiteto_contato ? ` · ${proposal.arquiteto_contato}` : ''}.</small>}</article>
+      <article className="card timeline"><h2>Andamento</h2>{steps.map((step, index) => <div className={index < currentStep ? 'done' : index === currentStep ? 'current' : ''} key={step}><i/><b>{step}<small>{index === 0 ? portalDate(proposal.criado_em) : index === 1 ? (decided ? portalDate(proposal.decisao_cliente_em) : 'aguardando sua decisão') : index === 2 && decided ? 'aguardando confirmação' : 'após confirmação'}</small></b></div>)}</article>
+    </aside></div></main>{adjustOpen && <Modal title="Pedir ajuste" close={() => setAdjustOpen(false)}><form className="modal-form" onSubmit={requestAdjustment}><label>O que precisa revisar?<textarea value={motive} onChange={event => { setMotive(event.target.value); if (motiveError) setMotiveError('') }} minLength={10} maxLength={2000} required autoFocus aria-invalid={Boolean(motiveError)} placeholder="Descreva o acabamento, prazo ou item…"/></label>{motiveError && <p className="form-error" role="alert">{motiveError}</p>}{decisionError && <p className="form-error" role="alert">{decisionError}</p>}<footer><Button variant="secondary" onClick={() => setAdjustOpen(false)}>Cancelar</Button><Button type="submit" disabled={busy}>{busy ? 'Enviando…' : 'Enviar pedido'}</Button></footer></form></Modal>}</div>
+}
 
 function ForgotPasswordModal({ close }: { close: () => void }) {
   const [email, setEmail] = useState('')
@@ -1084,14 +1237,21 @@ function Login({ onSuccess }: { onSuccess: () => void }) {
 }
 
 export default function App() {
+  const [portalToken] = useState(() => {
+    const hash = location.hash
+    if (!hash.startsWith('#portal/')) return ''
+    const token = hash.slice('#portal/'.length)
+    history.replaceState(null, '', location.pathname)
+    return token
+  })
   const previewMode = import.meta.env.DEV && new URLSearchParams(location.search).get('preview') === '1'
   const [authenticated,setAuthenticated] = useState(sessionStorage.getItem('arc-session')==='1' || previewMode)
   const [route,setRoute] = useState<Route>(() => { const hash=location.hash.slice(1) as Route; return routes.includes(hash)?hash:'dashboard' })
   useEffect(()=>{ if(!authenticated) return; getSessionUser().catch(()=>{ /* cookie may be unavailable during static visual review */ }) },[authenticated])
   const go=(next:Route)=>{setRoute(next);location.hash=next;window.scrollTo(0,0)}
   const page=useMemo(()=>({dashboard:<Dashboard/>,clients:<Clients/>,pipeline:<Pipeline/>,builder:<Builder/>,projects:<Projects/>,catalog:<Catalog/>,inventory:<Inventory/>,suppliers:<Suppliers/>,schedule:<Schedule/>,finance:<Finance/>,team:<Team/>,integrations:<Integrations/>,logs:<Logs/>} as Partial<Record<Route, ReactNode>>)[route],[route])
+  if(portalToken) return <Portal token={portalToken}/>
   if(location.pathname==='/reset-password') return <ResetPassword/>
   if(!authenticated) return <Login onSuccess={()=>setAuthenticated(true)}/>
-  if(route==='portal') return <Portal/>
   return <AppShell route={route} go={go}>{page}</AppShell>
 }

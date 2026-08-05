@@ -112,7 +112,7 @@ class Orcamento(Base):
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
     vendedor_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     tipo_orcamento = Column(String, nullable=False) # Venda, Locacao, Producao
-    status = Column(String, nullable=False, default="Gerando orçamento") # Gerando orçamento, Planejando, Gerado, Negado, Aprovado
+    status = Column(String, nullable=False, default="Gerando orçamento") # Gerando orçamento, Planejando, Orçamento gerado, Ajuste solicitado, Orçamento negado, Aprovado, Entregue, Devolvido, Faturado
     anexo_url = Column(String, nullable=True) # PDF gerado
     data_aprovacao = Column(DateTime(timezone=True), nullable=True)
     condicoes_pagamento_selecionadas = Column(String, nullable=True) # JSON ou CSV de condicoes
@@ -132,6 +132,13 @@ class Orcamento(Base):
     
     # CNPJ da empresa emissora escolhido na aprovação
     cnpj_faturamento = Column(String, nullable=True)
+
+    # Portal do cliente — link mágico e decisão registrada pelo cliente final.
+    portal_token_version = Column(Integer, nullable=False, default=0, server_default="0")
+    decisao_cliente = Column(String, nullable=True)  # 'aprovado' | 'recusado' | None
+    decisao_cliente_motivo = Column(String, nullable=True)  # obrigatório quando recusado
+    decisao_cliente_nome = Column(String, nullable=True)  # nome digitado por quem decidiu
+    decisao_cliente_em = Column(DateTime(timezone=True), nullable=True)
 
     # Projeto de origem (importado de um software de arquitetura), quando houver
     projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=True)
@@ -180,6 +187,8 @@ class OrcamentoAnexo(Base):
     url = Column(String, nullable=False)
     extensao = Column(String, nullable=True)
     tamanho = Column(Integer, nullable=True)  # bytes
+    # Liberação explícita: anexos internos nunca ficam públicos por acidente.
+    visivel_cliente = Column(Boolean, nullable=False, default=False, server_default="false")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     orcamento = relationship("Orcamento", back_populates="anexos")
@@ -234,6 +243,11 @@ class Projeto(Base):
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False) # Quem importou
     origem = Column(String, nullable=False) # 'sketchup', 'manual_csv', ...
     origem_meta = Column(String, nullable=True) # Metadados livres da origem (nome do arquivo, versão, etc.)
+    # Chave de proveniência do projeto no sistema de origem. A combinação é
+    # protegida por índice parcial no startup para manter legado/CSV compatível.
+    origem_ref = Column(String, nullable=True, index=True)
+    origem_rev = Column(String, nullable=True)
+    origem_status = Column(String, nullable=True)  # 'rascunho', 'finalizado' ou nulo
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     cliente = relationship("Cliente")

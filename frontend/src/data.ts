@@ -1,4 +1,4 @@
-export type Status = 'Gerando' | 'Planejando' | 'Enviado' | 'Aprovado' | 'Perdido'
+export type Status = 'Gerando' | 'Planejando' | 'Enviado' | 'Ajuste' | 'Aprovado' | 'Perdido'
 
 export const quotes = [
   { id: 'ORC-0412', project: 'Apto Vila Madalena', client: 'Studio Aroeira', status: 'Aprovado' as Status, value: 248900, date: '12/09', owner: 'R' },

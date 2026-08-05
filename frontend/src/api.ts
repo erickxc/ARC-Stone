@@ -113,6 +113,15 @@ export interface Quote {
   vendedor_nome: string | null
   valor_total: number | null
   itens: Array<{ quantidade: number; preco_unitario_aplicado: number; nome?: string | null }>
+  decisao_cliente?: 'aprovado' | 'recusado' | null
+  decisao_cliente_motivo?: string | null
+  decisao_cliente_nome?: string | null
+  decisao_cliente_em?: string | null
+}
+
+export interface QuoteDetail extends Quote {
+  cliente_email?: string | null
+  anexo_url?: string | null
 }
 
 export interface QuoteCreateInput {
@@ -122,6 +131,71 @@ export interface QuoteCreateInput {
   condicoes_pagamento_selecionadas?: string | null
   projeto_id?: number | null
   itens: Array<{ quantidade: number; preco_unitario_aplicado: number; produto_id?: number | null; is_externo?: boolean; nome_externo?: string | null; descricao_externa?: string | null; projeto_item_id?: number | null }>
+}
+
+export interface PortalItem {
+  nome: string
+  descricao: string | null
+  quantidade: number
+  preco_unitario: number
+  subtotal: number
+  local_instalacao: string | null
+  prazo_entrega_valor: number | null
+  prazo_entrega_unidade: string | null
+  foto_url: string | null
+}
+
+export interface PortalDocumento {
+  id: number
+  nome_original: string
+  extensao: string | null
+  tamanho: number | null
+  created_at: string
+}
+
+export interface PortalProposta {
+  orcamento_id: number
+  numero_exibicao: string
+  tipo_orcamento: string
+  status_publico: string
+  cliente_nome: string
+  itens: PortalItem[]
+  valor_total: number
+  condicoes_pagamento: string | null
+  documentos: PortalDocumento[]
+  tem_pdf_proposta: boolean
+  data_entrega: string | null
+  arquiteto_nome: string | null
+  arquiteto_contato: string | null
+  decisao_cliente: 'aprovado' | 'recusado' | null
+  decisao_cliente_nome: string | null
+  decisao_cliente_motivo: string | null
+  decisao_cliente_em: string | null
+  criado_em: string
+}
+
+export interface PortalDecisao {
+  acao: 'aprovar' | 'recusar'
+  motivo?: string
+  nome: string
+}
+
+export interface PortalLink {
+  url: string
+  expira_em: string
+  enviado_para: string
+}
+
+export interface OrcamentoAnexo {
+  id: number
+  orcamento_id: number
+  nome_original: string
+  url: string
+  extensao: string | null
+  tamanho: number | null
+  created_at: string
+  usuario_nome: string | null
+  visivel_cliente: boolean
 }
 
 export interface ProjetoItem {
@@ -149,6 +223,9 @@ export interface Projeto {
   usuario_nome: string | null
   origem: string
   origem_meta: string | null
+  origem_ref: string | null
+  origem_rev: string | null
+  origem_status: 'rascunho' | 'finalizado' | null
   created_at: string
   total_itens: number | null
 }
@@ -239,6 +316,69 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T
 }
 
+async function portalRequest<T>(path: string, token: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API}${path}`, {
+    ...init,
+    credentials: 'omit',
+    headers: { 'Content-Type': 'application/json', 'X-Portal-Token': token, ...init?.headers },
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('PORTAL_LINK_INVALIDO')
+    throw new Error(data.detail || 'Falha ao carregar o portal.')
+  }
+  return data as T
+}
+
+export function getPortalProposta(token: string) {
+  return portalRequest<PortalProposta>('/portal/proposta', token)
+}
+
+export function enviarDecisaoPortal(token: string, body: PortalDecisao) {
+  return portalRequest<PortalProposta>('/portal/decisao', token, { method: 'POST', body: JSON.stringify(body) })
+}
+
+async function baixarPortalArquivo(path: string, token: string, nomeFallback: string) {
+  const response = await fetch(`${API}${path}`, { credentials: 'omit', headers: { 'X-Portal-Token': token } })
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('PORTAL_LINK_INVALIDO')
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data.detail || 'Não foi possível baixar o documento.')
+  }
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = response.headers.get('Content-Disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || nomeFallback
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
+}
+
+export function baixarDocumentoPortal(token: string, anexoId: number) {
+  return baixarPortalArquivo(`/portal/anexos/${anexoId}/download`, token, `documento-${anexoId}`)
+}
+
+export function baixarPdfPropostaPortal(token: string) {
+  return baixarPortalArquivo('/portal/proposta/pdf', token, 'proposta.pdf')
+}
+
+export function gerarPortalLink(orcamentoId: number) {
+  return request<PortalLink>(`/orcamentos/${orcamentoId}/portal-link`, { method: 'POST' })
+}
+
+export function revogarPortalLink(orcamentoId: number) {
+  return request<void>(`/orcamentos/${orcamentoId}/portal-link/revogar`, { method: 'POST' })
+}
+
+export function alterarVisibilidadeAnexo(orcamentoId: number, anexoId: number, visivel: boolean) {
+  return request<OrcamentoAnexo>(`/orcamentos/${orcamentoId}/anexos/${anexoId}/visibilidade`, {
+    method: 'PATCH',
+    body: JSON.stringify({ visivel_cliente: visivel }),
+  })
+}
+
 export function listCatalogProducts() {
   return request<Product[]>('/estoque/produtos?is_catalogo=true&ativo=true')
 }
@@ -259,6 +399,14 @@ export function listCalendarEvents() {
 
 export function listQuotes() {
   return request<Quote[]>('/orcamentos/')
+}
+
+export function getQuote(id: number) {
+  return request<QuoteDetail>(`/orcamentos/${id}`)
+}
+
+export function listQuoteAttachments(id: number) {
+  return request<OrcamentoAnexo[]>(`/orcamentos/${id}/anexos`)
 }
 
 export function createQuote(input: QuoteCreateInput) {
@@ -337,8 +485,12 @@ export function deleteSupplier(id: number) {
   return request<void>(`/fornecedores/${id}`, { method: 'DELETE' })
 }
 
-export function listProjetos() {
-  return request<Projeto[]>('/projetos/')
+export function listProjetos(filtros?: { origem?: string; origem_ref?: string }) {
+  const params = new URLSearchParams()
+  if (filtros?.origem) params.set('origem', filtros.origem)
+  if (filtros?.origem_ref) params.set('origem_ref', filtros.origem_ref)
+  const query = params.toString()
+  return request<Projeto[]>(`/projetos/${query ? `?${query}` : ''}`)
 }
 
 export function getProjeto(id: number) {

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func
@@ -462,6 +462,76 @@ def obter_orcamento(orcamento_id: int, db: Session = Depends(get_db), current_us
     return _enrich_orcamento_detail(orcamento, db)
 
 
+@router.post("/{orcamento_id}/portal-link", response_model=schemas.PortalLinkOut)
+def gerar_link_portal(
+    orcamento_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(auth.get_current_user),
+):
+    """Gera e envia o link mágico; cada envio revoga automaticamente o anterior."""
+    orcamento = _get_orcamento_autorizado(orcamento_id, db, current_user)
+    if orcamento.status not in ("Orçamento gerado", "Ajuste solicitado"):
+        raise HTTPException(status_code=400, detail="Gere o orçamento antes de enviar ao cliente.")
+    if not orcamento.cliente or not orcamento.cliente.email or not orcamento.cliente.email.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="O cadastro do cliente precisa de um e-mail para envio do link.",
+        )
+
+    orcamento.portal_token_version = (orcamento.portal_token_version or 0) + 1
+    db.commit()
+    db.refresh(orcamento)
+    token = auth.create_portal_token(orcamento)
+    url = f"{auth.FRONTEND_URL.rstrip('/')}/#portal/{token}"
+    expira_em = datetime.now(timezone.utc) + timedelta(days=auth.PORTAL_TOKEN_EXPIRE_DAYS)
+
+    db.add(
+        models.AuditLog(
+            usuario_id=current_user.id,
+            vendedor_id=orcamento.vendedor_id,
+            acao="ENVIOU_PORTAL",
+            detalhes=f"Enviou link do portal do orçamento #{orcamento.id} para {orcamento.cliente.email}",
+            entidade="Orcamento",
+            entidade_id=orcamento.id,
+            ip=request.headers.get("X-Real-IP", request.client.host if request.client else "127.0.0.1"),
+        )
+    )
+    db.commit()
+    try:
+        auth.send_portal_link_email(orcamento.cliente.email, url)
+    except Exception as exc:
+        # O vendedor ainda pode copiar a URL; o envio por e-mail é conveniência.
+        print(f"Erro ao enviar link do portal: {exc}")
+
+    return schemas.PortalLinkOut(url=url, expira_em=expira_em, enviado_para=orcamento.cliente.email)
+
+
+@router.post("/{orcamento_id}/portal-link/revogar", status_code=status.HTTP_204_NO_CONTENT)
+def revogar_link_portal(
+    orcamento_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(auth.get_current_user),
+):
+    """Revoga links emitidos sem criar blacklist ou expor o token anterior."""
+    orcamento = _get_orcamento_autorizado(orcamento_id, db, current_user)
+    orcamento.portal_token_version = (orcamento.portal_token_version or 0) + 1
+    db.add(
+        models.AuditLog(
+            usuario_id=current_user.id,
+            vendedor_id=orcamento.vendedor_id,
+            acao="REVOGOU_PORTAL",
+            detalhes=f"Revogou o link do portal do orçamento #{orcamento.id}",
+            entidade="Orcamento",
+            entidade_id=orcamento.id,
+            ip=request.headers.get("X-Real-IP", request.client.host if request.client else "127.0.0.1"),
+        )
+    )
+    db.commit()
+    return None
+
+
 @router.get("/{orcamento_id}/historico", response_model=list[schemas.AuditLogOut])
 def obter_historico_orcamento(orcamento_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     """ Retorna o histórico de atividades de um orçamento """
@@ -500,6 +570,46 @@ def listar_anexos(orcamento_id: int, db: Session = Depends(get_db), current_user
         # URL pública autenticada (não expor caminho estático)
         anexo.url = f"/orcamentos/{orcamento_id}/anexos/{anexo.id}/download"
     return anexos
+
+
+@router.patch("/{orcamento_id}/anexos/{anexo_id}/visibilidade", response_model=schemas.OrcamentoAnexoOut)
+def alterar_visibilidade_anexo(
+    orcamento_id: int,
+    anexo_id: int,
+    payload: schemas.OrcamentoAnexoVisibilidadeIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(auth.get_current_user),
+):
+    """Libera ou retira um documento do portal com auditoria explícita."""
+    orcamento = _get_orcamento_autorizado(orcamento_id, db, current_user)
+    anexo = db.query(models.OrcamentoAnexo).filter(
+        models.OrcamentoAnexo.id == anexo_id,
+        models.OrcamentoAnexo.orcamento_id == orcamento_id,
+    ).first()
+    if not anexo:
+        raise HTTPException(status_code=404, detail="Anexo não encontrado.")
+
+    anexo.visivel_cliente = payload.visivel_cliente
+    db.add(
+        models.AuditLog(
+            usuario_id=current_user.id,
+            vendedor_id=orcamento.vendedor_id,
+            acao="ALTEROU_VISIBILIDADE_ANEXO",
+            detalhes=(
+                f"{'Liberou' if payload.visivel_cliente else 'Retirou'} o documento "
+                f"'{anexo.nome_original}' para o portal do orçamento #{orcamento_id}"
+            ),
+            entidade="Orcamento",
+            entidade_id=orcamento_id,
+            ip=request.headers.get("X-Real-IP", request.client.host if request.client else "127.0.0.1"),
+        )
+    )
+    db.commit()
+    db.refresh(anexo)
+    anexo.usuario_nome = current_user.nome
+    anexo.url = f"/orcamentos/{orcamento_id}/anexos/{anexo.id}/download"
+    return anexo
 
 
 @router.post("/{orcamento_id}/anexos", response_model=schemas.OrcamentoAnexoOut, status_code=status.HTTP_201_CREATED)
@@ -641,7 +751,7 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
     if current_user.role != 'admin' and orcamento.vendedor_id != current_user.id:
         raise HTTPException(status_code=403, detail="Acesso negado. Apenas o vendedor criador pode alterar o status.")
         
-    status_permitidos = ["Gerando orçamento", "Planejando", "Orçamento gerado", "Orçamento negado", "Aprovado", "Entregue", "Devolvido", "Faturado"]
+    status_permitidos = ["Gerando orçamento", "Planejando", "Orçamento gerado", "Ajuste solicitado", "Orçamento negado", "Aprovado", "Entregue", "Devolvido", "Faturado"]
     if novo_status not in status_permitidos:
         raise HTTPException(status_code=400, detail=f"Status de funil inválido: {novo_status}")
         

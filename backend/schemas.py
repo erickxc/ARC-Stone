@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr, field_validator, Field
-from typing import List, Optional
+from pydantic import BaseModel, EmailStr, field_validator, Field, model_validator
+from typing import List, Optional, Literal
 from datetime import datetime
 import re
 
@@ -218,6 +218,10 @@ class OrcamentoOut(BaseModel):
     vendedor_nome: Optional[str] = None
     valor_total: Optional[int] = None  # em centavos
     pendencias: List[str] = []
+    decisao_cliente: Optional[str] = None
+    decisao_cliente_motivo: Optional[str] = None
+    decisao_cliente_nome: Optional[str] = None
+    decisao_cliente_em: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -255,6 +259,10 @@ class OrcamentoDetailOut(BaseModel):
     cnpj_faturamento: Optional[str] = None
     projeto_id: Optional[int] = None
     pendencias: List[str] = []
+    decisao_cliente: Optional[str] = None
+    decisao_cliente_motivo: Optional[str] = None
+    decisao_cliente_nome: Optional[str] = None
+    decisao_cliente_em: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -268,6 +276,74 @@ class OrcamentoAnexoOut(BaseModel):
     tamanho: Optional[int] = None
     created_at: datetime
     usuario_nome: Optional[str] = None  # Campo expandido
+    visivel_cliente: bool = False
+
+
+class OrcamentoAnexoVisibilidadeIn(BaseModel):
+    visivel_cliente: bool
+
+
+# Schemas públicos do portal: estes modelos são deliberadamente separados dos
+# schemas internos para impedir vazamento acidental de custo, IDs ou caminhos.
+class PortalItemOut(BaseModel):
+    nome: str
+    descricao: Optional[str] = None
+    quantidade: int
+    preco_unitario: int
+    subtotal: int
+    local_instalacao: Optional[str] = None
+    prazo_entrega_valor: Optional[int] = None
+    prazo_entrega_unidade: Optional[str] = None
+    foto_url: Optional[str] = None
+
+
+class PortalDocumentoOut(BaseModel):
+    id: int
+    nome_original: str
+    extensao: Optional[str] = None
+    tamanho: Optional[int] = None
+    created_at: datetime
+
+
+class PortalPropostaOut(BaseModel):
+    orcamento_id: int
+    numero_exibicao: str
+    tipo_orcamento: str
+    status_publico: str
+    cliente_nome: str
+    itens: List[PortalItemOut]
+    valor_total: int
+    condicoes_pagamento: Optional[str] = None
+    documentos: List[PortalDocumentoOut] = Field(default_factory=list)
+    tem_pdf_proposta: bool
+    data_entrega: Optional[datetime] = None
+    arquiteto_nome: Optional[str] = None
+    arquiteto_contato: Optional[str] = None
+    decisao_cliente: Optional[str] = None
+    decisao_cliente_nome: Optional[str] = None
+    decisao_cliente_motivo: Optional[str] = None
+    decisao_cliente_em: Optional[datetime] = None
+    criado_em: datetime
+
+
+class PortalDecisaoIn(BaseModel):
+    acao: Literal["aprovar", "recusar"]
+    motivo: Optional[str] = Field(default=None, max_length=2000)
+    nome: str = Field(..., min_length=2, max_length=200)
+
+    @model_validator(mode="after")
+    def validar_motivo_recusa(self):
+        if len(self.nome.strip()) < 2:
+            raise ValueError("Informe o nome do cliente.")
+        if self.acao == "recusar" and (not self.motivo or len(self.motivo.strip()) < 10):
+            raise ValueError("Informe um motivo de recusa com pelo menos 10 caracteres.")
+        return self
+
+
+class PortalLinkOut(BaseModel):
+    url: str
+    expira_em: datetime
+    enviado_para: str
 
     class Config:
         from_attributes = True
@@ -334,13 +410,13 @@ PROJETO_ORIGENS_PERMITIDAS = ["sketchup", "manual_csv", "stone"]
 class ProjetoItemBase(BaseModel):
     nome: str = Field(..., max_length=200)
     quantidade: int = Field(..., ge=1)
-    material: Optional[str] = None
+    material: Optional[str] = Field(None, max_length=200)
     comprimento: Optional[float] = None
     largura: Optional[float] = None
     altura: Optional[float] = None
-    referencia_externa: Optional[str] = None
+    referencia_externa: Optional[str] = Field(None, max_length=200)
     preco_sugerido_centavos: Optional[int] = Field(None, ge=0)
-    observacoes: Optional[str] = None
+    observacoes: Optional[str] = Field(None, max_length=2000)
 
 class ProjetoItemCreate(ProjetoItemBase):
     produto_id: Optional[int] = None
@@ -369,13 +445,29 @@ class ProjetoCreatePush(BaseModel):
     nome: str = Field(..., max_length=200)
     cliente_id: Optional[int] = None
     origem: str = "sketchup"
-    origem_meta: Optional[str] = None
-    itens: List[ProjetoItemCreate] = Field(..., min_length=1)
+    origem_meta: Optional[str] = Field(None, max_length=1000)
+    origem_ref: Optional[str] = Field(None, max_length=200)
+    origem_rev: Optional[str] = Field(None, max_length=200)
+    origem_status: Optional[str] = None
+    unidade_dimensao: str = "cm"
+    itens: List[ProjetoItemCreate] = Field(..., min_length=1, max_length=2000)
 
     @field_validator('origem')
     def validate_origem(cls, v):
         if v not in PROJETO_ORIGENS_PERMITIDAS:
             raise ValueError(f'Origem inválida: {PROJETO_ORIGENS_PERMITIDAS}')
+        return v
+
+    @field_validator('origem_status')
+    def validate_origem_status(cls, v):
+        if v is not None and v not in ('rascunho', 'finalizado'):
+            raise ValueError("Status de origem deve ser 'rascunho' ou 'finalizado'.")
+        return v
+
+    @field_validator('unidade_dimensao')
+    def validate_unidade_dimensao(cls, v):
+        if v not in ('mm', 'cm'):
+            raise ValueError("Unidade de dimensão deve ser 'mm' ou 'cm'.")
         return v
 
 class ProjetoOut(BaseModel):
@@ -385,6 +477,9 @@ class ProjetoOut(BaseModel):
     usuario_id: int
     origem: str
     origem_meta: Optional[str] = None
+    origem_ref: Optional[str] = None
+    origem_rev: Optional[str] = None
+    origem_status: Optional[str] = None
     created_at: datetime
     cliente_nome: Optional[str] = None
     usuario_nome: Optional[str] = None
