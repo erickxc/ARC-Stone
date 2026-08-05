@@ -159,13 +159,15 @@ def _criar_projeto_com_itens(
     db.flush()  # gera o id sem commitar ainda
 
     catalogo = _sugerir_produtos(db)
-    for item in itens:
-        # O banco mantém uma unidade única (cm). Apenas o contrato Med-Stone
-        # envia mm; SketchUp/CSV continuam retrocompatíveis com cm.
-        fator_unidade = 0.1 if unidade_dimensao == "mm" else 1
 
-        def dimensao_em_cm(valor: Optional[float]) -> Optional[float]:
-            return round(valor * fator_unidade, 2) if valor is not None else None
+    # O banco mantém uma unidade única (cm). A unidade é propriedade do payload
+    # inteiro, então a conversão não precisa ser recriada para cada item.
+    fator_unidade = 0.1 if unidade_dimensao == "mm" else 1
+
+    def dimensao_em_cm(valor: Optional[float]) -> Optional[float]:
+        return round(valor * fator_unidade, 2) if valor is not None else None
+
+    for item in itens:
 
         produto_id = item.produto_id
         preco_sugerido = item.preco_sugerido_centavos
