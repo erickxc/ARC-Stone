@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { FormEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, createApiKey, createCatalogProduct, createClient, createLancamento, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuoteAttachments, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetPassword, revogarPortalLink, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, verifyMfa } from './api'
 import type { ApiKey, ApiKeyCreated, AuditLog, AuditLogEntry, CalendarEvent, Client, ClientInput, FinanceiroResumo, FluxoMensalItem, Lancamento, OrcamentoAnexo, OrcamentoConfig, PaymentCondition, PortalLink, PortalProposta, Product, Projeto, ProjetoDetail, Quote, QuoteDetail as QuoteData, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
 import { money, quotes } from './data'
@@ -198,9 +198,9 @@ function useQuoteStatusTransition(
     if (status === 'Aprovado' && cnpjOptions.length) {
       setApproveCnpj(cnpjOptions[0].cnpj)
       setApproveCard(card)
-      return
+      return 'pending' as const
     }
-    await applyStatus(card, status)
+    return applyStatus(card, status)
   }
 
   async function confirmApproval(event: FormEvent<HTMLFormElement>) {
@@ -261,8 +261,51 @@ function Pipeline() {
     setFeedback,
     setQuoteError,
   )
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<Status | null>(null)
+  const dragRef = useRef<{ card: KanbanQuote; pointerId: number; startX: number; startY: number; active: boolean; origin: Status; target: Status | null } | null>(null)
+
+  function statusAtPoint(x: number, y: number) {
+    const column = document.elementFromPoint(x, y)?.closest<HTMLElement>('.kanban-col')
+    const className = column?.className.split(' ').find(name => name !== 'kanban-col')
+    return className ? ({ gerando: 'Gerando', planejando: 'Planejando', enviado: 'Enviado', ajuste: 'Ajuste', aprovado: 'Aprovado', perdido: 'Perdido' } as Record<string, Status>)[className] || null : null
+  }
+
+  function beginDrag(event: ReactPointerEvent<HTMLElement>, card: KanbanQuote) {
+    if (!card.backendId || (event.target as HTMLElement).closest('button,select')) return
+    event.currentTarget.setPointerCapture(event.pointerId)
+    dragRef.current = { card, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, active: false, origin: card.status, target: null }
+  }
+
+  function updateDrag(event: ReactPointerEvent<HTMLElement>) {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= 8) {
+      drag.active = true
+      setDraggingId(drag.card.id)
+    }
+    if (drag.active) {
+      drag.target = statusAtPoint(event.clientX, event.clientY)
+      setDropTarget(drag.target)
+    }
+  }
+
+  function finishDrag(event: ReactPointerEvent<HTMLElement>, cancelled = false) {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    dragRef.current = null
+    setDraggingId(null)
+    setDropTarget(null)
+    if (cancelled || !drag.active || !drag.target || drag.target === drag.origin) return
+    const target = drag.target
+    if (target !== 'Aprovado') setRemoteQuotes(current => (current || []).map(item => item.id === drag.card.backendId ? { ...item, status: backendStatusByColumn[target] } : item))
+    void moveQuote(drag.card, target).then(result => {
+      if (result === false && target !== 'Aprovado') setRemoteQuotes(current => (current || []).map(item => item.id === drag.card.backendId ? { ...item, status: backendStatusByColumn[drag.origin] } : item))
+    })
+  }
   const openQuote = (card: KanbanQuote) => { if (card.backendId) { window.history.pushState(null, '', `#orcamento/${card.backendId}`); window.dispatchEvent(new Event('hashchange')) } }
-  const kanban = <div className="kanban">{statusValues.map(([status, fallbackTotal]) => { const columnCards = filtered.filter(q => q.status === status); return <section className={`kanban-col ${status.toLowerCase()}`} key={status}><header><h2><i />{status}</h2><Badge>{remoteQuotes === null ? fallbackTotal : columnCards.length}</Badge><p className="mono">{money(columnCards.reduce((total, card) => total + card.value, 0))}</p></header>{columnCards.map(card => <article className="quote-card" key={card.id} role="button" tabIndex={0} onClick={() => openQuote(card)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openQuote(card) } }}><div><span className="mono">{card.id}</span><b>{money(card.value)}</b></div><h3>{card.project}</h3><p>{card.client}</p><footer><span>{card.owner}</span><em>{card.date}</em>{remoteQuotes !== null && card.backendId && <button className="text-action" onClick={event => { event.stopPropagation(); setSelectedQuoteId(card.backendId!) }}>Portal</button>}</footer>{remoteQuotes !== null && card.backendId && <select aria-label={`Status de ${card.id}`} value={card.status} onClick={event => event.stopPropagation()} onChange={event => void moveQuote(card, event.target.value as Status)}>{statusValues.map(([option]) => <option key={option} value={option}>{option}</option>)}</select>}</article>)}{status === 'Gerando' && <button className="add-card" onClick={() => setOpen(true)}>+ Adicionar</button>}</section>})}</div>
+  const kanban = <div className="kanban">{statusValues.map(([status, fallbackTotal]) => { const columnCards = filtered.filter(q => q.status === status); return <section className={`kanban-col ${status.toLowerCase()} ${dropTarget === status ? 'drop-target' : ''}`} key={status}><header><h2><i />{status}</h2><Badge>{remoteQuotes === null ? fallbackTotal : columnCards.length}</Badge><p className="mono">{money(columnCards.reduce((total, card) => total + card.value, 0))}</p></header>{columnCards.map(card => <article className={`quote-card ${draggingId === card.id ? 'dragging' : ''}`} key={card.id} role="button" tabIndex={0} onClick={() => openQuote(card)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openQuote(card) } }} onPointerDown={event => beginDrag(event, card)} onPointerMove={updateDrag} onPointerUp={event => finishDrag(event)} onPointerCancel={event => finishDrag(event, true)}><div><span className="mono">{card.id}</span><b>{money(card.value)}</b></div><h3>{card.project}</h3><p>{card.client}</p><footer><span>{card.owner}</span><em>{card.date}</em>{remoteQuotes !== null && card.backendId && <button className="text-action" onClick={event => { event.stopPropagation(); setSelectedQuoteId(card.backendId!) }}>Portal</button>}</footer>{remoteQuotes !== null && card.backendId && <select aria-label={`Status de ${card.id}`} value={card.status} onClick={event => event.stopPropagation()} onChange={event => void moveQuote(card, event.target.value as Status)}>{statusValues.map(([option]) => <option key={option} value={option}>{option}</option>)}</select>}</article>)}{status === 'Gerando' && <button className="add-card" onClick={() => setOpen(true)}>+ Adicionar</button>}</section>})}</div>
   return <><PageHead eyebrow="VENDAS · PIPELINE" title={view === 'Kanban' ? 'Kanban dos orçamentos' : 'Lista de orçamentos'} subtitle={`${remoteQuotes === null ? 'visão local' : `${remoteQuotes.length} orçamentos do backend`} · ${loading ? 'sincronizando…' : 'sincronizado'}`} actions={<><input className="search" placeholder="Buscar projeto ou cliente…" value={query} onChange={event => setQuery(event.target.value)} /><Button variant="secondary" onClick={() => setFeedback('Filtro de vendedor será ligado ao endpoint de equipe.')}>Vendedor⌄</Button><div className="segmented"><button className={view === 'Lista' ? 'active' : ''} onClick={() => setView('Lista')}>Lista</button><button className={view === 'Kanban' ? 'active' : ''} onClick={() => setView('Kanban')}>Kanban</button></div><Button onClick={() => setOpen(true)}>+ Orçamento</Button></>} />{quoteError && <p className="form-error" role="alert">{quoteError}</p>}
     {view === 'Kanban' ? kanban : <article className="card list-card"><DataTable headers={['ORÇAMENTO', 'PROJETO', 'CLIENTE', 'STATUS', 'VALOR']} rows={filtered.map(q => [<span className="mono">{q.id}</span>, <b>{q.project}</b>, q.client, <Badge>{q.status}</Badge>, money(q.value)])}/></article>}{open && <Modal title="Novo orçamento" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitQuote}><label>Cliente<select name="cliente_id" required autoFocus defaultValue=""><option value="" disabled>Selecione um cliente…</option>{quoteClients.map(client => <option key={client.id} value={client.id}>{client.nome_fantasia}</option>)}</select></label><label>Tipo de orçamento<select name="tipo_orcamento" defaultValue="Venda"><option>Venda</option><option>Locacao</option><option>Producao</option></select></label>{quoteError && <p className="form-error" role="alert">{quoteError}</p>}<footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Criar orçamento'}</Button></footer></form></Modal>}{approveCard && <Modal title={`Aprovar ${approveCard.id}`} close={() => setApproveCard(null)}><form className="modal-form" onSubmit={confirmApproval}><label>CNPJ de faturamento<select value={approveCnpj} onChange={event => setApproveCnpj(event.target.value)} required autoFocus>{cnpjOptions.map(option => <option key={option.cnpj} value={option.cnpj}>{option.nome || option.cnpj} — {option.cnpj}</option>)}</select></label><footer><Button variant="secondary" onClick={() => setApproveCard(null)}>Cancelar</Button><Button type="submit">Aprovar orçamento</Button></footer></form></Modal>}{selectedQuoteId && <QuotePortalModal quoteId={selectedQuoteId} close={() => setSelectedQuoteId(null)} />}{feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}</>
 }
