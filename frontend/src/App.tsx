@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, createApiKey, createCatalogProduct, createClient, createLancamento, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, encerrarSessao, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuoteAttachments, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetPassword, revogarPortalLink, revokeApiKey, updateOrcamentoConfig, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, uploadArquivo, UPLOAD_EXTENSOES, UPLOAD_TAMANHO_MAXIMO, verifyMfa } from './api'
+import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, createApiKey, createCatalogProduct, createClient, createLancamento, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, encerrarSessao, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getClient, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuoteAttachments, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetPassword, revogarPortalLink, revokeApiKey, updateOrcamentoConfig, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, uploadArquivo, UPLOAD_EXTENSOES, UPLOAD_TAMANHO_MAXIMO, verifyMfa } from './api'
 import type { ApiKey, ApiKeyCreated, AuditLog, AuditLogEntry, CalendarEvent, Client, ClientInput, FinanceiroResumo, FluxoMensalItem, Lancamento, OrcamentoAnexo, OrcamentoConfig, PaymentCondition, PortalLink, PortalProposta, Product, Projeto, ProjetoDetail, Quote, QuoteDetail as QuoteData, QuoteItem, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
 import { money } from './data'
 import type { Status } from './data'
@@ -613,6 +613,63 @@ function QuoteDetail({ quoteId }: { quoteId: number }) {
   </>
 }
 
+function ClientDetail({ clientId }: { clientId: number }) {
+  const [client, setClient] = useState<Client | null>(null)
+  const [quotes, setQuotes] = useState<Quote[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+    Promise.all([getClient(clientId), listQuotes()])
+      .then(([clientData, quotesData]) => {
+        if (!mounted) return
+        setClient(clientData)
+        setQuotes(quotesData.filter(quote => quote.cliente_id === clientId))
+      })
+      .catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar o cliente.') })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [clientId])
+
+  if (loading) return <article className="card" style={{ padding: 20 }}><Skeleton rows={5} label="Carregando cliente" /></article>
+  if (!client) return <article className="card empty-state"><p>{error || 'Cliente não encontrado.'}</p><Button variant="secondary" onClick={() => { location.hash = 'clients' }}>Voltar à carteira</Button></article>
+
+  const totalOrcado = quotes.reduce((sum, quote) => sum + (quote.valor_total ?? 0), 0)
+
+  return <>
+    <PageHead eyebrow="VENDAS · CLIENTE" title={client.nome_fantasia} subtitle={client.cpf_cnpj || 'Sem CPF/CNPJ cadastrado'} actions={<Button variant="secondary" onClick={() => { location.hash = 'clients' }}>Voltar à carteira</Button>} />
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <div className="quote-detail-grid">
+      <div className="quote-detail-main">
+        <article className="card list-card">
+          <div className="card-title"><h2>Orçamentos</h2><Badge>{quotes.length} resultados</Badge></div>
+          {quotes.length ? <DataTable headers={['ORÇAMENTO', 'TIPO', 'STATUS', '#VALOR']} rows={quotes.map(quote => [
+            <button className="text-action" onClick={() => { location.hash = `orcamento/${quote.id}` }}>ORC-{String(quote.id).padStart(4, '0')}</button>,
+            quote.tipo_orcamento,
+            <Badge>{quote.status}</Badge>,
+            money(quote.valor_total || 0),
+          ])} /> : <EmptyState title="Nenhum orçamento" description="Este cliente ainda não tem orçamento registrado." />}
+        </article>
+      </div>
+      <aside className="quote-detail-aside">
+        <article className="card total-card">
+          <p className="mono">TOTAL ORÇADO</p><strong>{money(totalOrcado)}</strong>
+          <dl>
+            <div><dt>Responsável</dt><dd>{client.nome_responsavel || 'Não informado'}</dd></div>
+            <div><dt>E-mail</dt><dd>{client.email || 'Não informado'}</dd></div>
+            <div><dt>Telefone</dt><dd>{client.contato || 'Não informado'}</dd></div>
+            <div><dt>Endereço de entrega</dt><dd>{client.endereco_entrega || 'Não informado'}</dd></div>
+            <div><dt>Endereço de faturamento</dt><dd>{client.endereco_faturamento || 'Não informado'}</dd></div>
+            <div><dt>Status</dt><dd><Badge tone={client.status === 'ativo' ? 'success' : 'warning'}>{client.status || 'indefinido'}</Badge></dd></div>
+            <div><dt>Cliente desde</dt><dd>{portalDate(client.created_at)}</dd></div>
+          </dl>
+        </article>
+      </aside>
+    </div>
+  </>
+}
+
 function QuotePortalModal({ quoteId, close }: { quoteId: number; close: () => void }) {
   const [quote, setQuote] = useState<QuoteData | null>(null)
   const [attachments, setAttachments] = useState<OrcamentoAnexo[]>([])
@@ -1067,7 +1124,7 @@ function Clients() {
     try { await deleteClient(item.id); setItems(current => current.filter(current_item => current_item.id !== item.id)) }
     catch (err) { setError(err instanceof Error ? err.message : 'Falha ao excluir cliente.') }
   }
-  return <><PageHead eyebrow="VENDAS · CARTEIRA" title="Carteira de clientes" subtitle={`${items.length} clientes carregados do backend`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar nome, CPF/CNPJ ou contato..."/><Button onClick={() => setOpen(true)}>+ Novo cliente</Button></>}/>{error && <p className="form-error" role="alert">{error}</p>}<section className="kpi-grid"><Kpi label="CLIENTES ATIVOS" value={String(items.filter(item => item.status === 'ativo').length)} note="vindos da API"/><Kpi label="RESULTADOS" value={String(filtered.length)} note="filtro atual"/><Kpi label="COM CONTATO" value={String(items.filter(item => item.email || item.contato).length)} note="e-mail ou telefone"/><Kpi dark label="STATUS" value={loading ? '...' : 'OK'} note="sincronização concluída"/></section><article className="card list-card"><div className="card-title"><h2>Clientes</h2><Badge>{filtered.length} resultados</Badge></div>{loading ? <Skeleton rows={5} label="Carregando clientes" /> : <DataTable headers={['CLIENTE','CONTATO','DOCUMENTO','STATUS','ENDEREÇO','AÇÕES']} rows={filtered.map(item => [<div className="person"><span>{item.nome_fantasia.split(' ').map(part => part[0]).slice(0, 2).join('')}</span><b>{item.nome_fantasia}<small>{item.nome_responsavel || item.cpf_cnpj || 'Sem documento'}</small></b></div>, item.email || item.contato || 'Sem contato', item.cpf_cnpj || 'Não informado', <Badge tone={item.status === 'ativo' ? 'success' : 'warning'}>{item.status || 'indefinido'}</Badge>, item.endereco_entrega || 'Não informado', <button className="text-action" onClick={() => removeClient(item)}>Excluir</button>])}/>}</article>{open && <Drawer title="Novo cliente" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitClient}><label>Nome ou razão social<input name="nome_fantasia" autoFocus required placeholder="Studio Aroeira"/></label><label>CPF / CNPJ<input name="cpf_cnpj" placeholder="12.345.678/0001-90"/></label><label>Responsável<input name="nome_responsavel" placeholder="Ana Prado"/></label><label>E-mail<input name="email" type="email" placeholder="contato@studio.com.br"/></label><label>Telefone<input name="contato" placeholder="(11) 99999-9999"/></label><label>Endereço de entrega<input name="endereco_entrega" placeholder="Rua, número, cidade/UF"/></label><footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Salvar cliente'}</Button></footer></form></Drawer>}</>
+  return <><PageHead eyebrow="VENDAS · CARTEIRA" title="Carteira de clientes" subtitle={`${items.length} clientes carregados do backend`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar nome, CPF/CNPJ ou contato..."/><Button onClick={() => setOpen(true)}>+ Novo cliente</Button></>}/>{error && <p className="form-error" role="alert">{error}</p>}<section className="kpi-grid"><Kpi label="CLIENTES ATIVOS" value={String(items.filter(item => item.status === 'ativo').length)} note="vindos da API"/><Kpi label="RESULTADOS" value={String(filtered.length)} note="filtro atual"/><Kpi label="COM CONTATO" value={String(items.filter(item => item.email || item.contato).length)} note="e-mail ou telefone"/><Kpi dark label="STATUS" value={loading ? '...' : 'OK'} note="sincronização concluída"/></section><article className="card list-card"><div className="card-title"><h2>Clientes</h2><Badge>{filtered.length} resultados</Badge></div>{loading ? <Skeleton rows={5} label="Carregando clientes" /> : <DataTable headers={['CLIENTE','CONTATO','DOCUMENTO','STATUS','ENDEREÇO','AÇÕES']} rows={filtered.map(item => [<div className="person person-link" role="button" tabIndex={0} onClick={() => { location.hash = `clients/${item.id}` }} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); location.hash = `clients/${item.id}` } }}><span>{item.nome_fantasia.split(' ').map(part => part[0]).slice(0, 2).join('')}</span><b>{item.nome_fantasia}<small>{item.nome_responsavel || item.cpf_cnpj || 'Sem documento'}</small></b></div>, item.email || item.contato || 'Sem contato', item.cpf_cnpj || 'Não informado', <Badge tone={item.status === 'ativo' ? 'success' : 'warning'}>{item.status || 'indefinido'}</Badge>, item.endereco_entrega || 'Não informado', <button className="text-action" onClick={event => { event.stopPropagation(); removeClient(item) }}>Excluir</button>])}/>}</article>{open && <Drawer title="Novo cliente" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitClient}><label>Nome ou razão social<input name="nome_fantasia" autoFocus required placeholder="Studio Aroeira"/></label><label>CPF / CNPJ<input name="cpf_cnpj" placeholder="12.345.678/0001-90"/></label><label>Responsável<input name="nome_responsavel" placeholder="Ana Prado"/></label><label>E-mail<input name="email" type="email" placeholder="contato@studio.com.br"/></label><label>Telefone<input name="contato" placeholder="(11) 99999-9999"/></label><label>Endereço de entrega<input name="endereco_entrega" placeholder="Rua, número, cidade/UF"/></label><footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Salvar cliente'}</Button></footer></form></Drawer>}</>
 }
 
 function Inventory() {
@@ -1830,6 +1887,7 @@ export default function App() {
   const page = useMemo(() => {
     if (rota.nome === 'orcamento') return rota.id === undefined ? <Pipeline/> : <QuoteDetail quoteId={rota.id}/>
     if (rota.nome === 'builder') return <Builder quoteId={rota.id}/>
+    if (rota.nome === 'clients' && rota.id !== undefined) return <ClientDetail clientId={rota.id}/>
     return ({ dashboard: <Dashboard/>, clients: <Clients/>, pipeline: <Pipeline/>, builder: <Builder/>, projects: <Projects/>, catalog: <Catalog/>, inventory: <Inventory/>, suppliers: <Suppliers/>, schedule: <Schedule/>, finance: <Finance/>, team: <Team/>, integrations: <Integrations/>, logs: <Logs/> } as Partial<Record<Route, ReactNode>>)[rota.nome]
   }, [rota.nome, rota.id])
   if(portalToken) return <Portal token={portalToken}/>
