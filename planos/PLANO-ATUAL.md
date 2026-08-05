@@ -1,20 +1,21 @@
-# Plano de execução — Fechar a raiz do bypass de rate limit
+# Plano de execução — Terminar o Portal do Cliente
 
 Repositório: `C:\Users\bi_2d_gzgh6n0\Desktop\Yann\Pessoal\ARC-ERP`
 Stack: FastAPI + PostgreSQL (`backend/`) · React 19 + TS + Vite (`frontend/`)
-Base: `f0399f4` · Árvore: **1 arquivo pendente** — `AGENTS.md` (a sua própria skill de executor,
-tratada na TAREFA 1)
+Base: `6dc2a0b` · Árvore: **limpa**
 Gerado em: 2026-08-05
 
-Documento para o agente executor. São **3 tarefas**, executadas uma por vez, na ordem. Não
+Documento para o agente executor. São **4 tarefas**, executadas uma por vez, na ordem. Não
 comece a tarefa N+1 antes da N estar verificada e o usuário mandar seguir.
+
+> **A numeração recomeça em 1.** O `planos/ESTADO.md` foi zerado junto com este plano; os blocos
+> do plano anterior estão em `planos/arquivo/2026-08-05-rate-limit-ESTADO.md`.
+>
+> **O Docker já está de pé** e o banco `arc_erp_test` funcionando — foi usado em `6dc2a0b`.
+> Não há desculpa para teste de banco não executado neste plano.
 
 **Leia `CLAUDE.md` na raiz antes de começar.** Convenções: código e comentários em português,
 dinheiro em centavos inteiros, sem ferramenta de migração, commits em Conventional Commits.
-
-Plano pequeno de propósito — é a primeira rodagem do protocolo novo (commit + bloco em
-`planos/ESTADO.md` a cada tarefa). A TAREFA 1 é trivial justamente para exercitar o protocolo
-antes de mexer em código sensível.
 
 ---
 
@@ -24,212 +25,217 @@ antes de mexer em código sensível.
 
 ### O que se quer
 
-Fechar em definitivo uma regressão de segurança que hoje está **parcialmente** corrigida: o
-`key_func` global do rate limiter aceita um header controlado pelo cliente como chave de balde.
+O Portal do Cliente está **quase pronto** — backend, frontend e lado do ERP foram implementados
+em `2c64c2e`. Este plano fecha o que falta: **dois defeitos que impedem a tela de funcionar**, a
+cobertura de testes que nunca existiu, e a primeira execução real da suíte contra o banco.
 
-Isto bloqueia o trabalho do Portal do Cliente (plano arquivado em
-`planos/arquivo/2026-08-05-portal-cliente.md`), porque as quatro rotas públicas de `/portal` já
-implementadas usam o `key_func` global e portanto nascem sem proteção de rate limit.
+Plano original arquivado em `planos/arquivo/2026-08-05-portal-cliente.md` — consulte-o para o
+contexto de projeto (modelo de ameaça, listas brancas, decisões). Este documento cobre só a
+diferença.
 
-### Decisões já fechadas
+### O que já existe e está correto — não reimplemente
 
-| Tema | Decisão |
+| Área | Situação |
 |---|---|
-| Direção da correção | **Inverter o default.** Global passa a ser IP; o balde por API key vira opt-in explícito por rota. Corrigir rota a rota é enxugar gelo — toda rota pública futura herdaria o furo. |
-| Rotas de `/auth` | Mantêm o `key_func=_rate_limit_ip` explícito. Vira redundante, mas documenta a intenção no ponto onde ela importa. |
-| Achado cosmético pendente | Entra como TAREFA 3, em commit separado. |
+| Colunas e `ALTER` (`models.py`, `main.py`) | ✅ completo |
+| Token `type="portal"` + `get_portal_orcamento` (`auth.py`) | ✅ completo |
+| `routers/portal.py` — proposta, decisão, 2 downloads | ✅ estrutura correta, 2 defeitos abaixo |
+| Geração/revogação de link (`orcamentos.py`) | ✅ completo e bem feito |
+| Liberação de anexo (`PATCH .../visibilidade`) | ✅ completo |
+| Frontend do portal + roteamento por fragmento | ✅ implementado |
+| Frontend do ERP (enviar link, toggle, bloco de decisão) | ✅ implementado |
+| Rate limit das rotas públicas | ✅ herdado do IP após `776d425` |
 
-### Estado atual do código — verificado, não presuma nada além disto
-
-- `backend/rate_limiter.py:28` — `limiter = Limiter(key_func=_rate_limit_key, default_limits=["100/minute"])`.
-  **Este é o problema.**
-- `backend/rate_limiter.py:12-25` — `_rate_limit_key()` lê `X-API-Key` e usa o hash como chave
-  do balde **sem nunca validar se a chave existe no banco**. Só checa `len <= 128`.
-- `backend/rate_limiter.py:7-9` — `_rate_limit_ip()` já existe e faz a coisa certa.
-- `backend/routers/auth.py:78, 129, 211, 231` — as quatro rotas de autenticação **já** usam
-  `key_func=_rate_limit_ip`. Foram corrigidas antes; não é preciso mexer nelas.
-- `backend/routers/projetos.py:270` — `@limiter.limit("20/minute")`, sem `key_func`. É a **única**
-  rota que autentica por API key (`auth.get_api_key_identity`).
-- `backend/routers/portal.py:149, 160, 235, 264` — quatro rotas públicas, todas sem `key_func`,
-  todas herdando o global. São elas que hoje estão desprotegidas.
-- `backend/main.py:49` — os `default_limits` (`100/minute`) são aplicados a **todas** as rotas
-  pelo `SlowAPIMiddleware`, também com o `key_func` global.
-- `slowapi/extension.py:783` — `limiter.limit()` aceita `key_func` por rota. Confirmado nesta
-  versão instalada; é o que torna o opt-in possível sem criar um segundo limiter.
-- `backend/tests/test_rate_limiter.py` — 2 testes, ambos chamando `_rate_limit_key`. Serão
-  reescritos na TAREFA 2.
+Pontos que revisei e considero bem resolvidos, para você não "melhorar" sem motivo: o `404`
+genérico nos dois casos de download (`portal.py:249` e `:253`), o `try/except` que impede o
+e-mail derrubar a decisão (`portal.py:206`), a recusa por atribuição direta em vez de
+`atualizar_status` (`portal.py:181`), e o incremento de `portal_token_version` a cada envio.
 
 ### Regra de Ouro desta entrega
 
-> **Nenhuma requisição não autenticada pode escolher o próprio balde de rate limit.**
+> **A aprovação do cliente não movimenta estoque nem financeiro.**
 
-É exatamente o que o código viola hoje. Mandando um `X-API-Key` aleatório a cada requisição, o
-cliente ganha um balde novo por tentativa e o limite deixa de existir. Qualquer solução que
-mantenha um header controlado pelo cliente como chave **padrão** está errada, por mais que os
-testes passem.
-
-O balde por chave continua legítimo — mas só onde uma dependência já validou a chave contra o
-banco antes de a requisição chegar.
+O código respeita isso hoje (`portal.py:174-181` só grava a decisão; o status muda apenas na
+recusa). **Não existe teste que prove.** A TAREFA 3 cria esse teste. Se ele passar a falhar,
+alguém religou o portal ao `atualizar_status`.
 
 ---
 
-## TAREFA 1 — Commitar sua própria skill de executor
+## TAREFA 1 — 🔴 `cliente.nome` não existe
 
-**Arquivos que esta tarefa pode tocar:** `AGENTS.md`. **Nenhum outro.**
+**Arquivos que esta tarefa pode tocar:** `backend/routers/portal.py`, `backend/tests/test_portal.py`.
 
-`AGENTS.md` está modificado na árvore com a seção de modo executor que você acabou de criar.
-Commite-a sozinha, antes de qualquer mudança de código.
+### O defeito
 
-**Por que isso é uma tarefa e não um detalhe:** enquanto houver arquivo pendente, a validação
-das tarefas seguintes não consegue afirmar de quem é cada linha. E esta é a primeira vez que o
-protocolo novo roda de ponta a ponta — melhor descobrir um problema nele aqui, num commit de
-documentação, do que no meio da correção de segurança.
+`portal.py:123` faz `cliente_nome=proposta.cliente.nome`. O model `Cliente` (`models.py:90-103`)
+**não tem** o atributo `nome`. Os campos disponíveis são `nome_fantasia` (obrigatório) e
+`nome_responsavel` (opcional).
 
-Mensagem sugerida:
+Resultado: `AttributeError` em **toda** chamada de `GET /portal/proposta` → 500. A tela do
+cliente não abre. É o defeito que bloqueia a entrega inteira.
 
-```
-docs(agents): define o modo executor de planos
+Troque por `nome_fantasia`.
 
-Executor lê planos/PLANO-ATUAL.md, roda uma tarefa por vez, commita como
-plano(N): ... e devolve o resultado em planos/ESTADO.md.
-```
+### Por que o teste não pegou — corrija a raiz também
 
-**Não faça nesta tarefa:** nenhuma alteração em `backend/` ou `frontend/`.
+`test_portal.py:37` monta o cliente falso como `SimpleNamespace(nome="Cliente Teste")`, ou seja,
+**o dublê tem um atributo que o model real não tem**. O teste fica verde enquanto a produção
+quebra. É a pior categoria de teste: dá confiança sem dar cobertura.
 
-**Verificação:** `git status --short` vazio; `git log --oneline -1` mostra o commit novo.
+Corrija o dublê para usar `nome_fantasia`. E entenda a lição para a TAREFA 3: dublê de model
+inventado à mão só prova que o código concorda consigo mesmo. Os testes novos da TAREFA 3 usam
+o banco real e as fixtures de `conftest.py`, não `SimpleNamespace`.
 
-Ao concluir, escreva o bloco em `planos/ESTADO.md` como descrito no fim deste documento. **Este
-bloco é o teste real desta tarefa** — é o que avisa o orquestrador de que você terminou.
+### Segundo item — 🟡 `_foto_publica` aceita URL que o cliente não consegue abrir
 
----
+`portal.py:80` deixa passar caminhos que começam com `/static/` e `/api/`. Mas
+`GET /static/uploads/{filename}` valida JWT de sessão do ERP (`main.py`), e o portal manda
+`credentials: 'omit'`. O cliente recebe a URL, o navegador busca, toma 401 e mostra imagem
+quebrada.
 
-## TAREFA 2 — 🔴 Inverter o default do rate limiter
+Restrinja `_foto_publica` a URLs absolutas `http://`/`https://` e devolva `None` para o resto.
+Foto de item é um "nice to have" na tela; imagem quebrada é pior que imagem ausente.
 
-**Arquivos que esta tarefa pode tocar:** `backend/rate_limiter.py`,
-`backend/routers/projetos.py`, `backend/tests/test_rate_limiter.py`.
-
-### O problema, concretamente
-
-Como `/portal/decisao` (`portal.py:160`) usa o `key_func` global, isto funciona hoje:
-
-```
-POST /portal/decisao   X-API-Key: qualquer-coisa-1   → balde novo
-POST /portal/decisao   X-API-Key: qualquer-coisa-2   → balde novo
-POST /portal/decisao   X-API-Key: qualquer-coisa-3   → balde novo
-```
-
-O `5/minute` não existe. O mesmo vale para o teto global de `100/minute` em **qualquer** rota da
-aplicação, porque o middleware usa o mesmo `key_func`.
-
-### A correção
-
-1. Em `rate_limiter.py`, o limiter global passa a usar o IP:
-
-```python
-limiter = Limiter(key_func=_rate_limit_ip, default_limits=["100/minute"])
-```
-
-2. Renomeie `_rate_limit_key` para `api_key_or_ip`. O nome perde o underscore porque deixa de
-   ser privado — passa a ser importado por outros módulos. Substitua a docstring por uma que
-   diga onde ela **pode** ser usada:
-
-```python
-def api_key_or_ip(request) -> str:
-    """Chave de rate limit para rotas de integração autenticadas por API key.
-
-    Extensões atrás de Cloudflare compartilham o IP de borda, então sem isto uma integração
-    consumiria o limite da outra. O hash evita guardar o segredo em claro no estado do limiter.
-
-    Use SOMENTE em rota que exija uma API key válida como dependência. Em rota pública, o
-    cliente escolheria o próprio balde trocando o header a cada requisição, e o limite deixaria
-    de existir — foi exatamente o que aconteceu quando esta função era o key_func global.
-    """
-```
-
-3. Em `projetos.py:270`, aplique o opt-in na única rota que autentica por chave:
-
-```python
-@limiter.limit("20/minute", key_func=api_key_or_ip)
-```
-
-Ajuste o import no topo do arquivo.
-
-4. **Não** adicione `key_func` em `routers/portal.py`. Com o global corrigido, aquelas rotas
-   passam a ser limitadas por IP, que é o comportamento correto para superfície pública.
-
-5. Confirme que nenhum outro módulo importa `_rate_limit_key` pelo nome antigo. Se importar,
-   atualize — não deixe import quebrado.
-
-**Não faça nesta tarefa:** não mexa nos valores numéricos dos limites, não mexa em
-`get_api_key_identity`, não toque em `routers/auth.py` (já está correto), não toque em
-`routers/portal.py`.
-
-### Verificação
-
-Reescreva `backend/tests/test_rate_limiter.py` — os dois testes atuais chamam `_rate_limit_key`
-e mudam de significado. Os casos passam a ser quatro:
-
-1. `_rate_limit_ip` devolve o `X-Real-IP` quando o header está presente.
-2. **O `key_func` global ignora `X-API-Key`**: duas requisições com chaves diferentes e o mesmo
-   IP produzem a mesma chave de balde. Escreva este teste chamando `limiter._key_func` (ou o
-   atributo equivalente na versão instalada — confirme antes) em vez de chamar `_rate_limit_ip`
-   diretamente, para que ele falhe se alguém trocar o `key_func` do limiter no futuro. **Este é
-   o teste que trava o achado**; se ele passar a falhar, a regressão voltou.
-3. `api_key_or_ip` agrupa por chave quando ela está presente.
-4. `api_key_or_ip` cai no IP quando não há chave.
-
-Roda sem banco:
-
-```
-python -m pytest backend/tests/test_rate_limiter.py -q
-```
-
-Rode também a bateria que não precisa de banco, para garantir que nada quebrou:
-
-```
-python -m pytest backend/tests/test_rate_limiter.py backend/tests/test_portal_token.py backend/tests/test_ssrf_utils.py backend/tests/test_anexo_utils.py -q
-```
-
-Eram 21 testes passando antes desta tarefa; devem continuar passando, com os novos casos somados.
+**Verificação:** `python -m pytest backend/tests/test_portal.py -q` passa. Confirme com
+`grep -rn "cliente\.nome\b" backend/` que não sobrou nenhuma outra ocorrência.
 
 ---
 
-## TAREFA 3 — 🟢 Tirar a closure de dentro do laço
+## TAREFA 2 — 🔴 `with_for_update()` combinado com `joinedload`
 
-**Arquivos que esta tarefa pode tocar:** `backend/routers/projetos.py`.
+**Arquivos que esta tarefa pode tocar:** `backend/routers/portal.py`.
 
-Em `projetos.py:162-168`, `fator_unidade` e a função `dimensao_em_cm` estão declarados **dentro**
-do `for item in itens`, e portanto recriados a cada item. Mova os dois para **antes** do laço.
+### O defeito, e como confirmá-lo antes de corrigir
 
-O comportamento não muda; é clareza. A conversão de unidade é propriedade do payload inteiro,
-não de cada item, e o código deve dizer isso.
+`_carregar_proposta` (`portal.py:34-54`) aplica `joinedload(cliente)` e `joinedload(vendedor)`,
+que geram `LEFT OUTER JOIN`. Quando `bloquear=True`, o `with_for_update()` (`portal.py:50`)
+adiciona `FOR UPDATE` à mesma consulta.
 
-**Não faça nesta tarefa:** nenhuma outra refatoração em `projetos.py`. Se enxergar outra coisa
-para melhorar, anote no campo Dúvidas do `ESTADO.md` em vez de mexer.
+O PostgreSQL **recusa** `FOR UPDATE` sobre o lado nulável de um outer join, com erro do tipo
+*"FOR UPDATE cannot be applied to the nullable side of an outer join"*. Se for esse o caso, o
+`POST /portal/decisao` falha com 500 sempre — o cliente nunca consegue aprovar nem recusar.
 
-**Verificação:** a conversão mm → cm continua idêntica. O teste que cobre isso
-(`test_push_idempotente_e_normaliza_mm`) exige Postgres:
+**Isto ainda não foi observado em execução**, porque nenhum teste de banco do portal rodou.
+Portanto: **primeiro confirme, depois corrija.** Suba o banco e chame a decisão uma vez, ou
+escreva o teste da TAREFA 3 que exercita `POST /portal/decisao` e observe o erro.
 
+- Se o erro ocorrer: corrija.
+- Se **não** ocorrer, reporte em `ESTADO.md` no campo Desvios com a evidência (a query gerada ou
+  o teste passando) e **não mexa** — não quero mudança especulativa em código que funciona.
+
+### A correção, se confirmado
+
+Separe o travamento da carga de dados. A consulta que trava pega só a linha do orçamento, sem
+nenhum `joinedload`:
+
+```python
+def _travar_proposta(db: Session, orcamento_id: int) -> models.Orcamento:
+    """Trava apenas a linha do orçamento. Sem eager loading: o Postgres recusa
+    FOR UPDATE sobre o lado nulável de um outer join, que é o que joinedload gera."""
+    proposta = (
+        db.query(models.Orcamento)
+        .filter(models.Orcamento.id == orcamento_id)
+        .with_for_update()
+        .first()
+    )
+    if not proposta:
+        raise HTTPException(status_code=404, detail="Proposta não encontrada.")
+    return proposta
 ```
-docker compose up -d db
-docker exec -e DATABASE_URL="postgresql://<user>:<senha>@db:5432/arc_erp_test" \
-    -e SECRET_KEY="test-secret-key-somente-para-pytest" -w /app arc_api \
-    python -m pytest tests/test_projetos_push.py -q
-```
 
-Se o Docker não estiver disponível, **diga isso no campo Verificação** em vez de afirmar que
-passou. `conftest.py:10` explica por que no Windows é preciso rodar de dentro do container.
+Em `registrar_decisao`, trave com essa função, faça as checagens de 409, grave a decisão e
+commite. Só **depois** chame `_carregar_proposta(db, proposta.id)` (sem lock) para montar a
+resposta — o que o código já faz na linha 210.
+
+Mantenha `_carregar_proposta` sem o parâmetro `bloquear`, já que ele deixa de ser usado. Não
+deixe parâmetro morto.
+
+**Não faça nesta tarefa:** não mude a lógica de decisão, não mexa nos códigos 409, não altere
+o `AuditLog`.
+
+**Verificação:** `POST /portal/decisao` executa com sucesso contra o Postgres. Se o Docker não
+estiver disponível, **diga isso** no campo Verificação — esta tarefa não pode ser dada como
+concluída sem execução real, porque o defeito é exatamente um que só aparece no banco.
+
+---
+
+## TAREFA 3 — Testes de integração do portal
+
+**Arquivos que esta tarefa pode tocar:** `backend/tests/test_portal.py`,
+`backend/tests/test_portal_token.py`, e um novo `backend/tests/test_portal_integracao.py` se
+preferir separar os que exigem banco.
+
+Hoje existem 4 testes, todos sobre funções puras. **Nenhum** exercita uma rota. A superfície
+pública do sistema está sem cobertura de integração.
+
+Use as fixtures de `conftest.py` (`client`, `db_session`, `make_user`, `make_client`,
+`make_product`). **Não** use `SimpleNamespace` para simular models — foi exatamente o que
+escondeu o defeito da TAREFA 1.
+
+Casos obrigatórios:
+
+| # | Caso | Espera |
+|---|---|---|
+| 1 | Token válido em `GET /portal/proposta` | 200 e os campos do contrato |
+| 2 | Resposta não contém `preco_custo`, `vendedor_id`, `cnpj_faturamento`, `fornecedor_externo` — asserção sobre `resp.text` cru | ausente |
+| 3 | Token `type="access"` no `X-Portal-Token` | 401 |
+| 4 | Token com `ver` desatualizado após revogar | 401 |
+| 5 | Token do orçamento A tentando ler o B | 401/404, nunca dado do B |
+| 6 | `recusar` sem motivo, e com motivo de 5 caracteres | 422 nos dois |
+| 7 | `recusar` válido | status vira `"Ajuste solicitado"`, motivo gravado, `AuditLog` com `usuario_id` nulo |
+| 8 | **`aprovar`** | `decisao_cliente='aprovado'` **E** `status` continua `"Orçamento gerado"` **E** nenhum `LancamentoFinanceiro` criado **E** `produto.quantidade_retida` inalterado |
+| 9 | Segunda decisão no mesmo orçamento | 409 |
+| 10 | Decisão em orçamento com status `"Aprovado"` | 409 |
+| 11 | Download de anexo com `visivel_cliente=False` | 404 |
+| 12 | Download de anexo de **outro** orçamento | 404 — **asserte que a resposta é idêntica à do caso 11** |
+| 13 | Download de anexo liberado | 200 e `Content-Disposition: attachment` |
+| 14 | `POST /orcamentos/{id}/portal-link` sem `cliente.email` | 400 |
+| 15 | Gerar link duas vezes | o primeiro token passa a dar 401 |
+
+**O caso 8 é o mais importante do conjunto.** Ele é a Regra de Ouro em forma executável. Escreva
+as quatro asserções separadamente, com mensagem própria, para que a falha diga qual invariante
+quebrou.
+
+**O caso 12 exige comparar as duas respostas**, não só checar que ambas são 404. Se um dia
+alguém devolver `403` para "existe mas não é seu", o atacante consegue enumerar `anexo_id`.
+
+**Não faça nesta tarefa:** não altere código de produção. Se um teste revelar um defeito,
+**pare** e registre em `ESTADO.md` — a correção vira decisão do orquestrador, não uma emenda
+sua no meio da tarefa de teste.
+
+**Verificação:** todos os testes passam contra o Postgres. Comando no fim deste documento.
+
+---
+
+## TAREFA 4 — Primeira execução completa da suíte
+
+**Arquivos que esta tarefa pode tocar:** nenhum de produção. Se algo precisar mudar, **pare e
+reporte**.
+
+Nenhum teste de banco deste repositório rodou nesta sequência de trabalho. Existem ~50 testes de
+integração (orçamentos, clientes, financeiro, uploads, projetos, portal) que estão sem execução
+desde antes do Med-Stone.
+
+1. Suba o banco e rode a suíte **inteira** de dentro do container (comando no fim).
+2. Rode também `cd frontend && npm run build && npm run lint`.
+3. Registre em `ESTADO.md`: total de testes, quantos passaram, e **a lista nominal dos que
+   falharam**, se houver.
+
+Se houver falhas, **não as corrija**. Liste-as. Falha antiga e falha nova são problemas
+diferentes e precisam de decisão separada — corrigir tudo junto apaga a informação de qual
+mudança quebrou o quê.
+
+**Verificação:** a própria execução. O que não puder rodar deve ser dito explicitamente.
 
 ---
 
 ## Fora de escopo — não faça
 
-- Qualquer item do plano do Portal do Cliente (`planos/arquivo/2026-08-05-portal-cliente.md`) —
-  ele volta a ser o plano atual depois que estas 3 tarefas passarem
-- Revisar ou corrigir o código do portal já commitado em `2c64c2e` — ele ainda será validado
-- Trocar o backend do rate limit (Redis, etc.) — o balde em memória serve por ora
-- Mudar valores numéricos de limite
-- Adicionar `key_func` em rotas públicas
+- Reescrever `routers/portal.py` — a estrutura está correta, são dois defeitos pontuais
+- Mexer no frontend do portal ou do ERP, salvo se um teste provar defeito (aí: pare e reporte)
+- Assinatura digital, upload pelo cliente, histórico de revisões da proposta
+- Corrigir falhas antigas de teste descobertas na TAREFA 4 — listar, não corrigir
+- Trocar o backend do rate limit
 
 ---
 
@@ -237,16 +243,40 @@ passou. `conftest.py:10` explica por que no Windows é preciso rodar de dentro d
 
 | Tipo | Alvo | Observação |
 |---|---|---|
-| Git | `AGENTS.md` | commit isolado, sem código |
-| Correção 🔴 | `rate_limiter.py:28` | `key_func` global passa a ser `_rate_limit_ip` |
-| Renomeação | `_rate_limit_key` → `api_key_or_ip` | deixa de ser privada; docstring diz onde pode ser usada |
-| Opt-in | `projetos.py:270` | única rota que autentica por API key |
-| Testes | `test_rate_limiter.py` | 2 casos reescritos, 4 no total |
-| Limpeza 🟢 | `projetos.py:162` | closure sai de dentro do laço |
+| 🔴 | `portal.py:123` | `cliente.nome` → `cliente.nome_fantasia` |
+| 🔴 | `portal.py:34-54` | separar lock de eager loading (se confirmado) |
+| 🟡 | `portal.py:76-82` | `_foto_publica` só aceita URL absoluta |
+| Teste | `test_portal.py:37` | dublê passa a refletir o model real |
+| Testes | novos | 15 casos de integração, incluindo a Regra de Ouro |
+| Execução | suíte inteira | primeira vez contra o banco nesta sequência |
 
-Efeito colateral pretendido: as quatro rotas de `/portal` passam a ser limitadas por IP sem que
-uma linha delas seja tocada. Se isso **não** acontecer, o `key_func` global não foi trocado de
-verdade — verifique antes de dar a tarefa por concluída.
+Ao fim das 4 tarefas, o portal deve estar funcional de ponta a ponta: gerar link no ERP, abrir a
+tela pelo fragmento, ver a proposta, baixar documento liberado, aprovar ou recusar, e o card
+aparecer na coluna Ajuste do funil.
+
+---
+
+## Como rodar os testes
+
+Sem banco:
+
+```
+python -m pytest backend/tests/test_rate_limiter.py backend/tests/test_portal_token.py backend/tests/test_portal.py backend/tests/test_ssrf_utils.py backend/tests/test_anexo_utils.py -q
+```
+
+Com banco — no Windows é preciso rodar de dentro do container `api`, por um bug de encoding do
+psycopg2 sem relação com o projeto (`conftest.py:10`):
+
+```
+docker compose up -d db
+docker exec -e DATABASE_URL="postgresql://<user>:<senha>@db:5432/arc_erp_test" \
+    -e SECRET_KEY="test-secret-key-somente-para-pytest" -w /app arc_api \
+    python -m pytest tests -q
+```
+
+O banco `arc_erp_test` precisa existir uma vez (`CREATE DATABASE arc_erp_test;`).
+
+Frontend: `cd frontend && npm run build && npm run lint`.
 
 ---
 
@@ -257,11 +287,10 @@ verdade — verifique antes de dar a tarefa por concluída.
 - Um teste existente quebrar por causa da sua mudança
 - Duas formas razoáveis de fazer e o plano não decidir qual
 - Uma tarefa exigir credencial, serviço externo ou dado que você não tem
-- **O atributo do `key_func` do limiter não se chamar `_key_func` nesta versão do slowapi**
-  (TAREFA 2, verificação 2) — reporte o nome real em vez de adivinhar
+- **O erro de `FOR UPDATE` da TAREFA 2 não se manifestar** — reporte a evidência e não mexa
+- **Um teste da TAREFA 3 revelar defeito de produção** — liste, não emende
 
-Nesses casos: **pare, escreva o que encontrou em `planos/ESTADO.md`, e não continue.** Um plano
-errado descoberto na tarefa 1 custa uma conversa; descoberto no fim custa a entrega inteira.
+Nesses casos: **pare, escreva o que encontrou em `planos/ESTADO.md`, e não continue.**
 
 ---
 
