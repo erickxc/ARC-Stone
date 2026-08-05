@@ -38,14 +38,16 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
     )
 
 
-def _issue_session_tokens(user: models.Usuario, response: Response, request: Request, db: Session) -> dict:
+def _issue_session_tokens(user: models.Usuario, response: Response, request: Request, db: Session, acao: str = "LOGIN") -> dict:
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
         data={"sub": user.email, "role": user.role, "type": auth.TOKEN_TYPE_ACCESS},
         expires_delta=access_token_expires,
     )
     refresh_token = auth.create_access_token(
-        data={"sub": user.email, "type": auth.TOKEN_TYPE_REFRESH},
+        # `ver` é o que torna o refresh revogável sem tabela de sessões: logout e troca de
+        # senha incrementam a coluna e todo refresh emitido antes deixa de valer.
+        data={"sub": user.email, "type": auth.TOKEN_TYPE_REFRESH, "ver": user.sessao_token_version or 0},
         expires_delta=timedelta(days=7),
     )
     _set_auth_cookies(response, access_token, refresh_token)
@@ -54,8 +56,9 @@ def _issue_session_tokens(user: models.Usuario, response: Response, request: Req
     client_real_ip = request.headers.get("X-Real-IP", client_ip)
     db.add(models.AuditLog(
         usuario_id=user.id,
-        acao="LOGIN",
-        detalhes=f"Login realizado por {user.nome} ({user.email})",
+        acao=acao,
+        detalhes=(f"Login realizado por {user.nome} ({user.email})" if acao == "LOGIN"
+                  else f"Sessão renovada por {user.nome} ({user.email})"),
         entidade="Usuario",
         entidade_id=user.id,
         ip=client_real_ip,
@@ -147,8 +150,51 @@ def mfa_login(
     return _issue_session_tokens(user, response, request, db)
 
 
+@router.post("/refresh")
+# Rota que cunha credencial: entra no balde por IP como o login. SameSite=Lax já impede que
+# um POST cross-site carregue o cookie, então não há CSRF a tratar aqui.
+@limiter.limit("30/minute", key_func=_rate_limit_ip)
+def refresh(request: Request, response: Response, db: Session = Depends(get_db)):
+    """Reemite o par de cookies a partir do `refresh_token`. Qualquer falha é 401 seco.
+
+    Não é rotação com detecção de reuso: o token não carrega `jti`, então o refresh anterior
+    segue valendo até expirar ou até a versão da sessão subir (logout / troca de senha).
+    Rotação de verdade exige guardar o `jti` por sessão — outra decisão, outro escopo.
+    """
+    nao_autorizado = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Sessão expirada. Entre novamente.",
+    )
+    raw = request.cookies.get("refresh_token")
+    if not raw:
+        raise nao_autorizado
+    try:
+        payload = auth.decode_token(raw, expected_types={auth.TOKEN_TYPE_REFRESH})
+    except HTTPException:
+        raise nao_autorizado
+
+    user = db.query(models.Usuario).filter(models.Usuario.email == payload.get("sub")).first()
+    if not user or not user.ativo:
+        raise nao_autorizado
+    if payload.get("ver") != (user.sessao_token_version or 0):
+        raise nao_autorizado
+
+    return _issue_session_tokens(user, response, request, db, acao="REFRESH")
+
+
 @router.post("/logout")
-def logout(response: Response):
+def logout(response: Response, request: Request, db: Session = Depends(get_db)):
+    """Além de apagar os cookies deste navegador, invalida os refresh já emitidos."""
+    raw = request.cookies.get("refresh_token")
+    if raw:
+        try:
+            payload = auth.decode_token(raw, expected_types={auth.TOKEN_TYPE_REFRESH})
+            user = db.query(models.Usuario).filter(models.Usuario.email == payload.get("sub")).first()
+            if user:
+                user.sessao_token_version = (user.sessao_token_version or 0) + 1
+                db.commit()
+        except HTTPException:
+            pass  # cookie inválido não impede o logout de limpar o navegador
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/")
     return {"status": "ok"}
@@ -245,5 +291,7 @@ def reset_password(request: Request, body: ResetPasswordRequest, db: Session = D
         raise HTTPException(status_code=400, detail=str(e))
     user.hashed_password = auth.get_password_hash(body.new_password)
     user.reset_token_version += 1
+    # Senha nova derruba as sessões abertas: nenhum refresh anterior continua valendo.
+    user.sessao_token_version = (user.sessao_token_version or 0) + 1
     db.commit()
     return {"message": "Senha redefinida com sucesso."}

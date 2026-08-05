@@ -76,6 +76,7 @@ export interface PaymentCondition {
 
 export interface OrcamentoConfig {
   id: number
+  organizacao_nome: string | null
   condicao_pagamento: string | null
   prazo_entrega: string | null
   validade_orcamento: string | null
@@ -101,6 +102,25 @@ export interface CalendarEvent {
   nome_produto?: string | null
 }
 
+export interface QuoteItem {
+  id?: number
+  produto_id?: number | null
+  quantidade: number
+  preco_unitario_aplicado: number
+  local_instalacao?: string | null
+  is_externo?: boolean
+  nome_externo?: string | null
+  descricao_externa?: string | null
+  fornecedor_externo?: string | null
+  foto_externa_url?: string | null
+  personalizacao_aplicada?: string | null
+  prazo_entrega_valor?: number | null
+  prazo_entrega_unidade?: string | null
+  projeto_item_id?: number | null
+  nome?: string | null
+  foto_url?: string | null
+}
+
 export interface Quote {
   id: number
   cliente_id: number
@@ -112,7 +132,7 @@ export interface Quote {
   cliente_nome: string | null
   vendedor_nome: string | null
   valor_total: number | null
-  itens: Array<{ quantidade: number; preco_unitario_aplicado: number; nome?: string | null }>
+  itens: QuoteItem[]
   decisao_cliente?: 'aprovado' | 'recusado' | null
   decisao_cliente_motivo?: string | null
   decisao_cliente_nome?: string | null
@@ -122,6 +142,12 @@ export interface Quote {
 export interface QuoteDetail extends Quote {
   cliente_email?: string | null
   anexo_url?: string | null
+  condicoes_pagamento_selecionadas?: string | null
+  arquiteto_nome?: string | null
+  arquiteto_contato?: string | null
+  prazo_locacao_valor?: number | null
+  prazo_locacao_unidade?: string | null
+  projeto_id?: number | null
 }
 
 export interface QuoteCreateInput {
@@ -130,7 +156,11 @@ export interface QuoteCreateInput {
   vendedor_id?: number | null
   condicoes_pagamento_selecionadas?: string | null
   projeto_id?: number | null
-  itens: Array<{ quantidade: number; preco_unitario_aplicado: number; produto_id?: number | null; is_externo?: boolean; nome_externo?: string | null; descricao_externa?: string | null; projeto_item_id?: number | null }>
+  arquiteto_nome?: string | null
+  arquiteto_contato?: string | null
+  prazo_locacao_valor?: number | null
+  prazo_locacao_unidade?: string | null
+  itens: QuoteItem[]
 }
 
 export interface PortalItem {
@@ -154,6 +184,7 @@ export interface PortalDocumento {
 }
 
 export interface PortalProposta {
+  organizacao_nome?: string | null
   orcamento_id: number
   numero_exibicao: string
   tipo_orcamento: string
@@ -320,12 +351,31 @@ export function encerrarSessao() {
   location.reload()
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+let renovacaoEmCurso: Promise<boolean> | null = null
+
+/**
+ * Reemite o par de cookies a partir do refresh. Uma renovação por vez: as 4–6 chamadas
+ * paralelas do dashboard compartilham a mesma promessa em vez de disparar 4–6 POSTs iguais
+ * (e ficar à mercê da ordem em que as respostas gravam o cookie).
+ */
+function renovarSessao(): Promise<boolean> {
+  renovacaoEmCurso ??= fetch(`${API}/auth/refresh`, { method: 'POST', credentials: 'include' })
+    .then(response => response.ok)
+    .catch(() => false)
+    .finally(() => { renovacaoEmCurso = null })
+  return renovacaoEmCurso
+}
+
+async function request<T>(path: string, init?: RequestInit, jaRenovou = false): Promise<T> {
   const response = await fetch(`${API}${path}`, {
     credentials: 'include',
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
+  // 401 por access expirado: renova uma vez e repete. Rotas de /auth/ ficam fora para não virar laço.
+  if (response.status === 401 && !jaRenovou && !path.startsWith('/auth/')) {
+    if (await renovarSessao()) return request<T>(path, init, true)
+  }
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
     if (response.status === 401) { encerrarSessao(); throw new Error('Sessão expirada. Entre novamente para carregar os dados.') }
@@ -538,6 +588,24 @@ export async function importarProjetoCsv(file: File, nome: string, clienteId?: n
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(data.detail || 'Falha ao importar projeto.')
   return data as ProjetoDetail
+}
+
+/** Extensões e limite que `POST /uploads/` aceita — espelhados aqui para recusar antes de subir. */
+export const UPLOAD_EXTENSOES = ['.jpg', '.jpeg', '.png', '.webp', '.jfif']
+export const UPLOAD_TAMANHO_MAXIMO = 10 * 1024 * 1024
+
+export async function uploadArquivo(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  // Sem request<T>(): ele fixa Content-Type JSON e quebraria o boundary do multipart.
+  const response = await fetch(`${API}/uploads/`, { method: 'POST', credentials: 'include', body: form })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.detail || 'Falha ao enviar o arquivo.')
+  return data as { filename: string; url: string }
+}
+
+export function updateOrcamentoConfig(input: Partial<Omit<OrcamentoConfig, 'id'>>) {
+  return request<OrcamentoConfig>('/orcamentos/config', { method: 'PUT', body: JSON.stringify(input) })
 }
 
 export function listLogs() {

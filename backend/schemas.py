@@ -258,6 +258,8 @@ class OrcamentoDetailOut(BaseModel):
     arquiteto_contato: Optional[str] = None
     cnpj_faturamento: Optional[str] = None
     projeto_id: Optional[int] = None
+    # Necessário para o construtor reenviar a condição intacta: o PUT substitui o orçamento inteiro.
+    condicoes_pagamento_selecionadas: Optional[str] = None
     pendencias: List[str] = []
     decisao_cliente: Optional[str] = None
     decisao_cliente_motivo: Optional[str] = None
@@ -306,6 +308,7 @@ class PortalDocumentoOut(BaseModel):
 
 
 class PortalPropostaOut(BaseModel):
+    organizacao_nome: Optional[str] = None
     orcamento_id: int
     numero_exibicao: str
     tipo_orcamento: str
@@ -364,6 +367,7 @@ class AuditLogOut(BaseModel):
         from_attributes = True
 
 class OrcamentoConfigBase(BaseModel):
+    organizacao_nome: Optional[str] = None
     condicao_pagamento: Optional[str] = None
     prazo_entrega: Optional[str] = None
     validade_orcamento: Optional[str] = None

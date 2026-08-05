@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, createApiKey, createCatalogProduct, createClient, createLancamento, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, encerrarSessao, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuoteAttachments, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetPassword, revogarPortalLink, revokeApiKey, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, verifyMfa } from './api'
-import type { ApiKey, ApiKeyCreated, AuditLog, AuditLogEntry, CalendarEvent, Client, ClientInput, FinanceiroResumo, FluxoMensalItem, Lancamento, OrcamentoAnexo, OrcamentoConfig, PaymentCondition, PortalLink, PortalProposta, Product, Projeto, ProjetoDetail, Quote, QuoteDetail as QuoteData, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
+import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, createApiKey, createCatalogProduct, createClient, createLancamento, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, encerrarSessao, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuoteAttachments, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetPassword, revogarPortalLink, revokeApiKey, updateOrcamentoConfig, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, uploadArquivo, UPLOAD_EXTENSOES, UPLOAD_TAMANHO_MAXIMO, verifyMfa } from './api'
+import type { ApiKey, ApiKeyCreated, AuditLog, AuditLogEntry, CalendarEvent, Client, ClientInput, FinanceiroResumo, FluxoMensalItem, Lancamento, OrcamentoAnexo, OrcamentoConfig, PaymentCondition, PortalLink, PortalProposta, Product, Projeto, ProjetoDetail, Quote, QuoteDetail as QuoteData, QuoteItem, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
 import { money } from './data'
 import type { Status } from './data'
 
@@ -36,14 +36,16 @@ type Rota = { nome: Route; id?: number }
 function lerHash(): Rota {
   const bruto = location.hash.slice(1)
   const [nome, param] = bruto.split('/')
-  if (nome === 'orcamento' && param && /^\d+$/.test(param)) {
-    return { nome: 'orcamento', id: Number(param) }
-  }
+  const comId = param && /^\d+$/.test(param)
+  if (nome === 'orcamento' && comId) return { nome: 'orcamento', id: Number(param) }
+  if (comId && routes.includes(nome as Route)) return { nome: nome as Route, id: Number(param) }
   return { nome: routes.includes(bruto as Route) ? (bruto as Route) : 'dashboard' }
 }
 
-function Logo({ compact = false }: { compact?: boolean }) {
-  return <div className="logo" aria-label="ARC"><svg className="logo-mark" viewBox="0 0 40 40" aria-hidden="true"><path fill="#D9633C" d="M2 2h36v13.2C25.4 15.2 15.2 25.4 15.2 38H2V2Z"/><path fill="#F8F6F0" d="M15.2 38C15.2 25.4 25.4 15.2 38 15.2v8.2A14.6 14.6 0 0 0 23.4 38h-8.2Z"/><path fill="#2E2C29" d="M23.4 38A14.6 14.6 0 0 1 38 23.4V38H23.4Z"/><circle cx="11" cy="11" r="3.2" fill="#E2A44C"/></svg>{!compact && <strong>ARC</strong>}</div>
+/** Lockup da co-marca: a marca do produto manda, o nome do escritorio entra subordinado. */
+function Logo({ compact = false, escritorio }: { compact?: boolean; escritorio?: string | null }) {
+  const nome = escritorio?.trim()
+  return <div className="logo" aria-label="ARC"><svg className="logo-mark" viewBox="0 0 40 40" aria-hidden="true"><path fill="#D9633C" d="M2 2h36v13.2C25.4 15.2 15.2 25.4 15.2 38H2V2Z"/><path fill="#F8F6F0" d="M15.2 38C15.2 25.4 25.4 15.2 38 15.2v8.2A14.6 14.6 0 0 0 23.4 38h-8.2Z"/><path fill="#2E2C29" d="M23.4 38A14.6 14.6 0 0 1 38 23.4V38H23.4Z"/><circle cx="11" cy="11" r="3.2" fill="#E2A44C"/></svg>{!compact && <strong>ARC</strong>}{!compact && nome && <em className="logo-cobranca"><i>•</i>{nome}</em>}</div>
 }
 
 function Badge({ children, tone }: { children: ReactNode; tone?: string }) {
@@ -168,13 +170,13 @@ function Combobox({ options, value, onChange, placeholder = 'Selecionar…', sea
   </div>
 }
 
-function Sidebar({ route, go, collapsed, setCollapsed, mobileOpen, closeMobile }: { route: Route; go: (r: Route) => void; collapsed: boolean; setCollapsed: (v: boolean) => void; mobileOpen: boolean; closeMobile: () => void }) {
+function Sidebar({ route, go, collapsed, setCollapsed, mobileOpen, closeMobile, escritorio }: { route: Route; go: (r: Route) => void; collapsed: boolean; setCollapsed: (v: boolean) => void; mobileOpen: boolean; closeMobile: () => void; escritorio?: string | null }) {
   const items: [Route, string, string, IconName][] = [
     ['dashboard', 'Dashboard', '', 'dashboard'], ['clients', 'Carteira de clientes', '', 'clients'], ['pipeline', 'Pipeline de vendas', '18', 'pipeline'], ['builder', 'Construtor de orçamento', '', 'builder'], ['projects', 'Projetos', '', 'projects'], ['catalog', 'Catálogo de produtos', '', 'catalog'], ['inventory', 'Controle de estoque', '7', 'inventory'], ['suppliers', 'Fornecedores', '', 'suppliers'], ['schedule', 'Calendário de entregas', '', 'schedule'], ['finance', 'Painel financeiro', '', 'finance'], ['team', 'Equipe', '', 'team'], ['integrations', 'Integrações', '', 'integrations'], ['logs', 'Logs de auditoria', '', 'logs'],
   ]
   const navigate = (next: Route) => { go(next); closeMobile() }
   return <><button className={`sidebar-scrim ${mobileOpen ? 'show' : ''}`} onClick={closeMobile} aria-label="Fechar menu lateral"/><aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
-    <div className="side-head"><Logo compact={collapsed} /><button className="mobile-close" onClick={closeMobile} aria-label="Fechar menu"><Icon name="close"/></button><button className="collapse" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}>«</button></div>
+    <div className="side-head"><Logo compact={collapsed} escritorio={escritorio} /><button className="mobile-close" onClick={closeMobile} aria-label="Fechar menu"><Icon name="close"/></button><button className="collapse" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}>«</button></div>
     <Button onClick={() => navigate('builder')}>{collapsed ? '+' : '+ Novo orçamento'}</Button>
     <nav>
       {items.map(([key, label, count, itemIcon], index) => <div key={key}>
@@ -189,7 +191,14 @@ function Sidebar({ route, go, collapsed, setCollapsed, mobileOpen, closeMobile }
 function AppShell({ route, go, children }: { route: Route; go: (r: Route) => void; children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  return <div className={`app ${collapsed ? 'rail' : ''}`}><Sidebar route={route} go={go} collapsed={collapsed} setCollapsed={setCollapsed} mobileOpen={mobileOpen} closeMobile={()=>setMobileOpen(false)} /><div className="app-body"><header className="mobile-topbar"><button onClick={()=>setMobileOpen(true)} aria-label="Abrir menu"><Icon name="menu"/></button><Logo/><button className="mobile-avatar" aria-label="Abrir perfil" onClick={()=>go('team')}>C</button></header><main className="content">{children}</main></div></div>
+  const [escritorio, setEscritorio] = useState<string | null>(null)
+  useEffect(() => {
+    let vivo = true
+    getOrcamentoConfig().then(config => { if (vivo) setEscritorio(config.organizacao_nome?.trim() || null) }).catch(() => undefined)
+    return () => { vivo = false }
+  }, [])
+  useEffect(() => { document.title = escritorio ? `ARC • ${escritorio}` : 'ARC ERP' }, [escritorio])
+  return <div className={`app ${collapsed ? 'rail' : ''}`}><Sidebar escritorio={escritorio} route={route} go={go} collapsed={collapsed} setCollapsed={setCollapsed} mobileOpen={mobileOpen} closeMobile={()=>setMobileOpen(false)} /><div className="app-body"><header className="mobile-topbar"><button onClick={()=>setMobileOpen(true)} aria-label="Abrir menu"><Icon name="menu"/></button><Logo escritorio={escritorio}/><button className="mobile-avatar" aria-label="Abrir perfil" onClick={()=>go('team')}>C</button></header><main className="content">{children}</main></div></div>
 }
 
 function PageHead({ eyebrow, title, subtitle, actions }: { eyebrow: string; title: string; subtitle?: string; actions?: ReactNode }) {
@@ -202,6 +211,7 @@ function Kpi({ label, value, note, dark }: { label: string; value: string; note:
 
 const statusValues: [Status, number, number][] = [['Gerando', 14, 22], ['Planejando', 26, 41], ['Enviado', 43, 68], ['Ajuste', 8, 30], ['Aprovado', 34, 53], ['Perdido', 11, 17]]
 const tipoOrcamentoOptions: ComboOption[] = [{ value: 'Venda', label: 'Venda' }, { value: 'Locacao', label: 'Locação' }, { value: 'Producao', label: 'Produção' }]
+const prazoOptions: ComboOption[] = [{ value: '', label: 'Sem prazo' }, { value: 'dias', label: 'dias' }, { value: 'meses', label: 'meses' }]
 const perfilOptions: ComboOption[] = [{ value: 'vendedor', label: 'Vendedor' }, { value: 'estoquista', label: 'Estoquista' }, { value: 'admin', label: 'Admin' }]
 const statusOptions: ComboOption[] = statusValues.map(([status]) => ({ value: status, label: status }))
 function StatusBars({ rows = statusValues }: { rows?: [Status, number, number][] }) { return <div className="status-bars">{rows.map(([s, n, w]) => <div key={s}><span>{s}</span><i><b className={s.toLowerCase()} style={{ width: `${w}%` }} /></i><em>{n}</em></div>)}</div> }
@@ -440,8 +450,52 @@ function Pipeline() {
     {view === 'Kanban' ? kanban : <article className="card list-card"><DataTable headers={['ORÇAMENTO', 'PROJETO', 'CLIENTE', 'STATUS', '#VALOR']} rows={filtered.map(q => [<span className="mono">{q.id}</span>, <b>{q.project}</b>, q.client, <Badge>{q.status}</Badge>, money(q.value)])}/></article>}{open && <Modal title="Novo orçamento" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitQuote}><label>Cliente<Combobox name="cliente_id" ariaLabel="Cliente" placeholder="Selecione um cliente…" searchPlaceholder="Buscar cliente…" options={quoteClients.map(client => ({ value: String(client.id), label: client.nome_fantasia, meta: client.cpf_cnpj || undefined }))} value={novoCliente} onChange={setNovoCliente} /></label><label>Tipo de orçamento<Combobox name="tipo_orcamento" ariaLabel="Tipo de orçamento" options={tipoOrcamentoOptions} value={novoTipo} onChange={setNovoTipo} /></label>{quoteError && <p className="form-error" role="alert">{quoteError}</p>}<footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Criar orçamento'}</Button></footer></form></Modal>}{approveCard && <Modal title={`Aprovar ${approveCard.id}`} close={() => setApproveCard(null)}><form className="modal-form" onSubmit={confirmApproval}><label>CNPJ de faturamento<Combobox ariaLabel="CNPJ de faturamento" searchPlaceholder="Buscar CNPJ…" options={cnpjOptions.map(option => ({ value: option.cnpj, label: option.nome || option.cnpj, meta: option.cnpj }))} value={approveCnpj} onChange={setApproveCnpj} /></label><footer><Button variant="secondary" onClick={() => setApproveCard(null)}>Cancelar</Button><Button type="submit">Aprovar orçamento</Button></footer></form></Modal>}{selectedQuoteId && <QuotePortalModal quoteId={selectedQuoteId} close={() => setSelectedQuoteId(null)} />}{feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}</>
 }
 
-type BuilderItem = { key: string; productId: number | null; name: string; quantity: number; unit: string; unitPrice: number; isExternal: boolean; projetoItemId: number | null }
+/**
+ * O PUT do orçamento é substituição total: o que não voltar no payload é apagado. Por isso o item
+ * do construtor carrega todo campo que o backend guarda, mesmo os que esta tela não edita.
+ */
+type BuilderItem = {
+  key: string; productId: number | null; name: string; quantity: number; unit: string; unitPrice: number
+  isExternal: boolean; projetoItemId: number | null
+  localInstalacao: string | null; descricaoExterna: string | null; fornecedorExterno: string | null
+  fotoExternaUrl: string | null; personalizacao: string | null
+  prazoValor: number | null; prazoUnidade: string | null
+}
+const itemVazio = { localInstalacao: null, descricaoExterna: null, fornecedorExterno: null, fotoExternaUrl: null, personalizacao: null, prazoValor: null, prazoUnidade: null }
+
+/** Traduz o item que a API devolve para o formato do construtor, sem perder campo nenhum. */
+function itemDaApi(item: QuoteItem, indice: number): BuilderItem {
+  return {
+    key: `api-${item.id ?? indice}`,
+    productId: item.produto_id ?? null,
+    name: item.nome || item.nome_externo || 'Item',
+    quantity: item.quantidade,
+    unit: 'un.',
+    unitPrice: item.preco_unitario_aplicado,
+    isExternal: Boolean(item.is_externo),
+    projetoItemId: item.projeto_item_id ?? null,
+    localInstalacao: item.local_instalacao ?? null,
+    descricaoExterna: item.descricao_externa ?? null,
+    fornecedorExterno: item.fornecedor_externo ?? null,
+    fotoExternaUrl: item.foto_externa_url ?? null,
+    personalizacao: item.personalizacao_aplicada ?? null,
+    prazoValor: item.prazo_entrega_valor ?? null,
+    prazoUnidade: item.prazo_entrega_unidade ?? null,
+  }
+}
 type ValidationRow = { projetoItemId: number; nome: string; quantidade: number; material: string | null; matchedProductId: number | null; unitPrice: number; included: boolean }
+
+/**
+ * Mesmas condições que `POST /orcamentos/{id}/portal-link` exige no backend. Devolver o motivo
+ * em texto evita o que o usuário viu: botão morto sem explicação, ou 400 depois do clique.
+ */
+function motivoSemPortal(quote: QuoteData): string | null {
+  if (!['Orçamento gerado', 'Ajuste solicitado'].includes(quote.status)) {
+    return `Disponível quando o orçamento estiver em Enviado ou Ajuste — hoje está em "${quote.status}".`
+  }
+  if (!quote.cliente_email?.trim()) return 'O cliente não tem e-mail cadastrado; o link é enviado por e-mail.'
+  return null
+}
 
 function quoteDownloadUrl(url: string) {
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/api/')) return url
@@ -538,9 +592,8 @@ function QuoteDetail({ quoteId }: { quoteId: number }) {
   return <>
     <PageHead eyebrow={`${quoteCard.id} · ${quote.tipo_orcamento.toUpperCase()}`} title={quote.cliente_nome || 'Orçamento'} actions={<>
       <Combobox ariaLabel="Status do orçamento" options={statusOptions} value={quoteCard.status} onChange={valor => void moveQuote(quoteCard, valor as Status)} />
-      <button className="button secondary" disabled title="O Builder ainda não carrega orçamentos existentes.">Editar</button>
+      <Button variant="secondary" onClick={() => { location.hash = `builder/${quoteId}` }}>Editar</Button>
       <Button variant="secondary" onClick={() => void regeneratePdf()} loading={busy}>Gerar PDF</Button>
-      <Button onClick={() => void sendPortalLink()} disabled={busy || !quote.cliente_email} title={!quote.cliente_email ? 'Cadastre um e-mail para enviar o link.' : undefined}>Enviar link ao cliente</Button>
     </>} />
     {error && <p className="form-error" role="alert">{error}</p>}
     <div className="quote-detail-grid">
@@ -552,7 +605,7 @@ function QuoteDetail({ quoteId }: { quoteId: number }) {
         <article className="card total-card"><p className="mono">VALOR TOTAL</p><strong>{money(total)}</strong><dl><div><dt>Cliente</dt><dd>{quote.cliente_nome || 'Não informado'}</dd></div><div><dt>Vendedor</dt><dd>{quote.vendedor_nome || 'Não informado'}</dd></div><div><dt>Tipo</dt><dd>{quote.tipo_orcamento}</dd></div><div><dt>Criado em</dt><dd>{portalDate(quote.created_at)}</dd></div><div><dt>Status</dt><dd><Badge>{quote.status}</Badge></dd></div></dl></article>
         <article className="card documents"><div className="card-title"><h2>Anexos</h2><span className="mono">{attachments.length}</span></div>{attachments.length ? attachments.map(attachment => <div className="quote-attachment" key={attachment.id}><a href={quoteDownloadUrl(attachment.url)} download>{attachment.nome_original}</a><small>{portalBytes(attachment.tamanho)} · {attachment.visivel_cliente ? 'Visível ao cliente' : 'Interno'}</small><Toggle checked={attachment.visivel_cliente} disabled={busy} label="Visível ao cliente" onChange={() => void toggleAttachment(attachment)}/></div>) : <p className="empty-state">Nenhum anexo cadastrado.</p>}{quote.anexo_url && <a className="text-action" href={quoteDownloadUrl(quote.anexo_url)} download>Baixar PDF da proposta</a>}</article>
         {quote.decisao_cliente && <article className="card decision quote-decision"><p className="mono">DECISÃO DO CLIENTE</p><strong>{quote.decisao_cliente === 'aprovado' ? 'Aprovou a proposta' : 'Pediu ajuste'}</strong><span>{quote.decisao_cliente_nome || 'Nome não informado'} · {portalDate(quote.decisao_cliente_em || null)}</span>{quote.decisao_cliente === 'recusado' && <p><b>Motivo:</b> {quote.decisao_cliente_motivo || 'Não informado'}</p>}</article>}
-        <article className="card portal-detail-card"><p className="mono">PORTAL DO CLIENTE</p><p>Gerar um link novo invalida o anterior.</p>{link ? <><input readOnly value={link.url} aria-label="URL completa do portal"/><button className="text-action" onClick={() => void copyLink()}>Copiar URL</button><small>Enviado para {link.enviado_para} · expira em {portalDate(link.expira_em)}</small><Button variant="secondary" onClick={() => void revokePortalLink()} loading={busy}>Revogar link</Button></> : <Button onClick={() => void sendPortalLink()} disabled={busy || !quote.cliente_email} title={!quote.cliente_email ? 'Cadastre um e-mail para enviar o link.' : undefined}>Enviar link ao cliente</Button>}</article>
+        <article className="card portal-detail-card"><p className="mono">PORTAL DO CLIENTE</p><p>Gerar um link novo invalida o anterior.</p>{link ? <><input readOnly value={link.url} aria-label="URL completa do portal"/><button className="text-action" onClick={() => void copyLink()}>Copiar URL</button><small>Enviado para {link.enviado_para} · expira em {portalDate(link.expira_em)}</small><Button variant="secondary" onClick={() => void revokePortalLink()} loading={busy}>Revogar link</Button></> : <><Button onClick={() => void sendPortalLink()} disabled={Boolean(motivoSemPortal(quote))} loading={busy}>Enviar link ao cliente</Button>{motivoSemPortal(quote) && <small className="portal-bloqueio">{motivoSemPortal(quote)}</small>}</>}</article>
       </aside>
     </div>
     {approvalModal}
@@ -597,7 +650,8 @@ function QuotePortalModal({ quoteId, close }: { quoteId: number; close: () => vo
   return <Modal title={`Portal · ORC-${String(quoteId).padStart(4, '0')}`} close={close}><div className="modal-form portal-erp-detail">
     {loading ? <Skeleton rows={4} label="Carregando dados do orçamento" /> : quote && <>
       <p>Envie um link seguro para <strong>{quote.cliente_email || 'cliente sem e-mail'}</strong>. Reenviar invalida o link anterior.</p>
-      <div className="portal-link-actions"><Button onClick={sendPortalLink} disabled={busy || !quote.cliente_email}>{busy ? 'Processando…' : 'Enviar ao cliente'}</Button>{link && <Button variant="secondary" onClick={revokePortalLink} loading={busy}>Revogar link</Button>}</div>
+      {motivoSemPortal(quote) && <p className="portal-bloqueio" role="status">{motivoSemPortal(quote)}</p>}
+      <div className="portal-link-actions"><Button onClick={sendPortalLink} disabled={Boolean(motivoSemPortal(quote))} loading={busy}>Enviar ao cliente</Button>{link && <Button variant="secondary" onClick={revokePortalLink} loading={busy}>Revogar link</Button>}</div>
       {link && <div className="portal-link-result"><input readOnly value={link.url} aria-label="Link do portal"/><button className="text-action" onClick={() => void navigator.clipboard?.writeText(link.url)}>Copiar</button><small>Expira em {portalDate(link.expira_em)} · enviado para {link.enviado_para}</small></div>}
       {quote.decisao_cliente && <article className="portal-decision"><p className="mono">DECISÃO DO CLIENTE</p><strong>{quote.decisao_cliente === 'aprovado' ? 'Aprovou a proposta' : 'Pediu ajuste'}</strong><span>{quote.decisao_cliente_nome || 'Nome não informado'} · {portalDate(quote.decisao_cliente_em || null)}</span>{quote.decisao_cliente === 'recusado' && <p><b>Motivo:</b> {quote.decisao_cliente_motivo}</p>}</article>}
       <div className="portal-attachments"><p className="mono">DOCUMENTOS · VISIBILIDADE EXTERNA</p><small>Ligar publica o arquivo fora da empresa.</small>{attachments.length ? attachments.map(attachment => <div className="portal-anexo" key={attachment.id}><span>{attachment.nome_original}</span><b>{attachment.visivel_cliente ? 'Visível ao cliente' : 'Interno'}</b><Toggle checked={attachment.visivel_cliente} disabled={busy} ariaLabel={`Publicar ${attachment.nome_original} para o cliente`} onChange={() => void toggleAttachment(attachment)}/></div>) : <p>Nenhum anexo cadastrado.</p>}</div>
@@ -606,7 +660,7 @@ function QuotePortalModal({ quoteId, close }: { quoteId: number; close: () => vo
   </div></Modal>
 }
 
-function Builder() {
+function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
   const [clientsList, setClientsList] = useState<Client[]>([])
   const [productsList, setProductsList] = useState<Product[]>([])
   const [selectedClient, setSelectedClient] = useState<number | ''>('')
@@ -617,6 +671,12 @@ function Builder() {
   const [quoteId, setQuoteId] = useState<number | null>(null)
   const [itemModal, setItemModal] = useState<'catalog'|'free'|'project'|'project-validate'|null>(null)
   const [novoProduto, setNovoProduto] = useState('')
+  // Editando: enquanto o orçamento não carregar, salvar criaria um DUPLICADO em vez de atualizar.
+  const [carregouParaEditar, setCarregouParaEditar] = useState(false)
+  const [itemAberto, setItemAberto] = useState<string | null>(null)
+  const [subindoFoto, setSubindoFoto] = useState<string | null>(null)
+  const [arrastandoEm, setArrastandoEm] = useState<string | null>(null)
+  const [preservado, setPreservado] = useState<{ arquiteto_nome: string | null; arquiteto_contato: string | null; prazo_locacao_valor: number | null; prazo_locacao_unidade: string | null; projeto_id: number | null }>({ arquiteto_nome: null, arquiteto_contato: null, prazo_locacao_valor: null, prazo_locacao_unidade: null, projeto_id: null })
   const [projetosList, setProjetosList] = useState<Projeto[]>([])
   const [projectDraft, setProjectDraft] = useState<ProjetoDetail | null>(null)
   const [validationRows, setValidationRows] = useState<ValidationRow[]>([])
@@ -630,27 +690,72 @@ function Builder() {
     Promise.all([listClients(), listCatalogProducts()]).then(([clientData, productData]) => {
       if (!mounted) return
       setClientsList(clientData); setProductsList(productData)
-      if (clientData[0]) setSelectedClient(clientData[0].id)
-      setItems(productData.slice(0, 3).map((product, index) => ({ key: `product-${product.id}-${index}`, productId: product.id, name: product.nome, quantity: 1, unit: 'un.', unitPrice: product.preco_venda, isExternal: false, projetoItemId: null })))
+      // Orçamento novo começa vazio (o estado vazio guia a próxima ação); editando, quem manda é o backend.
+      if (!quoteIdRota && clientData[0]) setSelectedClient(clientData[0].id)
     }).catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar dados do orçamento.') }).finally(() => { if (mounted) setLoading(false) })
+    if (quoteIdRota) {
+      getQuote(quoteIdRota).then(quote => {
+        if (!mounted) return
+        setQuoteId(quote.id)
+        setSelectedClient(quote.cliente_id)
+        setQuoteType((quote.tipo_orcamento as 'Venda'|'Locacao'|'Producao') || 'Venda')
+        if (quote.condicoes_pagamento_selecionadas) setPayment(quote.condicoes_pagamento_selecionadas)
+        setItems(quote.itens.map(itemDaApi))
+        setPreservado({
+          arquiteto_nome: quote.arquiteto_nome ?? null, arquiteto_contato: quote.arquiteto_contato ?? null,
+          prazo_locacao_valor: quote.prazo_locacao_valor ?? null, prazo_locacao_unidade: quote.prazo_locacao_unidade ?? null,
+          projeto_id: quote.projeto_id ?? null,
+        })
+        setCarregouParaEditar(true)
+      }).catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar o orçamento para edição.') })
+    }
     listPaymentConditions().then(data => {
       if (!mounted) return
       const active = data.filter(condition => condition.ativo !== false)
       setPaymentOptions(active)
-      if (active[0]) setPayment(active[0].nome)
+      // Editando, a condição vem do orçamento: o primeiro da lista não pode atropelar o que veio do banco.
+      if (!quoteIdRota && active[0]) setPayment(active[0].nome)
     }).catch(() => undefined)
     listProjetos().then(data => { if (mounted) setProjetosList(data) }).catch(() => undefined)
     return () => { mounted = false }
-  }, [])
+  }, [quoteIdRota])
 
   const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
   const selectedClientName = clientsList.find(client => client.id === selectedClient)?.nome_fantasia || 'Cliente não selecionado'
+  const atualizaItem = (key: string, patch: Partial<BuilderItem>) =>
+    setItems(atual => atual.map(item => item.key === key ? { ...item, ...patch } : item))
+
+  /** Recusa antes de subir o que a rota recusaria depois (extensao e 10 MB). */
+  async function anexaFoto(key: string, file: File | null | undefined) {
+    if (!file) return
+    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
+    if (!UPLOAD_EXTENSOES.includes(ext)) { setError(`Foto precisa ser ${UPLOAD_EXTENSOES.join(', ')} \u2014 recebido "${ext || 'sem extensao'}".`); return }
+    if (file.size > UPLOAD_TAMANHO_MAXIMO) { setError(`Foto tem ${(file.size / 1024 / 1024).toFixed(1)} MB; o limite e 10 MB.`); return }
+    setSubindoFoto(key); setError('')
+    try { const { url } = await uploadArquivo(file); atualizaItem(key, { fotoExternaUrl: url }) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao enviar a foto.') }
+    finally { setSubindoFoto(null) }
+  }
+
   const payload = () => ({
     cliente_id: Number(selectedClient), tipo_orcamento: quoteType, condicoes_pagamento_selecionadas: payment,
-    projeto_id: projectDraft?.id ?? null,
-    itens: items.map(item => item.isExternal
-      ? { quantidade: item.quantity, preco_unitario_aplicado: item.unitPrice, is_externo: true, nome_externo: item.name, descricao_externa: 'Item livre do construtor', projeto_item_id: item.projetoItemId }
-      : { quantidade: item.quantity, preco_unitario_aplicado: item.unitPrice, produto_id: item.productId, projeto_item_id: item.projetoItemId }),
+    projeto_id: projectDraft?.id ?? preservado.projeto_id ?? null,
+    // Reenviados intactos: esta tela não os edita, e o PUT zeraria o que faltasse.
+    arquiteto_nome: preservado.arquiteto_nome, arquiteto_contato: preservado.arquiteto_contato,
+    prazo_locacao_valor: preservado.prazo_locacao_valor, prazo_locacao_unidade: preservado.prazo_locacao_unidade,
+    itens: items.map(item => ({
+      quantidade: item.quantity,
+      preco_unitario_aplicado: item.unitPrice,
+      local_instalacao: item.localInstalacao,
+      prazo_entrega_valor: item.prazoValor,
+      prazo_entrega_unidade: item.prazoUnidade,
+      projeto_item_id: item.projetoItemId,
+      ...(item.isExternal
+        ? { is_externo: true, nome_externo: item.name, descricao_externa: item.descricaoExterna,
+            fornecedor_externo: item.fornecedorExterno, foto_externa_url: item.fotoExternaUrl,
+            personalizacao_aplicada: item.personalizacao }
+        : { produto_id: item.productId }),
+    })),
   })
   const sortedProjects = [...projetosList].sort((a, b) => {
     const aMatch = selectedClient && a.cliente_id === selectedClient ? 0 : 1
@@ -681,6 +786,7 @@ function Builder() {
     const additions: BuilderItem[] = validationRows.filter(row => row.included).map(row => {
       const produto = row.matchedProductId ? productsList.find(p => p.id === row.matchedProductId) : undefined
       return {
+        ...itemVazio,
         key: `project-${row.projetoItemId}-${Date.now()}`,
         productId: row.matchedProductId,
         name: produto?.nome || row.nome,
@@ -699,6 +805,7 @@ function Builder() {
   async function saveQuote(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault(); setSaving(true); setError('')
     try {
+      if (quoteIdRota && !carregouParaEditar) throw new Error('O orçamento ainda não carregou; recarregue a página antes de salvar.')
       if (!selectedClient) throw new Error('Selecione um cliente antes de salvar.')
       if (!items.length) throw new Error('Adicione pelo menos um item ao orçamento.')
       const saved = quoteId ? await updateQuote(quoteId, payload()) : await createQuote(payload())
@@ -713,14 +820,50 @@ function Builder() {
 
   function addCatalogItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget); const product = productsList.find(item => item.id === Number(form.get('produto_id'))); if (!product) return
-    setItems(current => [...current, { key: `product-${product.id}-${Date.now()}`, productId: product.id, name: product.nome, quantity: Number(form.get('quantidade') || 1), unit: 'un.', unitPrice: product.preco_venda, isExternal: false, projetoItemId: null }]); setItemModal(null)
+    setItems(current => [...current, { key: `product-${product.id}-${Date.now()}`, productId: product.id, name: product.nome, quantity: Number(form.get('quantidade') || 1), unit: 'un.', unitPrice: product.preco_venda, isExternal: false, projetoItemId: null, ...itemVazio }]); setItemModal(null)
   }
 
   function addFreeItem(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); const form = new FormData(event.currentTarget); setItems(current => [...current, { key: `free-${Date.now()}`, productId: null, name: String(form.get('nome') || 'Item livre'), quantity: Number(form.get('quantidade') || 1), unit: String(form.get('unidade') || 'un.'), unitPrice: Math.round(Number(form.get('preco') || 0) * 100), isExternal: true, projetoItemId: null }]); setItemModal(null)
+    event.preventDefault(); const form = new FormData(event.currentTarget); setItems(current => [...current, { key: `free-${Date.now()}`, productId: null, name: String(form.get('nome') || 'Item livre'), quantity: Number(form.get('quantidade') || 1), unit: String(form.get('unidade') || 'un.'), unitPrice: Math.round(Number(form.get('preco') || 0) * 100), isExternal: true, projetoItemId: null, ...itemVazio }]); setItemModal(null)
   }
 
-  return <><PageHead eyebrow={quoteId ? `ORC-${String(quoteId).padStart(4, '0')} · RASCUNHO` : 'NOVO ORÇAMENTO · RASCUNHO'} title={`${selectedClientName} — orçamento`} actions={<><Badge>Gerando</Badge><Button variant="secondary" onClick={() => saveQuote()} loading={saving}>{saving ? 'Salvando…' : 'Salvar rascunho'}</Button><Button onClick={regeneratePdf}>Gerar PDF e enviar</Button></>} />{error && <p className="form-error" role="alert">{error}</p>}{loading ? <article className="card" style={{ padding: 20 }}><Skeleton rows={4} label="Carregando clientes e catálogo" /></article> : <form onSubmit={saveQuote}><div className="builder"><div><article className="card fields"><label>Cliente<Combobox ariaLabel="Cliente" placeholder="Selecione um cliente…" searchPlaceholder="Buscar cliente…" options={clientsList.map(client => ({ value: String(client.id), label: client.nome_fantasia, meta: client.cpf_cnpj || undefined }))} value={selectedClient === '' ? '' : String(selectedClient)} onChange={valor => setSelectedClient(valor ? Number(valor) : '')} /></label><label>Tipo de orçamento<Combobox ariaLabel="Tipo de orçamento" options={tipoOrcamentoOptions} value={quoteType} onChange={valor => setQuoteType(valor as 'Venda'|'Locacao'|'Producao')} /></label><label>Pagamento{paymentOptions.length ? <Combobox ariaLabel="Condição de pagamento" placeholder="Selecione uma condição…" searchPlaceholder="Buscar condição…" options={paymentOptions.map(option => ({ value: option.nome, label: option.nome }))} value={payment} onChange={setPayment} /> : <input value={payment} onChange={event => setPayment(event.target.value)} placeholder="40% entrada + 3x…"/>}</label></article><article className="card items"><div className="card-title"><h2>Itens <small>· {items.length}</small></h2><span><Button type="button" variant="secondary" onClick={() => { setNovoProduto(''); setItemModal('catalog') }}>Do catálogo</Button> <Button type="button" variant="secondary" onClick={() => setItemModal('free')}>+ Item livre</Button> <Button type="button" variant="secondary" onClick={() => setItemModal('project')}>Importar de um projeto</Button></span></div><div className="item-head mono"><span>DESCRIÇÃO</span><span>QTD / M²</span><span>UN.</span><span>UNITÁRIO</span><span>TOTAL</span></div>{items.map((item, index) => <div className={`item-row ${index === items.length - 1 ? 'editing' : ''}`} key={item.key}><div><b>{item.name}</b><small>{item.isExternal ? 'ITEM LIVRE · especificação do projeto' : `CAT-${String(item.productId).padStart(4, '0')} · catálogo`}</small></div><span>{item.quantity}</span><span>{item.unit}</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.unitPrice / 100)}</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.quantity * item.unitPrice / 100)}</span><button type="button" aria-label={`Remover ${item.name}`} onClick={() => setItems(current => current.filter(currentItem => currentItem.key !== item.key))}>×</button></div>)}{!items.length && <EmptyState title="Nenhum item no orçamento" description="Puxe do catálogo, crie um item livre ou importe de um projeto." action={<Button variant="secondary" onClick={() => { setNovoProduto(''); setItemModal('catalog') }}>Do catálogo</Button>} />}</article></div><aside><article className="card total-card"><p className="mono">TOTAL DA PROPOSTA</p><strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total / 100)}</strong><dl><dt>Itens</dt><dd>{items.length}</dd><dt>Cliente</dt><dd>{selectedClientName}</dd><dt>Tipo</dt><dd>{quoteType}</dd></dl></article><article className="card attachments"><p className="mono">ANEXOS</p><span>PDF gerado automaticamente ao salvar</span></article></aside></div></form>}{itemModal === 'catalog' && <Modal title="Adicionar do catálogo" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addCatalogItem}><label>Produto<Combobox name="produto_id" ariaLabel="Produto" placeholder="Selecione um produto…" searchPlaceholder="Buscar produto…" options={productsList.map(product => ({ value: String(product.id), label: product.nome, meta: product.material || undefined }))} value={novoProduto} onChange={setNovoProduto} /></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}{itemModal === 'free' && <Modal title="Adicionar item livre" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addFreeItem}><label>Descrição<input name="nome" required autoFocus placeholder="Bancada especial…"/></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><label>Unidade<input name="unidade" defaultValue="un." required/></label><label>Preço unitário<input name="preco" type="number" min="0" step="0.01" required placeholder="0,00"/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}
+  return <><PageHead eyebrow={quoteIdRota ? `ORC-${String(quoteIdRota).padStart(4, '0')} · EDIÇÃO` : quoteId ? `ORC-${String(quoteId).padStart(4, '0')} · RASCUNHO` : 'NOVO ORÇAMENTO · RASCUNHO'} title={`${selectedClientName} — orçamento`} actions={<><Badge>Gerando</Badge><Button variant="secondary" onClick={() => saveQuote()} loading={saving} disabled={Boolean(quoteIdRota) && !carregouParaEditar} title={quoteIdRota && !carregouParaEditar ? 'Aguardando o orçamento carregar.' : undefined}>{saving ? 'Salvando…' : quoteIdRota ? 'Salvar alterações' : 'Salvar rascunho'}</Button><Button onClick={regeneratePdf}>Gerar PDF e enviar</Button></>} />{error && <p className="form-error" role="alert">{error}</p>}{loading ? <article className="card" style={{ padding: 20 }}><Skeleton rows={4} label="Carregando clientes e catálogo" /></article> : <form onSubmit={saveQuote}><div className="builder"><div><article className="card fields"><label>Cliente<Combobox ariaLabel="Cliente" placeholder="Selecione um cliente…" searchPlaceholder="Buscar cliente…" options={clientsList.map(client => ({ value: String(client.id), label: client.nome_fantasia, meta: client.cpf_cnpj || undefined }))} value={selectedClient === '' ? '' : String(selectedClient)} onChange={valor => setSelectedClient(valor ? Number(valor) : '')} /></label><label>Tipo de orçamento<Combobox ariaLabel="Tipo de orçamento" options={tipoOrcamentoOptions} value={quoteType} onChange={valor => setQuoteType(valor as 'Venda'|'Locacao'|'Producao')} /></label><label>Pagamento{paymentOptions.length ? <Combobox ariaLabel="Condição de pagamento" placeholder="Selecione uma condição…" searchPlaceholder="Buscar condição…" options={paymentOptions.map(option => ({ value: option.nome, label: option.nome }))} value={payment} onChange={setPayment} /> : <input value={payment} onChange={event => setPayment(event.target.value)} placeholder="40% entrada + 3x…"/>}</label></article><article className="card items"><div className="card-title"><h2>Itens <small>· {items.length}</small></h2><span><Button type="button" variant="secondary" onClick={() => { setNovoProduto(''); setItemModal('catalog') }}>Do catálogo</Button> <Button type="button" variant="secondary" onClick={() => setItemModal('free')}>+ Item livre</Button> <Button type="button" variant="secondary" onClick={() => setItemModal('project')}>Importar de um projeto</Button></span></div><div className="item-head mono"><span>DESCRIÇÃO</span><span>QTD / M²</span><span>UN.</span><span>UNITÁRIO</span><span>TOTAL</span></div>{items.map(item => { const aberto = itemAberto === item.key; return <div key={item.key}>
+              <div className={`item-row ${aberto ? 'editing' : ''}`}>
+                <button type="button" className="item-abrir" aria-expanded={aberto} onClick={() => setItemAberto(atual => atual === item.key ? null : item.key)}>
+                  <b>{item.name}</b><small>{item.isExternal ? 'ITEM LIVRE · abrir detalhes' : `CAT-${String(item.productId).padStart(4, '0')} · catálogo`}</small>
+                </button>
+                <span>{item.quantity}</span><span>{item.unit}</span>
+                <span>{money(item.unitPrice)}</span><span>{money(item.quantity * item.unitPrice)}</span>
+                <button type="button" aria-label={`Remover ${item.name}`} onClick={() => { setItemAberto(atual => atual === item.key ? null : atual); setItems(current => current.filter(currentItem => currentItem.key !== item.key)) }}>×</button>
+              </div>
+              {aberto && <div className="item-detalhe">
+                <label>Quantidade<input type="number" min="1" step="1" value={item.quantity} onChange={event => atualizaItem(item.key, { quantity: Math.max(1, Number(event.target.value) || 1) })}/></label>
+                <label>Unidade<input value={item.unit} onChange={event => atualizaItem(item.key, { unit: event.target.value })}/></label>
+                <label>Preço unitário (R$)<input type="number" min="0" step="0.01" value={(item.unitPrice / 100).toFixed(2)} onChange={event => atualizaItem(item.key, { unitPrice: Math.round(Number(event.target.value || 0) * 100) })}/></label>
+                <label>Local de instalação<input value={item.localInstalacao || ''} placeholder="Sala de estar" onChange={event => atualizaItem(item.key, { localInstalacao: event.target.value || null })}/></label>
+                <label>Prazo de entrega<input type="number" min="0" step="1" value={item.prazoValor ?? ''} placeholder="0" onChange={event => atualizaItem(item.key, { prazoValor: event.target.value ? Number(event.target.value) : null })}/></label>
+                <label>Unidade do prazo<Combobox ariaLabel="Unidade do prazo" placeholder="Sem prazo" options={prazoOptions} value={item.prazoUnidade || ''} onChange={valor => atualizaItem(item.key, { prazoUnidade: valor || null })}/></label>
+                {item.isExternal && <>
+                  <label>Fornecedor<input value={item.fornecedorExterno || ''} placeholder="Atelie Luz" onChange={event => atualizaItem(item.key, { fornecedorExterno: event.target.value || null })}/></label>
+                  <label>Personalização<input value={item.personalizacao || ''} placeholder="Cabo textil 2 m" onChange={event => atualizaItem(item.key, { personalizacao: event.target.value || null })}/></label>
+                  <label className="item-detalhe-largo">Descrição<input value={item.descricaoExterna || ''} placeholder="Cupula de linho cru" onChange={event => atualizaItem(item.key, { descricaoExterna: event.target.value || null })}/></label>
+                  <div className="item-detalhe-largo">
+                    <span className="item-detalhe-rotulo">Foto do item</span>
+                    <div className={`dropzone${arrastandoEm === item.key ? ' sobre' : ''}`}
+                      onDragOver={event => { event.preventDefault(); setArrastandoEm(item.key) }}
+                      onDragLeave={() => setArrastandoEm(null)}
+                      onDrop={event => { event.preventDefault(); setArrastandoEm(null); void anexaFoto(item.key, event.dataTransfer.files?.[0]) }}>
+                      {item.fotoExternaUrl
+                        ? <><img src={quoteDownloadUrl(item.fotoExternaUrl)} alt={`Foto de ${item.name}`}/><button type="button" className="text-action" onClick={() => atualizaItem(item.key, { fotoExternaUrl: null })}>Remover foto</button></>
+                        : <p>{subindoFoto === item.key ? 'Enviando…' : 'Arraste a foto aqui'}</p>}
+                      <label className="dropzone-escolher">{item.fotoExternaUrl ? 'Trocar arquivo' : 'Escolher arquivo'}
+                        <input type="file" accept={UPLOAD_EXTENSOES.join(',')} onChange={event => { void anexaFoto(item.key, event.target.files?.[0]); event.target.value = '' }}/>
+                      </label>
+                    </div>
+                  </div>
+                </>}
+              </div>}
+            </div> })}{!items.length && <EmptyState title="Nenhum item no orçamento" description="Puxe do catálogo, crie um item livre ou importe de um projeto." action={<Button variant="secondary" onClick={() => { setNovoProduto(''); setItemModal('catalog') }}>Do catálogo</Button>} />}</article></div><aside><article className="card total-card"><p className="mono">TOTAL DA PROPOSTA</p><strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total / 100)}</strong><dl><dt>Itens</dt><dd>{items.length}</dd><dt>Cliente</dt><dd>{selectedClientName}</dd><dt>Tipo</dt><dd>{quoteType}</dd></dl></article><article className="card attachments"><p className="mono">ANEXOS</p><span>PDF gerado automaticamente ao salvar</span></article></aside></div></form>}{itemModal === 'catalog' && <Modal title="Adicionar do catálogo" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addCatalogItem}><label>Produto<Combobox name="produto_id" ariaLabel="Produto" placeholder="Selecione um produto…" searchPlaceholder="Buscar produto…" options={productsList.map(product => ({ value: String(product.id), label: product.nome, meta: product.material || undefined }))} value={novoProduto} onChange={setNovoProduto} /></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}{itemModal === 'free' && <Modal title="Adicionar item livre" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addFreeItem}><label>Descrição<input name="nome" required autoFocus placeholder="Bancada especial…"/></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><label>Unidade<input name="unidade" defaultValue="un." required/></label><label>Preço unitário<input name="preco" type="number" min="0" step="0.01" required placeholder="0,00"/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}
     {itemModal === 'project' && <Modal title="Importar de um projeto" close={() => setItemModal(null)}>
       <div className="modal-form" style={{ gridTemplateColumns: '1fr' }}>
         {projetosList.length ? <DataTable headers={['PROJETO', 'ORIGEM', 'CLIENTE', '#ITENS', '']} rows={sortedProjects.map(p => [
@@ -1210,6 +1353,47 @@ function Team() {
 </Modal>}{feedback&&<Feedback message={feedback} close={()=>setFeedback('')}/>}</>
 }
 
+/** Nome do escritorio exibido ao lado da marca. Gravar exige admin (o PUT recusa o resto). */
+function CoMarca() {
+  const [nome, setNome] = useState('')
+  const [inicial, setInicial] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+  const [feito, setFeito] = useState(false)
+
+  useEffect(() => {
+    let vivo = true
+    getOrcamentoConfig().then(config => {
+      if (!vivo) return
+      const atual = config.organizacao_nome || ''
+      setNome(atual); setInicial(atual)
+    }).catch(() => undefined)
+    return () => { vivo = false }
+  }, [])
+
+  async function salvar() {
+    setSalvando(true); setErro(''); setFeito(false)
+    try {
+      const config = await updateOrcamentoConfig({ organizacao_nome: nome.trim() || null })
+      const gravado = config.organizacao_nome || ''
+      setNome(gravado); setInicial(gravado); setFeito(true)
+    } catch (err) { setErro(err instanceof Error ? err.message : 'Falha ao salvar o nome.') }
+    finally { setSalvando(false) }
+  }
+
+  return <article className="card" style={{ padding: 20, marginTop: 14 }}>
+    <div className="card-title"><h2>Co-marca</h2><span className="mono">IDENTIDADE</span></div>
+    <p className="subtitle" style={{ marginBottom: 14 }}>O nome do escritório aparece ao lado da marca — na barra lateral, no portal do cliente e no PDF. Deixe vazio para exibir apenas ARC.</p>
+    <div className="comarca-editor">
+      <label>Nome do escritório<input value={nome} maxLength={40} placeholder="Stone" onChange={event => setNome(event.target.value)}/></label>
+      <div className="comarca-previa"><span className="item-detalhe-rotulo">Prévia</span><div className="logo" aria-hidden="true"><strong>ARC</strong>{nome.trim() && <em className="logo-cobranca"><i>•</i>{nome.trim()}</em>}</div></div>
+      <Button onClick={() => void salvar()} loading={salvando} disabled={nome.trim() === inicial.trim()}>Salvar nome</Button>
+    </div>
+    {erro && <p className="form-error" role="alert">{erro}</p>}
+    {feito && !erro && <p className="subtitle" role="status">Nome salvo. A barra lateral acompanha no próximo carregamento.</p>}
+  </article>
+}
+
 function Integrations() {
   const [items, setItems] = useState<ApiKey[]>([])
   const [open, setOpen] = useState(false)
@@ -1273,7 +1457,7 @@ function Integrations() {
       <footer><Button variant="secondary" onClick={copyKey}>{copied ? 'Copiado ✓' : 'Copiar'}</Button><Button onClick={() => setCreated(null)}>Concluir</Button></footer>
     </div></Modal>}
     {feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}
-  </>
+  <CoMarca/></>
 }
 
 const acaoTone: Record<string, string> = { CRIOU: 'success', EDITOU: 'info', DELETOU: 'danger', MUDOU_STATUS: 'warning', LOGIN: 'neutral' }
@@ -1523,8 +1707,8 @@ function Portal({ token }: { token: string }) {
     }
   }
 
-  if (loading) return <div className="portal"><header><Logo/><span>Portal de aprovações</span></header><main><section className="card empty-state"><p className="mono">PORTAL</p><h1>Carregando proposta…</h1></section></main></div>
-  if (error || !proposal) return <div className="portal"><header><Logo/><span>Portal de aprovações</span></header><main><section className="card empty-state"><p className="mono">LINK INDISPONÍVEL</p><h1>Este link expirou ou foi substituído.</h1><p>Peça um novo link ao seu arquiteto.</p></section></main></div>
+  if (loading) return <div className="portal"><header><Logo escritorio={proposal?.organizacao_nome}/><span>Portal de aprovações</span></header><main><section className="card empty-state"><p className="mono">PORTAL</p><h1>Carregando proposta…</h1></section></main></div>
+  if (error || !proposal) return <div className="portal"><header><Logo escritorio={proposal?.organizacao_nome}/><span>Portal de aprovações</span></header><main><section className="card empty-state"><p className="mono">LINK INDISPONÍVEL</p><h1>Este link expirou ou foi substituído.</h1><p>Peça um novo link ao seu arquiteto.</p></section></main></div>
 
   const moneyPortal = money
   const decided = Boolean(proposal.decisao_cliente)
@@ -1533,7 +1717,7 @@ function Portal({ token }: { token: string }) {
   const currentStep = decided ? 2 : proposal.status_publico === 'Aguardando sua aprovação' ? 1 : proposal.status_publico === 'Aprovada — produção liberada' ? 3 : 0
   const documentsVisible = proposal.tem_pdf_proposta || proposal.documentos.length > 0
 
-  return <div className="portal"><header><Logo/><span>Portal de aprovações</span><b>{proposal.cliente_nome}</b></header><main>
+  return <div className="portal"><header><Logo escritorio={proposal?.organizacao_nome}/><span>Portal de aprovações</span><b>{proposal.cliente_nome}</b></header><main>
     <PageHead eyebrow={`${proposal.numero_exibicao} · ${proposal.tipo_orcamento}`} title="Sua proposta" subtitle={proposal.data_entrega ? `Entrega prevista ${portalDate(proposal.data_entrega)}` : 'Confira os detalhes antes de decidir.'}/>
     <div className="portal-grid"><div>
       <article className="card proposal"><h2>O que está incluído</h2>{proposal.itens.map(item => <div key={`${item.nome}-${item.local_instalacao}`}><b>{item.nome}</b><span>{item.quantidade} {item.prazo_entrega_unidade || 'un.'}</span><em>{moneyPortal(item.subtotal)}</em></div>)}<footer>Total da proposta <strong>{moneyPortal(proposal.valor_total)}</strong></footer>{proposal.condicoes_pagamento && <p className="subtitle">Condições: {proposal.condicoes_pagamento}</p>}</article>
@@ -1645,6 +1829,7 @@ export default function App() {
   const go=(next:Route, id?: number)=>{ location.hash = id === undefined ? next : `${next}/${id}`; window.scrollTo(0,0) }
   const page = useMemo(() => {
     if (rota.nome === 'orcamento') return rota.id === undefined ? <Pipeline/> : <QuoteDetail quoteId={rota.id}/>
+    if (rota.nome === 'builder') return <Builder quoteId={rota.id}/>
     return ({ dashboard: <Dashboard/>, clients: <Clients/>, pipeline: <Pipeline/>, builder: <Builder/>, projects: <Projects/>, catalog: <Catalog/>, inventory: <Inventory/>, suppliers: <Suppliers/>, schedule: <Schedule/>, finance: <Finance/>, team: <Team/>, integrations: <Integrations/>, logs: <Logs/> } as Partial<Record<Route, ReactNode>>)[rota.nome]
   }, [rota.nome, rota.id])
   if(portalToken) return <Portal token={portalToken}/>

@@ -261,15 +261,13 @@ def atualizar_configuracao(config_in: schemas.OrcamentoConfigUpdate, db: Session
     if current_user.role != 'admin':
         raise HTTPException(status_code=403, detail="Apenas admin pode editar.")
     config = _get_or_create_config(db)
-    config.condicao_pagamento = config_in.condicao_pagamento
-    config.prazo_entrega = config_in.prazo_entrega
-    config.validade_orcamento = config_in.validade_orcamento
-    config.garantia_mobiliario = config_in.garantia_mobiliario
-    config.observacoes_extras = config_in.observacoes_extras
-    config.empresa1_nome = config_in.empresa1_nome
-    config.empresa1_cnpj = config_in.empresa1_cnpj
-    config.empresa2_nome = config_in.empresa2_nome
-    config.empresa2_cnpj = config_in.empresa2_cnpj
+    # Só grava o que veio no corpo: antes, salvar um campo apagava todos os outros
+    # (inclusive os CNPJs de faturamento). Enviar `null` explícito continua limpando.
+    enviados = config_in.model_dump(exclude_unset=True)
+    if 'organizacao_nome' in enviados:
+        enviados['organizacao_nome'] = (enviados['organizacao_nome'] or '').strip() or None
+    for campo, valor in enviados.items():
+        setattr(config, campo, valor)
     db.commit()
     db.refresh(config)
     return config

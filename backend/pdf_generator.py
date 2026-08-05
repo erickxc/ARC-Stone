@@ -93,16 +93,18 @@ def get_styles():
     return styles
 
 
-def build_header(styles):
-    """Constrói o cabeçalho do ARC com identidade e dados configuráveis."""
+def build_header(styles, config=None):
+    """Cabeçalho com a co-marca: ARC seguido do nome do escritório, quando configurado."""
     elements = []
-    
-    logo_element = Paragraph(
-        '<font size="28" color="#2E2C29"><b>ARC</b></font>',
-        styles['ArcTitle']
-    )
+    escritorio = ((config or {}).get('organizacao_nome') or '').strip()
 
-    company_name = os.getenv("COMPANY_NAME", "ARC ERP")
+    marca = '<font size="28" color="#2E2C29"><b>ARC</b></font>'
+    if escritorio:
+        marca += f'<font size="28" color="#8A857C"> • </font><font size="20" color="#6E6A63">{esc(escritorio)}</font>'
+    logo_element = Paragraph(marca, styles['ArcTitle'])
+
+    # Nome do banco manda; a variável de ambiente fica como retrocompatibilidade.
+    company_name = escritorio or os.getenv("COMPANY_NAME", "ARC ERP")
     company_contact = os.getenv("COMPANY_CONTACT", "ERP de interiores e arquitetura")
     company_address = os.getenv("COMPANY_ADDRESS", "")
     company_document = os.getenv("COMPANY_DOCUMENT", "")
@@ -475,7 +477,7 @@ def generate_orcamento_pdf(orcamento_data: dict) -> str:
     elements = []
     
     # 1. Header corporativo
-    elements.extend(build_header(styles))
+    elements.extend(build_header(styles, orcamento_data.get('config', {})))
     
     # 2. Dados do cliente
     elements.extend(build_client_section(orcamento_data, styles))

@@ -36,6 +36,7 @@ class Usuario(Base):
     totp_secret = Column(String, nullable=True)
     mfa_enabled = Column(Boolean, default=False)
     reset_token_version = Column(Integer, nullable=False, default=0)  # incrementa a cada uso do token de reset, invalidando os anteriores
+    sessao_token_version = Column(Integer, nullable=False, default=0)  # incrementa no logout e na troca de senha, invalidando os refresh tokens emitidos
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     clientes = relationship("Cliente", back_populates="vendedor")
@@ -224,6 +225,8 @@ class OrcamentoConfig(Base):
     empresa1_cnpj = Column(String, nullable=True)
     empresa2_nome = Column(String, nullable=True)
     empresa2_cnpj = Column(String, nullable=True)
+    # Co-marca: nome do escritorio exibido ao lado do ARC (lockup "ARC / Stone").
+    organizacao_nome = Column(String, nullable=True)
 
 class CondicaoPagamento(Base):
     __tablename__ = "condicoes_pagamento"

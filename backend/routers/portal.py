@@ -95,7 +95,13 @@ def _foto_publica(value: str | None) -> str | None:
     return None
 
 
-def _publicar_proposta(proposta: models.Orcamento) -> schemas.PortalPropostaOut:
+def _co_marca(db: Session) -> str | None:
+    """Nome do escritório exibido ao lado da marca no portal do cliente."""
+    config = db.query(models.OrcamentoConfig).first()
+    return (config.organizacao_nome or None) if config else None
+
+
+def _publicar_proposta(proposta: models.Orcamento, organizacao_nome: str | None = None) -> schemas.PortalPropostaOut:
     """Projeta o orçamento para o contrato público, omitindo campos internos."""
     itens = []
     for item in proposta.itens:
@@ -129,6 +135,7 @@ def _publicar_proposta(proposta: models.Orcamento) -> schemas.PortalPropostaOut:
         if anexo.visivel_cliente
     ]
     return schemas.PortalPropostaOut(
+        organizacao_nome=organizacao_nome,
         orcamento_id=proposta.id,
         numero_exibicao=f"ORC-{proposta.id:04d}",
         tipo_orcamento=proposta.tipo_orcamento,
@@ -166,7 +173,7 @@ def obter_proposta(
     db: Session = Depends(get_db),
 ):
     proposta = _carregar_proposta(db, proposta.id)
-    return _publicar_proposta(proposta)
+    return _publicar_proposta(proposta, _co_marca(db))
 
 
 @router.post("/decisao", response_model=schemas.PortalPropostaOut)
@@ -220,7 +227,7 @@ def registrar_decisao(
         # Notificação é secundária; a decisão persistida nunca deve ser desfeita.
         print(f"Erro ao notificar decisão do portal: {exc}")
 
-    return _publicar_proposta(_carregar_proposta(db, proposta.id))
+    return _publicar_proposta(_carregar_proposta(db, proposta.id), _co_marca(db))
 
 
 def _registrar_download(

@@ -190,6 +190,8 @@ def on_startup():
         conn.execute(text("ALTER TABLE orcamento_itens ADD COLUMN IF NOT EXISTS projeto_item_id INTEGER"))
         conn.execute(text("ALTER TABLE orcamento_anexos ADD COLUMN IF NOT EXISTS visivel_cliente BOOLEAN NOT NULL DEFAULT FALSE"))
         conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token_version INTEGER NOT NULL DEFAULT 0"))
+        conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS sessao_token_version INTEGER NOT NULL DEFAULT 0"))
+        conn.execute(text("ALTER TABLE orcamento_config ADD COLUMN IF NOT EXISTS organizacao_nome VARCHAR"))
         conn.execute(text("ALTER TABLE projetos ADD COLUMN IF NOT EXISTS origem_ref VARCHAR"))
         conn.execute(text("ALTER TABLE projetos ADD COLUMN IF NOT EXISTS origem_rev VARCHAR"))
         conn.execute(text("ALTER TABLE projetos ADD COLUMN IF NOT EXISTS origem_status VARCHAR"))
