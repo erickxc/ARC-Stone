@@ -31,9 +31,9 @@ STATUS_PUBLICO = {
 }
 
 
-def _carregar_proposta(db: Session, orcamento_id: int, bloquear: bool = False) -> models.Orcamento:
+def _carregar_proposta(db: Session, orcamento_id: int) -> models.Orcamento:
     """Carrega somente relações necessárias para montar a resposta pública."""
-    consulta = (
+    proposta = (
         db.query(models.Orcamento)
         .populate_existing()
         .options(
@@ -43,12 +43,25 @@ def _carregar_proposta(db: Session, orcamento_id: int, bloquear: bool = False) -
             selectinload(models.Orcamento.anexos),
         )
         .filter(models.Orcamento.id == orcamento_id)
+        .first()
     )
-    if bloquear:
-        # Duas abas podem decidir ao mesmo tempo; o lock torna a checagem abaixo
-        # atômica e impede dois AuditLogs/decisões para o mesmo orçamento.
-        consulta = consulta.with_for_update()
-    proposta = consulta.first()
+    if not proposta:
+        raise HTTPException(status_code=404, detail="Proposta não encontrada.")
+    return proposta
+
+
+def _travar_proposta(db: Session, orcamento_id: int) -> models.Orcamento:
+    """Trava apenas a linha do orçamento, sem eager loading.
+
+    O PostgreSQL recusa FOR UPDATE sobre o lado nulável de um outer join,
+    que é o que joinedload gera para as relações opcionais da proposta.
+    """
+    proposta = (
+        db.query(models.Orcamento)
+        .filter(models.Orcamento.id == orcamento_id)
+        .with_for_update()
+        .first()
+    )
     if not proposta:
         raise HTTPException(status_code=404, detail="Proposta não encontrada.")
     return proposta
@@ -164,7 +177,7 @@ def registrar_decisao(
     proposta: models.Orcamento = Depends(_proposta_autorizada),
     db: Session = Depends(get_db),
 ):
-    proposta = _carregar_proposta(db, proposta.id, bloquear=True)
+    proposta = _travar_proposta(db, proposta.id)
     if proposta.status not in ("Orçamento gerado", "Ajuste solicitado"):
         raise HTTPException(status_code=409, detail="Esta proposta não está aberta para decisão.")
     if proposta.decisao_cliente:
