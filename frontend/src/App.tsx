@@ -173,13 +173,13 @@ function Combobox({ options, value, onChange, placeholder = 'Selecionar…', sea
 type SidebarProps = { route: Route; go: (r: Route) => void; collapsed: boolean; setCollapsed: (v: boolean) => void; mobileOpen: boolean; closeMobile: () => void; escritorio?: string | null; tema: 'light' | 'dark'; alternarTema: () => void }
 
 function Sidebar(props: SidebarProps) {
-  const { route, go, collapsed, setCollapsed, mobileOpen, closeMobile, escritorio } = props
+  const { route, go, collapsed, setCollapsed, mobileOpen, closeMobile, escritorio, tema, alternarTema } = props
   const items: [Route, string, string, IconName][] = [
     ['dashboard', 'Dashboard', '', 'dashboard'], ['clients', 'Carteira de clientes', '', 'clients'], ['pipeline', 'Pipeline de vendas', '18', 'pipeline'], ['builder', 'Construtor de orçamento', '', 'builder'], ['projects', 'Projetos', '', 'projects'], ['catalog', 'Catálogo de produtos', '', 'catalog'], ['inventory', 'Controle de estoque', '7', 'inventory'], ['suppliers', 'Fornecedores', '', 'suppliers'], ['schedule', 'Calendário de entregas', '', 'schedule'], ['finance', 'Painel financeiro', '', 'finance'], ['team', 'Equipe', '', 'team'], ['integrations', 'Integrações', '', 'integrations'], ['logs', 'Logs de auditoria', '', 'logs'],
   ]
   const navigate = (next: Route) => { go(next); closeMobile() }
   return <><button className={`sidebar-scrim ${mobileOpen ? 'show' : ''}`} onClick={closeMobile} aria-label="Fechar menu lateral"/><aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
-    <div className="side-head"><Logo compact={collapsed} escritorio={escritorio} /><button className="mobile-close" onClick={closeMobile} aria-label="Fechar menu"><Icon name="close"/></button><button className="collapse" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}>«</button></div>
+    <div className="side-head"><Logo compact={collapsed} escritorio={escritorio} /><button className="mobile-close" onClick={closeMobile} aria-label="Fechar menu"><Icon name="close"/></button><button className="collapse" onClick={alternarTema} aria-label={tema === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}>{tema === 'dark' ? '☀' : '☾'}</button><button className="collapse" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}>«</button></div>
     <Button onClick={() => navigate('builder')}>{collapsed ? '+' : '+ Novo orçamento'}</Button>
     <nav>
       {items.map(([key, label, count, itemIcon], index) => <div key={key}>

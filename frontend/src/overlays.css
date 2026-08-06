@@ -1,5 +1,5 @@
 .modal-backdrop{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:20px;background:rgba(46,44,41,.45);backdrop-filter:blur(2px)}
-.modal{width:min(100%,560px);background:var(--surface);border-radius:16px;box-shadow:0 24px 60px -16px rgba(46,44,41,.28)}
+.modal{width:min(100%,560px);background:var(--surface-modal);border-radius:16px;box-shadow:var(--sh-modal)}
 .modal>header{display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid var(--line)}
 .modal>header h2{font-size:20px}.modal>header button{width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink2);font-size:20px}
 .modal-form{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:22px}.modal-form label{font-size:12px;font-weight:500}
@@ -16,7 +16,7 @@
 /* ==== Gaveta lateral (formulário longo) ====
    Entra pela direita, altura cheia, rola sozinha. No celular ocupa a largura toda. */
 .drawer-backdrop{place-items:stretch;justify-items:end;padding:0}
-.drawer{display:flex;flex-direction:column;width:min(100%,420px);max-height:100dvh;background:var(--surface);box-shadow:-16px 0 40px -12px rgba(46,44,41,.28);animation:entrandoDaDireita .22s ease}
+.drawer{display:flex;flex-direction:column;width:min(100%,420px);max-height:100dvh;background:var(--surface-modal);box-shadow:-16px 0 40px -12px rgba(46,44,41,.28);animation:entrandoDaDireita .22s ease}
 .drawer>header{display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid var(--line);flex:0 0 auto}
 .drawer>header h2{font-size:20px}
 .drawer>header button{width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink2);font-size:20px}
@@ -24,3 +24,11 @@
 @keyframes entrandoDaDireita{from{transform:translateX(100%)}}
 @media(prefers-reduced-motion:reduce){.drawer{animation:none}}
 @media(max-width:560px){.drawer{width:100%}}
+
+/* ==== Tema escuro ====
+   O toast usava var(--ink) como fundo: no escuro esse token vira claro e o texto branco some.
+   Elevação no escuro sobe clareando a superfície, não escurecendo. */
+[data-theme="dark"] .modal>header button,[data-theme="dark"] .drawer>header button{background:var(--surface2)}
+[data-theme="dark"] .toast{background:var(--surface2);color:var(--ink)}
+[data-theme="dark"] .toast button{color:var(--ink3)}
+[data-theme="dark"] .drawer{box-shadow:-16px 0 40px -12px rgba(0,0,0,.6)}
