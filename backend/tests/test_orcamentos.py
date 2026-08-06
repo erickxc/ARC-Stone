@@ -147,3 +147,113 @@ def test_aprovar_com_estoque_suficiente_retem_a_quantidade_certa(client, make_us
 
     db_session.refresh(produto)
     assert produto.quantidade_retida == 3
+
+
+def _criar_orcamento(client, cliente, tipo="Venda"):
+    resp = client.post("/orcamentos/", json={"cliente_id": cliente.id, "tipo_orcamento": tipo, "itens": []})
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
+
+
+def test_excluir_orcamento_de_outro_vendedor_negado(client, make_user, make_client):
+    dono = make_user(role="vendedor")
+    outro = make_user(role="vendedor")
+    cliente = make_client(dono)
+    _login(client, dono)
+    orcamento_id = _criar_orcamento(client, cliente)
+
+    _login(client, outro)
+    resp = client.delete(f"/orcamentos/{orcamento_id}")
+    assert resp.status_code == 403
+
+    # Continua existindo para o dono: a recusa nao pode ter apagado nada pelo caminho.
+    _login(client, dono)
+    assert client.get(f"/orcamentos/{orcamento_id}").status_code == 200
+
+
+def test_vendedor_dono_exclui_o_proprio_orcamento(client, make_user, make_client):
+    dono = make_user(role="vendedor")
+    cliente = make_client(dono)
+    _login(client, dono)
+    orcamento_id = _criar_orcamento(client, cliente)
+
+    assert client.delete(f"/orcamentos/{orcamento_id}").status_code == 204
+    assert client.get(f"/orcamentos/{orcamento_id}").status_code == 404
+
+
+def test_admin_exclui_orcamento_de_outro_vendedor(client, make_user, make_client):
+    dono = make_user(role="vendedor")
+    admin = make_user(role="admin")
+    cliente = make_client(dono)
+    _login(client, dono)
+    orcamento_id = _criar_orcamento(client, cliente)
+
+    _login(client, admin)
+    assert client.delete(f"/orcamentos/{orcamento_id}").status_code == 204
+
+
+def test_renovar_orcamento_de_venda_recusado(client, make_user, make_client):
+    vendedor = make_user(role="vendedor")
+    cliente = make_client(vendedor)
+    _login(client, vendedor)
+    orcamento_id = _criar_orcamento(client, cliente, tipo="Venda")
+
+    resp = client.post(f"/orcamentos/{orcamento_id}/renovar", json={"prazo_valor": 1, "prazo_unidade": "meses"})
+    assert resp.status_code == 400
+    assert "locacao" in resp.json()["detail"].lower() or "locação" in resp.json()["detail"].lower()
+
+
+def test_renovar_locacao_sem_data_fim_recusado(client, make_user, make_client):
+    """Locacao ainda nao aprovada nao tem data_fim_locacao: renovar nao pode inventar uma."""
+    vendedor = make_user(role="vendedor")
+    cliente = make_client(vendedor)
+    _login(client, vendedor)
+    orcamento_id = _criar_orcamento(client, cliente, tipo="Locacao")
+
+    resp = client.post(f"/orcamentos/{orcamento_id}/renovar", json={"prazo_valor": 1, "prazo_unidade": "meses"})
+    assert resp.status_code == 400
+
+
+def test_renovar_orcamento_de_outro_vendedor_negado(client, make_user, make_client):
+    dono = make_user(role="vendedor")
+    outro = make_user(role="vendedor")
+    cliente = make_client(dono)
+    _login(client, dono)
+    orcamento_id = _criar_orcamento(client, cliente, tipo="Locacao")
+
+    _login(client, outro)
+    resp = client.post(f"/orcamentos/{orcamento_id}/renovar", json={"prazo_valor": 1, "prazo_unidade": "meses"})
+    assert resp.status_code == 403
+
+
+def test_condicao_pagamento_vendedor_nao_gerencia(client, make_user):
+    vendedor = make_user(role="vendedor")
+    _login(client, vendedor)
+
+    assert client.post("/orcamentos/condicoes-pagamento", json={"nome": "Teste"}).status_code == 403
+    assert client.patch("/orcamentos/condicoes-pagamento/1", json={"ativo": False}).status_code == 403
+    assert client.delete("/orcamentos/condicoes-pagamento/1").status_code == 403
+
+
+def test_condicao_pagamento_admin_cria_desativa_e_exclui(client, make_user):
+    admin = make_user(role="admin")
+    _login(client, admin)
+
+    criada = client.post("/orcamentos/condicoes-pagamento", json={"nome": "3x sem juros (teste)"})
+    assert criada.status_code == 200, criada.text
+    condicao_id = criada.json()["id"]
+    assert criada.json()["ativo"] is True
+
+    desativada = client.patch(f"/orcamentos/condicoes-pagamento/{condicao_id}", json={"ativo": False})
+    assert desativada.status_code == 200
+    assert desativada.json()["ativo"] is False
+
+    assert client.delete(f"/orcamentos/condicoes-pagamento/{condicao_id}").status_code == 204
+    restantes = [item["id"] for item in client.get("/orcamentos/condicoes-pagamento").json()]
+    assert condicao_id not in restantes
+
+
+def test_resetar_config_exige_admin(client, make_user):
+    vendedor = make_user(role="vendedor")
+    _login(client, vendedor)
+    assert client.post("/orcamentos/config/reset").status_code == 403

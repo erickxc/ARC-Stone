@@ -243,3 +243,26 @@ p.empty-state{display:block;padding:22px 16px;color:var(--ink2);font-size:15px;t
 [data-theme="dark"] .collapse,[data-theme="dark"] .mobile-close{border-color:var(--line-strong)}
 /* Regra 06 do tema escuro: imagem e render não estouram sobre fundo escuro. */
 [data-theme="dark"] img,[data-theme="dark"] .material-swatch{filter:brightness(.92)}
+
+/* ==== Botão de confirmação por pressão ====
+   A barra vive dentro do próprio botão e enche enquanto o usuário segura; soltar zera.
+   O preenchimento usa currentColor porque a tinta do botao ja e a cor certa nos dois temas —
+   vermelho escuro no claro, salmao no escuro — sem precisar de override de tema. */
+.hold-button{position:relative;overflow:hidden;user-select:none;touch-action:none}
+.hold-button>span{position:relative;z-index:1}
+.hold-trilha{position:absolute;inset:0;z-index:0;transform:scaleX(0);transform-origin:left center;background:currentColor;opacity:.26;pointer-events:none}
+.hold-button.segurando>.hold-trilha{opacity:.42}
+/* Sem transicao no transform: quem anima e o requestAnimationFrame, quadro a quadro. */
+.hold-button.compacto{height:36px;padding:0 14px;font-size:13px}
+@media(max-width:760px){.hold-button.compacto{height:40px}}
+/* Renovacao de locacao: prazo e unidade lado a lado, na largura do cartao lateral. */
+.renovacao-campos{display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px;align-items:center}
+.renovacao-campos input{height:36px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:0 8px;color:var(--ink);font:inherit}
+.renovacao-campos .combobox-gatilho,.renovacao-campos .combobox-busca{height:36px}
+/* Cartao de acao destrutiva: a borda avisa antes de o usuario chegar no botao. */
+.zona-risco{border-color:var(--danger-soft-bg)}
+.zona-risco .mono,.zona-risco .card-title>span{color:var(--danger-soft-ink)}
+/* Campo de nova condicao de pagamento, no rodape da tabela. */
+.condicao-nova{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:14px 16px;border-top:1px solid var(--line)}
+.condicao-nova input{height:44px;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:0 14px;color:var(--ink);font:inherit}
+@media(max-width:600px){.condicao-nova{grid-template-columns:1fr}}

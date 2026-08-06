@@ -147,6 +147,7 @@ export interface QuoteDetail extends Quote {
   arquiteto_contato?: string | null
   prazo_locacao_valor?: number | null
   prazo_locacao_unidade?: string | null
+  data_fim_locacao?: string | null
   projeto_id?: number | null
 }
 
@@ -500,12 +501,41 @@ export function updateQuoteStatus(id: number, status: string, cnpjFaturamento?: 
   return request<Quote>(`/orcamentos/${id}/status?${params.toString()}`, { method: 'PUT' })
 }
 
+export function deleteQuote(id: number) {
+  return request<void>(`/orcamentos/${id}`, { method: 'DELETE' })
+}
+
+/** Estende `data_fim_locacao`. Só vale para Locacao/Producao já aprovada (a rota recusa o resto). */
+export function renovarLocacao(id: number, prazoValor: number, prazoUnidade: 'dias' | 'meses') {
+  return request<QuoteDetail>(`/orcamentos/${id}/renovar`, {
+    method: 'POST',
+    body: JSON.stringify({ prazo_valor: prazoValor, prazo_unidade: prazoUnidade }),
+  })
+}
+
 export function getOrcamentoConfig() {
   return request<OrcamentoConfig>('/orcamentos/config')
 }
 
+/** Restaura os textos padrão do orçamento e apaga os CNPJs de faturamento. Exige admin. */
+export function resetOrcamentoConfig() {
+  return request<OrcamentoConfig>('/orcamentos/config/reset', { method: 'POST' })
+}
+
 export function listPaymentConditions() {
   return request<PaymentCondition[]>('/orcamentos/condicoes-pagamento')
+}
+
+export function createPaymentCondition(nome: string) {
+  return request<PaymentCondition>('/orcamentos/condicoes-pagamento', { method: 'POST', body: JSON.stringify({ nome }) })
+}
+
+export function updatePaymentCondition(id: number, input: { nome?: string; ativo?: boolean }) {
+  return request<PaymentCondition>(`/orcamentos/condicoes-pagamento/${id}`, { method: 'PATCH', body: JSON.stringify(input) })
+}
+
+export function deletePaymentCondition(id: number) {
+  return request<void>(`/orcamentos/condicoes-pagamento/${id}`, { method: 'DELETE' })
 }
 
 export function createCatalogProduct(input: { nome: string; tipo: string; material?: string; preco_venda: number }) {

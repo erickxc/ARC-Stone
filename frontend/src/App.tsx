@@ -1,6 +1,6 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, createApiKey, createCatalogProduct, createClient, createLancamento, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteProjeto, deleteSupplier, disableMfa, enableMfa, encerrarSessao, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getClient, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuoteAttachments, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetPassword, revogarPortalLink, revokeApiKey, updateOrcamentoConfig, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, uploadArquivo, UPLOAD_EXTENSOES, UPLOAD_TAMANHO_MAXIMO, verifyMfa } from './api'
+import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, createApiKey, createCatalogProduct, createClient, createLancamento, createPaymentCondition, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deletePaymentCondition, deleteProjeto, deleteQuote, deleteSupplier, disableMfa, enableMfa, encerrarSessao, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getClient, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuoteAttachments, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, renovarLocacao, resetOrcamentoConfig, resetPassword, revogarPortalLink, revokeApiKey, updateOrcamentoConfig, updatePaymentCondition, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, uploadArquivo, UPLOAD_EXTENSOES, UPLOAD_TAMANHO_MAXIMO, verifyMfa } from './api'
 import type { ApiKey, ApiKeyCreated, AuditLog, AuditLogEntry, CalendarEvent, Client, ClientInput, FinanceiroResumo, FluxoMensalItem, Lancamento, OrcamentoAnexo, OrcamentoConfig, PaymentCondition, PortalLink, PortalProposta, Product, Projeto, ProjetoDetail, Quote, QuoteDetail as QuoteData, QuoteItem, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
 import { money } from './data'
 import type { Status } from './data'
@@ -54,6 +54,59 @@ function Badge({ children, tone }: { children: ReactNode; tone?: string }) {
 
 function Button({ children, variant = 'primary', onClick, type = 'button', disabled = false, loading = false, title }: { children: ReactNode; variant?: string; onClick?: () => void; type?: 'button' | 'submit'; disabled?: boolean; loading?: boolean; title?: string }) {
   return <button className={`button ${variant}${loading ? ' loading' : ''}`} onClick={onClick} type={type} disabled={disabled || loading} aria-busy={loading || undefined} title={title}>{children}</button>
+}
+
+/**
+ * Confirmação por pressão contínua, para ação destrutiva que não deve depender de `confirm()`.
+ * Clique curto não faz nada: a ação só dispara quando a barra interna termina de encher, e
+ * soltar antes zera o progresso. O teclado segura com Espaço/Enter, senão a ação ficaria
+ * inalcançável sem ponteiro.
+ */
+function HoldButton({ children, onConfirm, duracaoMs = 1500, variant = 'danger', disabled = false, rotuloSegurando = 'Segure para confirmar…', compacto = false, title }: { children: ReactNode; onConfirm: () => void; duracaoMs?: number; variant?: string; disabled?: boolean; rotuloSegurando?: string; compacto?: boolean; title?: string }) {
+  const [progresso, setProgresso] = useState(0)
+  const segurando = useRef(false)
+  const quadro = useRef<number | null>(null)
+  const disparou = useRef(false)
+
+  const parar = useCallback(() => {
+    segurando.current = false
+    if (quadro.current !== null) cancelAnimationFrame(quadro.current)
+    quadro.current = null
+    setProgresso(0)
+  }, [])
+
+  // Sair da tela no meio da pressão deixaria um requestAnimationFrame vivo mexendo em estado morto.
+  useEffect(() => parar, [parar])
+
+  function iniciar() {
+    if (disabled || segurando.current) return
+    segurando.current = true
+    disparou.current = false
+    const inicio = performance.now()
+    const passo = (agora: number) => {
+      if (!segurando.current) return
+      const fracao = Math.min(1, (agora - inicio) / duracaoMs)
+      setProgresso(fracao)
+      if (fracao >= 1) {
+        // Guarda contra disparo duplo: o quadro final pode chegar junto do pointerup.
+        if (!disparou.current) { disparou.current = true; parar(); onConfirm() }
+        return
+      }
+      quadro.current = requestAnimationFrame(passo)
+    }
+    quadro.current = requestAnimationFrame(passo)
+  }
+
+  const ativo = progresso > 0
+  return <button type="button" disabled={disabled} title={title}
+    className={`button ${variant} hold-button${compacto ? ' compacto' : ''}${ativo ? ' segurando' : ''}`}
+    onPointerDown={iniciar} onPointerUp={parar} onPointerLeave={parar} onPointerCancel={parar}
+    onKeyDown={event => { if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) { event.preventDefault(); iniciar() } }}
+    onKeyUp={event => { if (event.key === ' ' || event.key === 'Enter') parar() }}
+    onContextMenu={event => event.preventDefault()}>
+    <i className="hold-trilha" style={{ transform: `scaleX(${progresso})` }} aria-hidden="true" />
+    <span>{ativo ? rotuloSegurando : children}</span>
+  </button>
 }
 
 /** Estado vazio do design system: marca, título, descrição e uma ação de saída. */
@@ -224,6 +277,8 @@ function Kpi({ label, value, note, dark }: { label: string; value: string; note:
 const statusValues: [Status, number, number][] = [['Gerando', 14, 22], ['Planejando', 26, 41], ['Enviado', 43, 68], ['Ajuste', 8, 30], ['Aprovado', 34, 53], ['Perdido', 11, 17]]
 const tipoOrcamentoOptions: ComboOption[] = [{ value: 'Venda', label: 'Venda' }, { value: 'Locacao', label: 'Locação' }, { value: 'Producao', label: 'Produção' }]
 const prazoOptions: ComboOption[] = [{ value: '', label: 'Sem prazo' }, { value: 'dias', label: 'dias' }, { value: 'meses', label: 'meses' }]
+// Renovar sempre estende: "Sem prazo" não é opção aqui, ao contrário do cadastro do orçamento.
+const renovacaoOptions: ComboOption[] = [{ value: 'dias', label: 'dias' }, { value: 'meses', label: 'meses' }]
 const perfilOptions: ComboOption[] = [{ value: 'vendedor', label: 'Vendedor' }, { value: 'estoquista', label: 'Estoquista' }, { value: 'admin', label: 'Admin' }]
 const statusOptions: ComboOption[] = statusValues.map(([status]) => ({ value: status, label: status }))
 function StatusBars({ rows = statusValues }: { rows?: [Status, number, number][] }) { return <div className="status-bars">{rows.map(([s, n, w]) => <div key={s}><span>{s}</span><i><b className={s.toLowerCase()} style={{ width: `${w}%` }} /></i><em>{n}</em></div>)}</div> }
@@ -524,6 +579,8 @@ function QuoteDetail({ quoteId }: { quoteId: number }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')
+  const [prazoRenovacao, setPrazoRenovacao] = useState('1')
+  const [unidadeRenovacao, setUnidadeRenovacao] = useState<'dias' | 'meses'>('meses')
 
   useEffect(() => {
     let mounted = true
@@ -594,6 +651,26 @@ function QuoteDetail({ quoteId }: { quoteId: number }) {
     catch { setError('Não foi possível copiar o link.') }
   }
 
+  async function renovar() {
+    const valor = Number(prazoRenovacao)
+    if (!Number.isInteger(valor) || valor < 1) { setError('Informe um prazo inteiro de no mínimo 1.'); return }
+    setBusy(true); setError('')
+    try {
+      setQuote(await renovarLocacao(quoteId, valor, unidadeRenovacao))
+      setHistory(await getQuoteHistory(quoteId))
+      setFeedback(`Locação estendida em ${valor} ${unidadeRenovacao}.`)
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao renovar a locação.') }
+    finally { setBusy(false) }
+  }
+
+  // Sem `finally`: em caso de sucesso a tela é trocada, e destravar o botão antes disso
+  // deixaria a exclusão clicável de novo sobre um orçamento que já não existe.
+  async function excluirOrcamento() {
+    setBusy(true); setError('')
+    try { await deleteQuote(quoteId); location.hash = 'pipeline' }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao excluir o orçamento.'); setBusy(false) }
+  }
+
   if (loading) return <article className="card" style={{ padding: 20 }}><Skeleton rows={5} label="Carregando orçamento" /></article>
   if (!quote) return <article className="card empty-state"><p>{error || 'Orçamento não encontrado.'}</p><Button variant="secondary" onClick={() => { location.hash = 'pipeline' }}>Voltar ao pipeline</Button></article>
 
@@ -618,6 +695,20 @@ function QuoteDetail({ quoteId }: { quoteId: number }) {
         <article className="card documents"><div className="card-title"><h2>Anexos</h2><span className="mono">{attachments.length}</span></div>{attachments.length ? attachments.map(attachment => <div className="quote-attachment" key={attachment.id}><a href={quoteDownloadUrl(attachment.url)} download>{attachment.nome_original}</a><small>{portalBytes(attachment.tamanho)} · {attachment.visivel_cliente ? 'Visível ao cliente' : 'Interno'}</small><Toggle checked={attachment.visivel_cliente} disabled={busy} label="Visível ao cliente" onChange={() => void toggleAttachment(attachment)}/></div>) : <p className="empty-state">Nenhum anexo cadastrado.</p>}{quote.anexo_url && <a className="text-action" href={quoteDownloadUrl(quote.anexo_url)} download>Baixar PDF da proposta</a>}</article>
         {quote.decisao_cliente && <article className="card decision quote-decision"><p className="mono">DECISÃO DO CLIENTE</p><strong>{quote.decisao_cliente === 'aprovado' ? 'Aprovou a proposta' : 'Pediu ajuste'}</strong><span>{quote.decisao_cliente_nome || 'Nome não informado'} · {portalDate(quote.decisao_cliente_em || null)}</span>{quote.decisao_cliente === 'recusado' && <p><b>Motivo:</b> {quote.decisao_cliente_motivo || 'Não informado'}</p>}</article>}
         <article className="card portal-detail-card"><p className="mono">PORTAL DO CLIENTE</p><p>Gerar um link novo invalida o anterior.</p>{link ? <><input readOnly value={link.url} aria-label="URL completa do portal"/><button className="text-action" onClick={() => void copyLink()}>Copiar URL</button><small>Enviado para {link.enviado_para} · expira em {portalDate(link.expira_em)}</small><Button variant="secondary" onClick={() => void revokePortalLink()} loading={busy}>Revogar link</Button></> : <><Button onClick={() => void sendPortalLink()} disabled={Boolean(motivoSemPortal(quote))} loading={busy}>Enviar link ao cliente</Button>{motivoSemPortal(quote) && <small className="portal-bloqueio">{motivoSemPortal(quote)}</small>}</>}</article>
+        {['Locacao', 'Producao'].includes(quote.tipo_orcamento) && <article className="card portal-detail-card"><p className="mono">RENOVAÇÃO</p>
+          {quote.data_fim_locacao ? <>
+            <p>Fim atual em <b>{portalDate(quote.data_fim_locacao)}</b>. O prazo abaixo é somado a essa data.</p>
+            <div className="renovacao-campos">
+              <input type="number" min={1} step={1} value={prazoRenovacao} onChange={event => setPrazoRenovacao(event.target.value)} aria-label="Prazo da renovação"/>
+              <Combobox ariaLabel="Unidade do prazo" options={renovacaoOptions} value={unidadeRenovacao} onChange={valor => setUnidadeRenovacao(valor as 'dias' | 'meses')}/>
+            </div>
+            <Button variant="secondary" onClick={() => void renovar()} loading={busy}>Estender prazo</Button>
+          </> : <small>A renovação abre depois da aprovação, quando a data de fim passa a existir.</small>}
+        </article>}
+        <article className="card portal-detail-card zona-risco"><p className="mono">ZONA DE RISCO</p>
+          <p>Excluir apaga os itens e os anexos deste orçamento. Lançamentos financeiros já gerados ficam no histórico, mas perdem o vínculo. Não há como desfazer.</p>
+          <HoldButton onConfirm={() => void excluirOrcamento()} disabled={busy} rotuloSegurando="Segure para excluir…">Excluir orçamento</HoldButton>
+        </article>
       </aside>
     </div>
     {approvalModal}
@@ -1463,6 +1554,90 @@ function CoMarca() {
   </article>
 }
 
+/**
+ * Condições de pagamento oferecidas no construtor de orçamento. Gravar exige admin — a rota
+ * recusa o resto com 403, e o erro aparece na própria tela em vez de sumir.
+ */
+function CondicoesPagamento() {
+  const [itens, setItens] = useState<PaymentCondition[]>([])
+  const [nova, setNova] = useState('')
+  const [carregando, setCarregando] = useState(true)
+  const [ocupado, setOcupado] = useState(false)
+  const [erro, setErro] = useState('')
+
+  useEffect(() => {
+    let vivo = true
+    listPaymentConditions()
+      .then(data => { if (vivo) setItens(data) })
+      .catch(err => { if (vivo) setErro(err instanceof Error ? err.message : 'Falha ao carregar as condições.') })
+      .finally(() => { if (vivo) setCarregando(false) })
+    return () => { vivo = false }
+  }, [])
+
+  async function adicionar(event: FormEvent) {
+    event.preventDefault()
+    const nome = nova.trim()
+    if (!nome) return
+    setOcupado(true); setErro('')
+    try { const criada = await createPaymentCondition(nome); setItens(atual => [...atual, criada]); setNova('') }
+    catch (err) { setErro(err instanceof Error ? err.message : 'Falha ao criar a condição.') }
+    finally { setOcupado(false) }
+  }
+
+  async function alternar(condicao: PaymentCondition) {
+    setOcupado(true); setErro('')
+    try {
+      const salva = await updatePaymentCondition(condicao.id, { ativo: !(condicao.ativo ?? true) })
+      setItens(atual => atual.map(item => item.id === salva.id ? salva : item))
+    } catch (err) { setErro(err instanceof Error ? err.message : 'Falha ao alterar a condição.') }
+    finally { setOcupado(false) }
+  }
+
+  async function excluir(condicao: PaymentCondition) {
+    setOcupado(true); setErro('')
+    try { await deletePaymentCondition(condicao.id); setItens(atual => atual.filter(item => item.id !== condicao.id)) }
+    catch (err) { setErro(err instanceof Error ? err.message : 'Falha ao excluir a condição.') }
+    finally { setOcupado(false) }
+  }
+
+  return <article className="card list-card" style={{ marginTop: 14 }}>
+    <div className="card-title"><h2>Condições de pagamento</h2><Badge>{itens.length} condição(ões)</Badge></div>
+    <p className="subtitle" style={{ padding: '0 16px 12px' }}>Aparecem no construtor de orçamento. Desligar esconde da lista sem apagar o histórico de quem já usou.</p>
+    {erro && <p className="form-error" role="alert" style={{ padding: '0 16px' }}>{erro}</p>}
+    {carregando ? <Skeleton rows={3} label="Carregando condições" /> : itens.length ? <DataTable headers={['NOME', 'STATUS', 'AÇÕES']} rows={itens.map(condicao => [
+      <b>{condicao.nome}</b>,
+      <Toggle checked={condicao.ativo ?? true} disabled={ocupado} ariaLabel={`Condição ${condicao.nome} ativa`} label={(condicao.ativo ?? true) ? 'Ativa' : 'Inativa'} onChange={() => void alternar(condicao)} />,
+      <HoldButton compacto disabled={ocupado} onConfirm={() => void excluir(condicao)} rotuloSegurando="Segure…">Excluir</HoldButton>,
+    ])} /> : <EmptyState title="Nenhuma condição cadastrada" description="Sem condição ativa o construtor de orçamento fica sem opção de pagamento." />}
+    <form className="condicao-nova" onSubmit={adicionar}>
+      <input value={nova} maxLength={120} placeholder="5% à vista OU 3x sem juros" aria-label="Nova condição de pagamento" onChange={event => setNova(event.target.value)} />
+      <Button type="submit" loading={ocupado} disabled={!nova.trim()}>Adicionar</Button>
+    </form>
+  </article>
+}
+
+/** Restaura os textos padrão da proposta. Some com os CNPJs de faturamento — daí a pressão. */
+function ResetConfiguracao() {
+  const [ocupado, setOcupado] = useState(false)
+  const [erro, setErro] = useState('')
+  const [feito, setFeito] = useState(false)
+
+  async function resetar() {
+    setOcupado(true); setErro(''); setFeito(false)
+    try { await resetOrcamentoConfig(); setFeito(true) }
+    catch (err) { setErro(err instanceof Error ? err.message : 'Falha ao restaurar a configuração.') }
+    finally { setOcupado(false) }
+  }
+
+  return <article className="card zona-risco" style={{ padding: 20, marginTop: 14 }}>
+    <div className="card-title"><h2>Restaurar textos da proposta</h2><span className="mono">ZONA DE RISCO</span></div>
+    <p className="subtitle">Volta condição de pagamento, prazo, validade, garantia e observações ao texto de fábrica — e <b>apaga os dois CNPJs de faturamento</b>, o que bloqueia a aprovação de orçamentos até você cadastrá-los de novo.</p>
+    <HoldButton onConfirm={() => void resetar()} disabled={ocupado} rotuloSegurando="Segure para restaurar…">Restaurar padrões</HoldButton>
+    {erro && <p className="form-error" role="alert">{erro}</p>}
+    {feito && !erro && <p className="subtitle" role="status">Configuração restaurada. Recadastre os CNPJs antes de aprovar orçamentos.</p>}
+  </article>
+}
+
 function Integrations() {
   const [items, setItems] = useState<ApiKey[]>([])
   const [open, setOpen] = useState(false)
@@ -1526,7 +1701,9 @@ function Integrations() {
       <footer><Button variant="secondary" onClick={copyKey}>{copied ? 'Copiado ✓' : 'Copiar'}</Button><Button onClick={() => setCreated(null)}>Concluir</Button></footer>
     </div></Modal>}
     {feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}
-  <CoMarca/></>
+  <CoMarca/>
+  <CondicoesPagamento/>
+  <ResetConfiguracao/></>
 }
 
 const acaoTone: Record<string, string> = { CRIOU: 'success', EDITOU: 'info', DELETOU: 'danger', MUDOU_STATUS: 'warning', LOGIN: 'neutral' }
