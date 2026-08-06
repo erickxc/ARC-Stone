@@ -170,7 +170,10 @@ function Combobox({ options, value, onChange, placeholder = 'Selecionar…', sea
   </div>
 }
 
-function Sidebar({ route, go, collapsed, setCollapsed, mobileOpen, closeMobile, escritorio }: { route: Route; go: (r: Route) => void; collapsed: boolean; setCollapsed: (v: boolean) => void; mobileOpen: boolean; closeMobile: () => void; escritorio?: string | null }) {
+type SidebarProps = { route: Route; go: (r: Route) => void; collapsed: boolean; setCollapsed: (v: boolean) => void; mobileOpen: boolean; closeMobile: () => void; escritorio?: string | null; tema: 'light' | 'dark'; alternarTema: () => void }
+
+function Sidebar(props: SidebarProps) {
+  const { route, go, collapsed, setCollapsed, mobileOpen, closeMobile, escritorio } = props
   const items: [Route, string, string, IconName][] = [
     ['dashboard', 'Dashboard', '', 'dashboard'], ['clients', 'Carteira de clientes', '', 'clients'], ['pipeline', 'Pipeline de vendas', '18', 'pipeline'], ['builder', 'Construtor de orçamento', '', 'builder'], ['projects', 'Projetos', '', 'projects'], ['catalog', 'Catálogo de produtos', '', 'catalog'], ['inventory', 'Controle de estoque', '7', 'inventory'], ['suppliers', 'Fornecedores', '', 'suppliers'], ['schedule', 'Calendário de entregas', '', 'schedule'], ['finance', 'Painel financeiro', '', 'finance'], ['team', 'Equipe', '', 'team'], ['integrations', 'Integrações', '', 'integrations'], ['logs', 'Logs de auditoria', '', 'logs'],
   ]
@@ -191,6 +194,15 @@ function Sidebar({ route, go, collapsed, setCollapsed, mobileOpen, closeMobile, 
 function AppShell({ route, go, children }: { route: Route; go: (r: Route) => void; children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [tema, setTema] = useState<'light' | 'dark'>(() =>
+    document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light')
+  const alternarTema = () => {
+    const novo = tema === 'dark' ? 'light' : 'dark'
+    setTema(novo)
+    localStorage.setItem('arc-tema', novo)
+    if (novo === 'dark') document.documentElement.setAttribute('data-theme', 'dark')
+    else document.documentElement.removeAttribute('data-theme')
+  }
   const [escritorio, setEscritorio] = useState<string | null>(null)
   useEffect(() => {
     let vivo = true
@@ -198,7 +210,7 @@ function AppShell({ route, go, children }: { route: Route; go: (r: Route) => voi
     return () => { vivo = false }
   }, [])
   useEffect(() => { document.title = escritorio ? `ARC • ${escritorio}` : 'ARC ERP' }, [escritorio])
-  return <div className={`app ${collapsed ? 'rail' : ''}`}><Sidebar escritorio={escritorio} route={route} go={go} collapsed={collapsed} setCollapsed={setCollapsed} mobileOpen={mobileOpen} closeMobile={()=>setMobileOpen(false)} /><div className="app-body"><header className="mobile-topbar"><button onClick={()=>setMobileOpen(true)} aria-label="Abrir menu"><Icon name="menu"/></button><Logo escritorio={escritorio}/><button className="mobile-avatar" aria-label="Abrir perfil" onClick={()=>go('team')}>C</button></header><main className="content">{children}</main></div></div>
+  return <div className={`app ${collapsed ? 'rail' : ''}`}><Sidebar tema={tema} alternarTema={alternarTema} escritorio={escritorio} route={route} go={go} collapsed={collapsed} setCollapsed={setCollapsed} mobileOpen={mobileOpen} closeMobile={()=>setMobileOpen(false)} /><div className="app-body"><header className="mobile-topbar"><button onClick={()=>setMobileOpen(true)} aria-label="Abrir menu"><Icon name="menu"/></button><Logo escritorio={escritorio}/><button className="mobile-avatar" aria-label="Abrir perfil" onClick={()=>go('team')}>C</button></header><main className="content">{children}</main></div></div>
 }
 
 function PageHead({ eyebrow, title, subtitle, actions }: { eyebrow: string; title: string; subtitle?: string; actions?: ReactNode }) {
