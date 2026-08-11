@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, converterEmVenda, createApiKey, createCatalogProduct, createClient, createEquipamento, createLancamento, createMateriaPrima, createPerda, createQuote, createServico, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteEquipamento, deleteMateriaPrima, deleteProjeto, deleteQuote, deleteServico, deleteSupplier, disableMfa, enableMfa, encerrarSessao, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getClient, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listEquipamentos, listInventoryProducts, listLancamentos, listLogs, listMateriaPrima, listPaymentConditions, listPerdas, listProjetos, listQuoteAttachments, listQuotes, listServicos, listSuppliers, listTeam, listVendas, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetOrcamentoConfig, resetPassword, revogarPortalLink, revokeApiKey, updateEquipamento, updateOrcamentoConfig, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, uploadArquivo, UPLOAD_EXTENSOES, UPLOAD_TAMANHO_MAXIMO, verifyMfa, catalogoCondicoesPagamento, catalogoTiposPagamento, catalogoFormasPagamento, catalogoLocais, catalogoMotivosPerda, listServicoComponentes, consultarCep, updateClient, createServicoComponente, updateServicoComponente, deleteServicoComponente, catalogoEtapasProducao, listOrdensProducao, moverOrdemProducao, getOrdemProducao } from './api'
+import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, converterEmVenda, createApiKey, createCatalogProduct, createClient, createEquipamento, createLancamento, createMateriaPrima, createPerda, createQuote, createServico, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteEquipamento, deleteMateriaPrima, deleteProjeto, deleteQuote, deleteServico, deleteSupplier, disableMfa, enableMfa, encerrarSessao, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getClient, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listEquipamentos, listInventoryProducts, listLancamentos, listLogs, listMateriaPrima, listPaymentConditions, listPerdas, listProjetos, listQuoteAttachments, listQuotes, listServicos, listSuppliers, listTeam, listVendas, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetOrcamentoConfig, resetPassword, revogarPortalLink, revokeApiKey, updateEquipamento, updateOrcamentoConfig, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, uploadArquivo, UPLOAD_EXTENSOES, UPLOAD_TAMANHO_MAXIMO, verifyMfa, catalogoCondicoesPagamento, catalogoTiposPagamento, catalogoFormasPagamento, catalogoLocais, catalogoMotivosPerda, listServicoComponentes, consultarCep, updateClient, createServicoComponente, updateServicoComponente, deleteServicoComponente, catalogoEtapasProducao, listOrdensProducao, moverOrdemProducao, getOrdemProducao, atualizarOrdemProducao } from './api'
 import type { ApiKey, ApiKeyCreated, AuditLog, AuditLogEntry, CalendarEvent, Client, ClientInput, Equipamento, EquipamentoInput, FinanceiroResumo, FluxoMensalItem, Lancamento, MateriaPrima, MateriaPrimaInput, OrcamentoAnexo, OrcamentoConfig, PaymentCondition, PerdaAvaria, PerdaAvariaInput, PortalLink, PortalProposta, Product, Projeto, ProjetoDetail, Quote, QuoteDetail as QuoteData, QuoteItem, Servico, ServicoInput, Supplier, SupplierInput, TeamMember, TeamMemberInput, Venda, TipoOrcamento, Modalidade, UnidadeMedida, TipoPagamento, FormaPagamento, Local, ItemCatalogo, AcoesCatalogo, ServicoComponente, QuoteCreateInput, TipoPessoa, PreferenciaContato, EtapaProducao, OrdemProducao } from './api'
 import { money } from './data'
 import type { Status } from './data'
@@ -2854,9 +2854,19 @@ const ABAS_CONFIG = [
  * aqui a transição registra histórico e aceita observação ("quebrou, refazer"), o que
  * um arrasto não comporta.
  */
+/** Ordem atrasada é a que passou da previsão sem concluir — é o que a oficina precisa ver primeiro. */
+function ordemAtrasada(ordem: OrdemProducao): boolean {
+  if (!ordem.previsao_entrega || ordem.concluida_em) return false
+  return new Date(ordem.previsao_entrega).getTime() < Date.now()
+}
+
 function EsteiraProducao() {
   const [ordens, setOrdens] = useState<OrdemProducao[]>([])
   const [etapas, setEtapas] = useState<EtapaProducao[]>([])
+  const [equipe, setEquipe] = useState<TeamMember[]>([])
+  // Rascunho do que está sendo editado no detalhe: só grava quando o usuário confirma.
+  const [rascunho, setRascunho] = useState<{ responsavel_id: number | ''; previsao: string; observacoes: string }>({ responsavel_id: '', previsao: '', observacoes: '' })
+  const [salvando, setSalvando] = useState(false)
   const [incluirConcluidas, setIncluirConcluidas] = useState(false)
   const [detalhe, setDetalhe] = useState<OrdemProducao | null>(null)
   const [carregando, setCarregando] = useState(true)
@@ -2868,8 +2878,8 @@ function EsteiraProducao() {
   // sincrono no corpo do efeito (que dispara render em cascata).
   useEffect(() => {
     let vivo = true
-    Promise.all([listOrdensProducao(incluirConcluidas), catalogoEtapasProducao.listar(true)])
-      .then(([o, e]) => { if (!vivo) return; setOrdens(o); setEtapas(e) })
+    Promise.all([listOrdensProducao(incluirConcluidas), catalogoEtapasProducao.listar(true), listTeam()])
+      .then(([o, e, t]) => { if (!vivo) return; setOrdens(o); setEtapas(e); setEquipe(t.filter(m => m.ativo)) })
       .catch(err => { if (vivo) setErro(err instanceof Error ? err.message : 'Falha ao carregar a esteira.') })
       .finally(() => { if (vivo) setCarregando(false) })
     return () => { vivo = false }
@@ -2887,7 +2897,34 @@ function EsteiraProducao() {
     finally { setOcupado(false) }
   }
 
+  async function abrirDetalhe(ordem: OrdemProducao) {
+    const completa = await getOrdemProducao(ordem.id).catch(() => ordem)
+    setDetalhe(completa)
+    setRascunho({
+      responsavel_id: completa.responsavel_id ?? '',
+      previsao: (completa.previsao_entrega || '').slice(0, 10),
+      observacoes: completa.observacoes || '',
+    })
+  }
+
+  async function salvarDetalhe() {
+    if (!detalhe) return
+    setSalvando(true); setErro('')
+    try {
+      const salva = await atualizarOrdemProducao(detalhe.id, {
+        responsavel_id: rascunho.responsavel_id === '' ? null : Number(rascunho.responsavel_id),
+        previsao_entrega: rascunho.previsao ? `${rascunho.previsao}T00:00:00` : null,
+        observacoes: rascunho.observacoes.trim() || null,
+      })
+      setOrdens(atual => atual.map(o => o.id === salva.id ? { ...salva, historico: o.historico } : o))
+      setDetalhe(atual => atual ? { ...salva, historico: atual.historico } : atual)
+      setFeedback(`OP-${String(salva.id).padStart(4, '0')} atualizada.`)
+    } catch (err) { setErro(err instanceof Error ? err.message : 'Falha ao salvar a ordem.') }
+    finally { setSalvando(false) }
+  }
+
   const porEtapa = (etapaId: number) => ordens.filter(o => o.etapa_id === etapaId)
+  const atrasadas = ordens.filter(ordemAtrasada).length
 
   return <>
     <PageHead eyebrow="GALPÃO · PRODUÇÃO" title="Esteira de produção"
@@ -2897,6 +2934,7 @@ function EsteiraProducao() {
         <button type="button" className={incluirConcluidas ? 'active' : ''} onClick={() => { setCarregando(true); setIncluirConcluidas(true) }}>Todas</button>
       </div>} />
     {erro && <p className="form-error" role="alert">{erro}</p>}
+    {atrasadas > 0 && <p className="aviso-atraso" role="status">{atrasadas} {atrasadas === 1 ? 'ordem passou' : 'ordens passaram'} da previsão de entrega.</p>}
     {carregando ? <article className="card" style={{ padding: 20 }}><Skeleton rows={4} label="Carregando esteira" /></article>
       : !etapas.length ? <EmptyState title="Nenhuma etapa configurada" description="Cadastre as etapas em Configurações do orçamento › Produção." />
       : <section className="kanban esteira">
@@ -2905,11 +2943,20 @@ function EsteiraProducao() {
           return <div className="kanban-col" key={etapa.id}>
             <header><h2>{etapa.nome}</h2><Badge>{daEtapa.length}</Badge></header>
             {daEtapa.map(ordem => <article className="quote-card" key={ordem.id}>
-              <button type="button" className="ordem-abrir" onClick={() => void getOrdemProducao(ordem.id).then(setDetalhe).catch(() => setDetalhe(ordem))}>
+              <button type="button" className="ordem-abrir" onClick={() => void abrirDetalhe(ordem)}>
                 <b>OP-{String(ordem.id).padStart(4, '0')}</b>
                 <span>{ordem.cliente_nome || 'Cliente não informado'}</span>
                 <small>{ordem.resumo_itens || 'Sem itens'}</small>
               </button>
+              <div className="ordem-meta">
+                {/* Quem está tocando e para quando: é o que a oficina olha antes de tudo. */}
+                <span className={ordem.responsavel_nome ? '' : 'sem-dono'}>
+                  {ordem.responsavel_nome || 'Sem responsável'}
+                </span>
+                {ordem.previsao_entrega && <span className={ordemAtrasada(ordem) ? 'atrasada' : ''}>
+                  {ordemAtrasada(ordem) ? 'Atrasada · ' : 'Entrega '}{portalDate(ordem.previsao_entrega)}
+                </span>}
+              </div>
               <footer>
                 <em>{money(ordem.valor_total || 0)}</em>
                 <Combobox compact ariaLabel={`Mover ordem ${ordem.id}`} placeholder="Mover para…"
@@ -2927,19 +2974,37 @@ function EsteiraProducao() {
           <div><dt>Cliente</dt><dd>{detalhe.cliente_nome || '—'}</dd></div>
           <div><dt>Vendedor</dt><dd>{detalhe.vendedor_nome || '—'}</dd></div>
           <div><dt>Etapa atual</dt><dd>{detalhe.etapa_nome}</dd></div>
+          <div><dt>Responsável</dt><dd>{detalhe.responsavel_nome || 'Sem responsável'}</dd></div>
+          {detalhe.previsao_entrega && <div><dt>Previsão</dt><dd className={ordemAtrasada(detalhe) ? 'atrasada' : ''}>{portalDate(detalhe.previsao_entrega)}</dd></div>}
           <div><dt>Valor</dt><dd>{money(detalhe.valor_total || 0)}</dd></div>
           <div><dt>Aberta em</dt><dd>{portalDate(detalhe.iniciada_em)}</dd></div>
           {detalhe.concluida_em && <div><dt>Concluída em</dt><dd>{portalDate(detalhe.concluida_em)}</dd></div>}
         </dl>
         <p className="subtitle">{detalhe.resumo_itens || 'Sem itens'}</p>
         {detalhe.orcamento_id && <button type="button" className="text-action" onClick={() => { location.hash = `orcamento/${detalhe.orcamento_id}` }}>Ver orçamento de origem</button>}
+
+        <fieldset>
+          <legend className="mono">EXECUÇÃO</legend>
+          <label>Responsável<Combobox ariaLabel="Responsável pela ordem" placeholder="Sem responsável"
+            options={[{ value: '', label: 'Sem responsável' }, ...equipe.map(m => ({ value: String(m.id), label: m.nome, meta: m.role }))]}
+            value={rascunho.responsavel_id === '' ? '' : String(rascunho.responsavel_id)}
+            onChange={valor => setRascunho(r => ({ ...r, responsavel_id: valor ? Number(valor) : '' }))} /></label>
+          <label>Previsão de entrega<input type="date" value={rascunho.previsao}
+            onChange={e => setRascunho(r => ({ ...r, previsao: e.target.value }))} /></label>
+          <label className="item-detalhe-largo">Observações da oficina<input value={rascunho.observacoes}
+            placeholder="Chapa reservada no fundo, cliente pediu borda reta…"
+            onChange={e => setRascunho(r => ({ ...r, observacoes: e.target.value }))} /></label>
+        </fieldset>
         <div className="timeline">
           {detalhe.historico.length ? detalhe.historico.map(h => <div key={h.id}><i /><div>
             <b>{h.etapa_nome}</b>{h.observacao && <p>{h.observacao}</p>}
             <small>{h.usuario_nome || 'Sistema'} · {portalDate(h.registrado_em)}</small>
           </div></div>) : <p className="empty-state">Sem histórico.</p>}
         </div>
-        <footer><Button variant="secondary" onClick={() => setDetalhe(null)}>Fechar</Button></footer>
+        <footer>
+          <Button variant="secondary" onClick={() => setDetalhe(null)}>Fechar</Button>
+          <Button onClick={() => void salvarDetalhe()} loading={salvando}>Salvar</Button>
+        </footer>
       </div>
     </Modal>}
     {feedback && <Feedback message={feedback} close={() => setFeedback('')} />}
