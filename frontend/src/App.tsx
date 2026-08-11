@@ -168,7 +168,7 @@ function Combobox({ options, value, onChange, placeholder = 'Selecionar…', sea
   const filtradas = options.filter(option => `${option.label} ${option.meta || ''}`.toLowerCase().includes(termo.trim().toLowerCase()))
   const podeCriar = Boolean(onCreate && termo.trim() && !options.some(option => option.label.toLowerCase() === termo.trim().toLowerCase()))
   const selecionada = options.find(option => option.value === value) || (quickCreated && String(quickCreated.id) === value ? { value, label: quickCreated.nome_fantasia } : undefined)
-  const mostrarMeta = ariaLabel !== 'Cliente'
+  const mostrarMeta = !['Cliente', 'Produto', 'Serviço'].includes(ariaLabel || '')
 
   useEffect(() => {
     if (!open) return
