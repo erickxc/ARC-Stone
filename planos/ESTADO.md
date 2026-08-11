@@ -78,3 +78,63 @@ Arquivos: frontend/src/api.ts
 Verificacao: contrato conferido em `backend/schemas.py`: `AuditLogOut` fornece `id`, `acao`, `detalhes`, `usuario_nome` e `created_at`; `npm run build` e `npm run lint` passaram.
 Desvios: nenhum
 Duvidas: nenhuma
+
+---
+
+## ARC Stone — reorganizacao do orcamento de marmoraria (2026-08-11)
+
+Plano: `planos/PLANO-ATUAL.md`. Executado em tres commits, com verificacao no navegador
+contra o backend real a cada bloco.
+
+## TAREFAS 2-3 (catalogos + cliente PF/PJ) — concluida em 2026-08-11
+Commit: 8af4cf0
+Arquivos: backend/models.py, backend/schemas.py, backend/main.py,
+  backend/routers/catalogos.py (novo), backend/routers/clientes.py,
+  backend/tests/test_catalogos.py (novo), backend/tests/test_clientes.py,
+  frontend/src/App.tsx, frontend/src/index.css, .gitignore
+Verificacao: pytest 143 passam. Migracoes e seeds aplicados no banco de dev. CEP real
+  testado (01001000 -> Praca da Se/SP). Build e lint do frontend limpos.
+Desvios: nenhum em relacao ao plano.
+Duvidas: nenhuma.
+
+## TAREFAS 4-6 (medidas, servico composto, modalidade) — concluida em 2026-08-11
+Commit: 99bd2ef
+Arquivos: backend/models.py, backend/schemas.py, backend/main.py,
+  backend/routers/orcamentos.py, backend/routers/servicos.py,
+  backend/tests/test_marmoraria.py (novo), demais testes migrados para o vocabulario novo
+Verificacao: pytest 158 passam. Unica falha e
+  `test_push_revisao_nova_cria_projeto_preservando_anterior`, pendencia conhecida de
+  isolamento de teste — confirmada como anterior a esta entrega via `git stash`.
+Desvios: `PerdaAvaria.motivo` mantido como String (catalogo alimenta o seletor, mas a
+  coluna nao virou FK) — trocar o tipo de uma coluna usada em filtros e risco fora do
+  escopo. Registrado no plano como decisao consciente.
+Duvidas: nenhuma.
+
+## TAREFAS 7-10 (frontend) — concluida em 2026-08-11
+Commit: 3b347fa (+ ajuste de alinhamento da tabela)
+Arquivos: frontend/src/App.tsx, frontend/src/api.ts, frontend/src/index.css
+Verificacao no navegador (Chrome headless, backend + Vite reais):
+  - Sidebar: dois <nav>, grupos fixos ancorados acima do card de usuario. OK
+  - Configuracoes do orcamento: 4 abas, 7 itens built_in com badge e Excluir
+    desabilitado, 10 botoes de ordem. Reordenacao persistiu apos reload. OK
+  - Formula do total, ponta a ponta: m2 2,5x0,6 a R$300/m2 = R$450; linear 3,2 m a
+    R$80/m = R$256; unidade 3x R$120 = R$360; menos R$50 de desconto global = R$1.016.
+    Backend devolveu exatamente 101600. OK
+  - Cartao sem forma -> 400 com mensagem clara. Peca com servico -> 422. OK
+  - Venda direta cria Orcamento (status Aprovado) + Venda numa transacao. OK
+  - Checkout so aparece em venda direta e some ao voltar para orcamento formal. OK
+  - Formulario de cliente PF: Nome, Sobrenome, CPF, Telefone, E-mail. OK
+Desvios: dois defeitos visuais encontrados no screenshot e corrigidos antes de fechar —
+  a coluna TOTAL ficava cortada (o checkbox de selecao somou uma coluna ao grid sem o
+  cabecalho acompanhar) e o combobox de Tipo mostrava "Selecionar..." porque
+  `tipoOrcamentoOptions` ainda listava Venda/Locacao/Producao.
+Duvidas: a verificacao de tema claro e de responsivo em 800px (itens 19-20 do plano)
+  nao foi executada.
+
+### Nao executado / proximos passos
+- Itens 19-20 da verificacao do plano (responsivo em 800px, tema claro nas telas novas).
+- Limite de desconto por perfil de usuario: divida consciente registrada no plano —
+  desconto livre sem teto e vazamento de margem conhecido em CPQ.
+- Split de `App.tsx` (hoje ~3.000 linhas) em modulos: entrega propria, puro movimento.
+- "Esteira de producao": nao existe no repositorio nem no plano; escopo a definir.
+- `CLAUDE.md` referencia `planos/CHECKLIST-reorganizacao-nav-tema.md`, que nao existe.

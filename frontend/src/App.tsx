@@ -341,7 +341,12 @@ function Kpi({ label, value, note, dark }: { label: string; value: string; note:
 }
 
 const statusValues: [Status, number, number][] = [['Gerando', 14, 22], ['Planejando', 26, 41], ['Enviado', 43, 68], ['Ajuste', 8, 30], ['Aprovado', 34, 53], ['Perdido', 11, 17]]
-const tipoOrcamentoOptions: ComboOption[] = [{ value: 'Venda', label: 'Venda' }, { value: 'Locacao', label: 'Locação' }, { value: 'Producao', label: 'Produção' }]
+const tipoOrcamentoOptions: ComboOption[] = [
+  { value: 'Obra', label: 'Obra', meta: 'produtos e serviços' },
+  { value: 'Projeto', label: 'Projeto', meta: 'produtos e serviços' },
+  { value: 'Peça', label: 'Peça', meta: 'só produtos' },
+  { value: 'Externo', label: 'Externo', meta: 'peça de terceiro' },
+]
 const prazoOptions: ComboOption[] = [{ value: '', label: 'Sem prazo' }, { value: 'dias', label: 'dias' }, { value: 'meses', label: 'meses' }]
 // Renovar sempre estende: "Sem prazo" não é opção aqui, ao contrário do cadastro do orçamento.
 const perfilOptions: ComboOption[] = [{ value: 'vendedor', label: 'Vendedor' }, { value: 'estoquista', label: 'Estoquista' }, { value: 'admin', label: 'Admin' }]
@@ -538,7 +543,7 @@ function Pipeline() {
   const [selectedQuoteId, setSelectedQuoteId] = useState<number | null>(null)
   const [vendedor, setVendedor] = useState('')
   const [novoCliente, setNovoCliente] = useState('')
-  const [novoTipo, setNovoTipo] = useState('Venda')
+  const [novoTipo, setNovoTipo] = useState('Obra')
   const abrirNovo = () => { setNovoCliente(''); setNovoTipo('Venda'); setQuoteError(''); setOpen(true) }
 
   useEffect(() => {
@@ -1486,7 +1491,7 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
                     <Button type="button" variant="secondary" onClick={() => setItemModal('project')} disabled={!permite.projeto} title={permite.projeto ? undefined : 'Importar projeto só em orçamentos de Obra ou Projeto.'}>Importar de um projeto</Button>
                   </span></div>}
               {incompativeis.length > 0 && <p className="form-error" role="status">{incompativeis.length} item(ns) não pertencem ao tipo “{quoteType}”. <button type="button" className="text-action" onClick={removerIncompativeis}>Remover os {incompativeis.length} incompatíveis</button></p>}
-              <div className="item-head mono"><span>DESCRIÇÃO</span><span>QTD / M²</span><span>UN.</span><span>UNITÁRIO</span><span>TOTAL</span></div>{items.map(item => { const aberto = itemAberto === item.key; return <div key={item.key}>
+              <div className="item-head mono"><span aria-hidden="true"/><span>DESCRIÇÃO</span><span>QTD / M²</span><span>UN.</span><span>UNITÁRIO</span><span>TOTAL</span><span aria-hidden="true"/></div>{items.map(item => { const aberto = itemAberto === item.key; return <div key={item.key}>
               <div className={`item-row ${aberto ? 'editing' : ''}`}>
                 <input type="checkbox" className="item-selecao" aria-label={`Selecionar ${item.name}`} checked={selecionados.has(item.key)} onChange={() => alternaSelecao(item.key)} />
                 <button type="button" className="item-abrir" aria-expanded={aberto} onClick={() => setItemAberto(atual => atual === item.key ? null : item.key)}>
