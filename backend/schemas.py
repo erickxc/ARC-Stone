@@ -138,21 +138,72 @@ class MovimentacaoCreate(BaseModel):
     justificativa: str
 
 class ClienteCreate(BaseModel):
-    nome_fantasia: str
-    cpf_cnpj: Optional[str] = None
+    """Cadastro de cliente PF ou PJ.
+
+    `nome_fantasia` NÃO entra aqui: é derivado no router a partir de nome+sobrenome (PF)
+    ou razao_social (PJ), para que os ~12 pontos que já leem esse campo continuem valendo.
+    """
+    tipo_pessoa: Literal["fisica", "juridica"] = "juridica"
+    nome: Optional[str] = Field(None, max_length=100, pattern=r"^[^<>]*$")
+    sobrenome: Optional[str] = Field(None, max_length=100, pattern=r"^[^<>]*$")
+    razao_social: Optional[str] = Field(None, max_length=150, pattern=r"^[^<>]*$")
+    cpf_cnpj: Optional[str] = Field(None, max_length=20)
     nome_responsavel: Optional[str] = None
     email: Optional[EmailStr] = None
-    contato: Optional[str] = None
+    contato: Optional[str] = Field(None, max_length=30)
+    telefone_secundario: Optional[str] = Field(None, max_length=30)
+    cep: Optional[str] = Field(None, max_length=10)
+    numero: Optional[str] = Field(None, max_length=20)
+    complemento: Optional[str] = Field(None, max_length=100)
+    bairro: Optional[str] = Field(None, max_length=100)
+    cidade: Optional[str] = Field(None, max_length=100)
+    estado: Optional[str] = Field(None, min_length=2, max_length=2, pattern=r"^[A-Za-z]{2}$")
     endereco_entrega: Optional[str] = None
     endereco_faturamento: Optional[str] = None
+    carteira: bool = False
+    indicado_por: Optional[str] = Field(None, max_length=150, pattern=r"^[^<>]*$")
+    profissional_tipo: Optional[str] = Field(None, max_length=60, pattern=r"^[^<>]*$")
     status: Optional[str] = "ativo"
+
+    @model_validator(mode="after")
+    def validar_por_tipo_pessoa(self):
+        if self.tipo_pessoa == "fisica":
+            if not (self.nome and self.nome.strip()) or not (self.sobrenome and self.sobrenome.strip()):
+                raise ValueError("Pessoa física exige nome e sobrenome.")
+        else:
+            if not (self.razao_social and self.razao_social.strip()):
+                raise ValueError("Pessoa jurídica exige razão social.")
+        return self
+
+    def nome_exibicao(self) -> str:
+        """Valor derivado gravado em Cliente.nome_fantasia."""
+        if self.tipo_pessoa == "fisica":
+            return f"{(self.nome or '').strip()} {(self.sobrenome or '').strip()}".strip()
+        return (self.razao_social or "").strip()
+
 
 class ClienteOut(ClienteCreate):
     id: int
     usuario_id: int
+    nome_fantasia: str
+    criado_por_id: Optional[int] = None
+    editado_por_id: Optional[int] = None
+    editado_em: Optional[datetime] = None
+    criado_por_nome: Optional[str] = None
+    editado_por_nome: Optional[str] = None
     created_at: datetime
     class Config:
         from_attributes = True
+
+
+class CepOut(BaseModel):
+    """Resposta do proxy de CEP. Campos vazios quando a consulta não encontra nada —
+    o cadastro nunca é bloqueado por falha de CEP."""
+    cep: str
+    logradouro: Optional[str] = None
+    bairro: Optional[str] = None
+    cidade: Optional[str] = None
+    estado: Optional[str] = None
 
 class OrcamentoItemCreate(BaseModel):
     produto_id: Optional[int] = None
@@ -398,19 +449,109 @@ class OrcamentoConfigOut(OrcamentoConfigBase):
     class Config:
         from_attributes = True
 
-class CondicaoPagamentoBase(BaseModel):
-    nome: str
-    ativo: Optional[bool] = True
+# --- Catálogos configuráveis (Configurações do orçamento) ---
+#
+# Cada catálogo tem seus próprios Create/Update/Out em vez de herdar de uma base comum:
+# uma base Pydantic compartilhada acoplaria catálogos que vão divergir (TipoPagamento já
+# tem `exige_forma`, MotivoPerdaAvaria tem `slug`). A reutilização real fica no helper de
+# router (routers/catalogos.py), não no schema.
 
-class CondicaoPagamentoCreate(CondicaoPagamentoBase):
-    pass
+NOME_CATALOGO = Field(..., min_length=1, max_length=120, pattern=r"^[^<>]*$")
+
+
+class ReordenarIn(BaseModel):
+    """Nova ordem completa do catálogo. Enviar a lista inteira evita estados parciais
+    no servidor quando a rede cai no meio de uma sequência de cliques."""
+    ids_em_ordem: List[int] = Field(..., min_length=1)
+
+
+class CondicaoPagamentoCreate(BaseModel):
+    nome: str = NOME_CATALOGO
 
 class CondicaoPagamentoUpdate(BaseModel):
-    nome: Optional[str] = None
+    nome: Optional[str] = Field(None, min_length=1, max_length=120, pattern=r"^[^<>]*$")
     ativo: Optional[bool] = None
 
-class CondicaoPagamentoOut(CondicaoPagamentoBase):
+class CondicaoPagamentoOut(BaseModel):
     id: int
+    nome: str
+    ativo: bool
+    ordem: int
+    built_in: bool
+    class Config:
+        from_attributes = True
+
+
+class TipoPagamentoCreate(BaseModel):
+    nome: str = NOME_CATALOGO
+    exige_forma: bool = False
+
+class TipoPagamentoUpdate(BaseModel):
+    nome: Optional[str] = Field(None, min_length=1, max_length=120, pattern=r"^[^<>]*$")
+    ativo: Optional[bool] = None
+    exige_forma: Optional[bool] = None
+
+class TipoPagamentoOut(BaseModel):
+    id: int
+    nome: str
+    ativo: bool
+    ordem: int
+    built_in: bool
+    exige_forma: bool
+    class Config:
+        from_attributes = True
+
+
+class FormaPagamentoCreate(BaseModel):
+    nome: str = NOME_CATALOGO
+    tipo_pagamento_id: int
+
+class FormaPagamentoUpdate(BaseModel):
+    nome: Optional[str] = Field(None, min_length=1, max_length=120, pattern=r"^[^<>]*$")
+    ativo: Optional[bool] = None
+
+class FormaPagamentoOut(BaseModel):
+    id: int
+    nome: str
+    ativo: bool
+    ordem: int
+    built_in: bool
+    tipo_pagamento_id: int
+    class Config:
+        from_attributes = True
+
+
+class LocalCreate(BaseModel):
+    nome: str = NOME_CATALOGO
+
+class LocalUpdate(BaseModel):
+    nome: Optional[str] = Field(None, min_length=1, max_length=120, pattern=r"^[^<>]*$")
+    ativo: Optional[bool] = None
+
+class LocalOut(BaseModel):
+    id: int
+    nome: str
+    ativo: bool
+    ordem: int
+    built_in: bool
+    class Config:
+        from_attributes = True
+
+
+class MotivoPerdaAvariaCreate(BaseModel):
+    nome: str = NOME_CATALOGO
+
+class MotivoPerdaAvariaUpdate(BaseModel):
+    nome: Optional[str] = Field(None, min_length=1, max_length=120, pattern=r"^[^<>]*$")
+    ativo: Optional[bool] = None
+
+class MotivoPerdaAvariaOut(BaseModel):
+    id: int
+    nome: str
+    slug: str
+    ativo: bool
+    ordem: int
+    built_in: bool
     class Config:
         from_attributes = True
 

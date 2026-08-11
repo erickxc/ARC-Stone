@@ -1,10 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from datetime import datetime, timezone
+import re
+import httpx
 from database import get_db
+from ssrf_utils import assert_public_http_url
 import models, schemas, auth
 
 router = APIRouter(prefix="/clientes", tags=["CRM de Clientes"])
+
+
+def _expandir(cliente: models.Cliente) -> schemas.ClienteOut:
+    """Anexa os nomes de quem criou/editou — o detalhe do cliente exibe isso, e sem os
+    nomes o frontend teria que buscar usuários um a um."""
+    saida = schemas.ClienteOut.model_validate(cliente)
+    saida.criado_por_nome = cliente.criado_por.nome if cliente.criado_por else None
+    saida.editado_por_nome = cliente.editado_por.nome if cliente.editado_por else None
+    return saida
 
 
 def _log(db: Session, request: Request, current_user: models.Usuario, acao: str, detalhes: str, cliente_id: int) -> None:
@@ -37,7 +50,9 @@ def criar_cliente(request: Request, cliente: schemas.ClienteCreate, db: Session 
 
     novo_cliente = models.Cliente(
         **cliente.model_dump(),
-        usuario_id=current_user.id # Vincula o cliente automaticamente ao Vendedor/Admin logado
+        nome_fantasia=cliente.nome_exibicao(),  # derivado de nome+sobrenome ou razão social
+        usuario_id=current_user.id, # Vincula o cliente automaticamente ao Vendedor/Admin logado
+        criado_por_id=current_user.id,
     )
     db.add(novo_cliente)
     try:
@@ -48,7 +63,7 @@ def criar_cliente(request: Request, cliente: schemas.ClienteCreate, db: Session 
     db.refresh(novo_cliente)
 
     _log(db, request, current_user, "CRIOU_CLIENTE", f"Cliente '{novo_cliente.nome_fantasia}' criado (ID {novo_cliente.id})", novo_cliente.id)
-    return novo_cliente
+    return _expandir(novo_cliente)
 
 @router.get("/", response_model=list[schemas.ClienteOut])
 def listar_clientes(db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
@@ -57,12 +72,51 @@ def listar_clientes(db: Session = Depends(get_db), current_user: models.Usuario 
     - Admin vê TODOS.
     - Vendedor vê SÓ os seus.
     """
+    query = db.query(models.Cliente).options(
+        joinedload(models.Cliente.criado_por), joinedload(models.Cliente.editado_por)
+    )
     if current_user.role == 'admin':
-        return db.query(models.Cliente).all()
+        return [_expandir(c) for c in query.all()]
     elif current_user.role == 'vendedor':
-        return db.query(models.Cliente).filter(models.Cliente.usuario_id == current_user.id).all()
+        return [_expandir(c) for c in query.filter(models.Cliente.usuario_id == current_user.id).all()]
     else:
         raise HTTPException(status_code=403, detail="Acesso negado.")
+
+# Rota literal precisa vir ANTES de /{cliente_id}: Starlette casa na ordem de registro,
+# então "cep" seria capturado como cliente_id se viesse depois.
+@router.get("/cep/{cep}", response_model=schemas.CepOut)
+def consultar_cep(cep: str, current_user: models.Usuario = Depends(auth.get_current_user)):
+    """Proxy de consulta de CEP.
+
+    Existe no backend porque o CSP da aplicação (`connect-src 'self'`) impede o navegador
+    de chamar o ViaCEP direto. Falha de rede/CEP inexistente devolve campos vazios em vez
+    de erro: preencher endereço é conveniência, nunca pode travar o cadastro.
+    """
+    apenas_digitos = re.sub(r"\D", "", cep)
+    if len(apenas_digitos) != 8:
+        raise HTTPException(status_code=400, detail="CEP deve ter 8 dígitos.")
+
+    vazio = schemas.CepOut(cep=apenas_digitos)
+    try:
+        url = assert_public_http_url(f"https://viacep.com.br/ws/{apenas_digitos}/json/")
+        with httpx.Client(timeout=5.0) as client:
+            resposta = client.get(url)
+        if resposta.status_code != 200:
+            return vazio
+        dados = resposta.json()
+        if dados.get("erro"):
+            return vazio
+        return schemas.CepOut(
+            cep=apenas_digitos,
+            logradouro=dados.get("logradouro") or None,
+            bairro=dados.get("bairro") or None,
+            cidade=dados.get("localidade") or None,
+            estado=(dados.get("uf") or "").upper() or None,
+        )
+    except Exception:
+        # Indisponibilidade do ViaCEP não é erro do usuário — devolve vazio e ele digita.
+        return vazio
+
 
 @router.get("/{cliente_id}", response_model=schemas.ClienteOut)
 def obter_cliente(cliente_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
@@ -74,7 +128,7 @@ def obter_cliente(cliente_id: int, db: Session = Depends(get_db), current_user: 
     if current_user.role != 'admin' and cliente.usuario_id != current_user.id:
         raise HTTPException(status_code=403, detail="Este cliente pertence à carteira de outro vendedor.")
 
-    return cliente
+    return _expandir(cliente)
 
 @router.put("/{cliente_id}", response_model=schemas.ClienteOut)
 def atualizar_cliente(
@@ -108,6 +162,10 @@ def atualizar_cliente(
 
     for var, value in cliente_update.model_dump().items():
         setattr(db_cliente, var, value)
+    db_cliente.nome_fantasia = cliente_update.nome_exibicao()
+    # criado_por_id nunca é reescrito; só a trilha de edição.
+    db_cliente.editado_por_id = current_user.id
+    db_cliente.editado_em = datetime.now(timezone.utc)
 
     try:
         db.commit()
@@ -117,7 +175,7 @@ def atualizar_cliente(
     db.refresh(db_cliente)
 
     _log(db, request, current_user, "EDITOU_CLIENTE", f"Cliente '{db_cliente.nome_fantasia}' (ID {db_cliente.id}) editado", db_cliente.id)
-    return db_cliente
+    return _expandir(db_cliente)
 
 @router.delete("/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)
 def deletar_cliente(

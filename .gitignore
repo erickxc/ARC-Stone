@@ -70,3 +70,7 @@ backend/dilegno.db
 
 # Pacote local da skill de seguranca - nao versionar
 security-protocol.zip
+
+# PDFs/anexos gerados ao rodar a API a partir da raiz do repo (dev.ps1)
+/uploads/
+/uploads_private/

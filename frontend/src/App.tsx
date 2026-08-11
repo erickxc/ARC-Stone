@@ -5,8 +5,8 @@ import type { ApiKey, ApiKeyCreated, AuditLog, AuditLogEntry, CalendarEvent, Cli
 import { money } from './data'
 import type { Status } from './data'
 
-type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'quotesList' | 'salesHistory' | 'projects' | 'catalog' | 'servicesCatalog' | 'inventory' | 'suppliers' | 'losses' | 'equipment' | 'schedule' | 'finance' | 'team' | 'integrations' | 'logs' | 'profile' | 'orcamento'
-const routes: Route[] = ['dashboard', 'clients', 'pipeline', 'builder', 'quotesList', 'salesHistory', 'projects', 'catalog', 'servicesCatalog', 'inventory', 'suppliers', 'losses', 'equipment', 'schedule', 'finance', 'team', 'integrations', 'logs', 'profile']
+type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'quotesList' | 'salesHistory' | 'projects' | 'catalog' | 'servicesCatalog' | 'inventory' | 'suppliers' | 'losses' | 'equipment' | 'schedule' | 'finance' | 'team' | 'orcamentoConfig' | 'integrations' | 'logs' | 'profile' | 'orcamento'
+const routes: Route[] = ['dashboard', 'clients', 'pipeline', 'builder', 'quotesList', 'salesHistory', 'projects', 'catalog', 'servicesCatalog', 'inventory', 'suppliers', 'losses', 'equipment', 'schedule', 'finance', 'team', 'orcamentoConfig', 'integrations', 'logs', 'profile']
 
 type IconName = Exclude<Route, 'orcamento'> | 'menu' | 'close'
 const iconPaths: Record<IconName, ReactNode> = {
@@ -29,6 +29,7 @@ const iconPaths: Record<IconName, ReactNode> = {
   losses: <><path d="M12 2 2 21h20L12 2Z"/><path d="M12 9v5M12 17h.01"/></>,
   equipment: <><rect x="3" y="10" width="14" height="7" rx="1"/><path d="M17 12h2l2 2v3h-4M7 17v3M11 17v3"/></>,
   profile: <><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></>,
+  orcamentoConfig: <><path d="M4 5h16M4 12h16M4 19h9"/><circle cx="9" cy="5" r="2"/><circle cx="15" cy="12" r="2"/></>,
   menu: <path d="M4 7h16M4 12h16M4 17h16"/>,
   close: <path d="m6 6 12 12M18 6 6 18"/>,
 }
@@ -235,7 +236,6 @@ type NavGroup = { label: string; items: [Route, string, string, IconName][] }
 
 const navGroups: NavGroup[] = [
   { label: 'Orçamentos', items: [
-    ['builder', 'Novo orçamento', '', 'builder'],
     ['quotesList', 'Listagem de orçamentos', '', 'quotesList'],
     ['projects', 'Projetos', '', 'projects'],
   ] },
@@ -257,7 +257,12 @@ const navGroups: NavGroup[] = [
     ['finance', 'Painel financeiro', '', 'finance'],
     ['team', 'Equipe', '', 'team'],
   ] },
+]
+
+/** Grupos ancorados no rodapé da sidebar — não rolam junto com a navegação principal. */
+const navGroupsFixos: NavGroup[] = [
   { label: 'Configurações', items: [
+    ['orcamentoConfig', 'Configurações do orçamento', '', 'orcamentoConfig'],
     ['integrations', 'Integrações', '', 'integrations'],
     ['logs', 'Logs de auditoria', '', 'logs'],
   ] },
@@ -272,7 +277,7 @@ function SidebarGroup({ group, route, collapsed, onNavigate }: { group: NavGroup
     const salvo = localStorage.getItem(`arc-menu-grupo-${group.label}`)
     return salvo === null ? null : salvo === '1'
   })
-  const aberto = ativo || (manualOpen ?? false)
+  const aberto = manualOpen ?? ativo
   const alternar = () => {
     const proximo = !aberto
     localStorage.setItem(`arc-menu-grupo-${group.label}`, proximo ? '1' : '0')
@@ -293,9 +298,13 @@ function Sidebar(props: SidebarProps) {
   const navigate = (next: Route) => { go(next); closeMobile() }
   return <><button className={`sidebar-scrim ${mobileOpen ? 'show' : ''}`} onClick={closeMobile} aria-label="Fechar menu lateral"/><aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
     <div className="side-head"><Logo compact={collapsed} escritorio={escritorio} /><button className="mobile-close" onClick={closeMobile} aria-label="Fechar menu"><Icon name="close"/></button><button className="collapse" onClick={alternarTema} aria-label={tema === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}>{tema === 'dark' ? '☀' : '☾'}</button><button className="collapse" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}>«</button></div>
+    <Button onClick={() => navigate('builder')} title="Novo orçamento"><Icon name="builder"/>{!collapsed && ' Novo orçamento'}</Button>
     <button className={`nav-top ${route === 'dashboard' ? 'active' : ''}`} onClick={() => navigate('dashboard')} title="Dashboard"><span><Icon name="dashboard"/></span>{!collapsed && 'Dashboard'}</button>
     <nav>
       {navGroups.map(group => <SidebarGroup key={group.label} group={group} route={route} collapsed={collapsed} onNavigate={navigate} />)}
+    </nav>
+    <nav className="nav-fixo">
+      {navGroupsFixos.map(group => <SidebarGroup key={group.label} group={group} route={route} collapsed={collapsed} onNavigate={navigate} />)}
     </nav>
     <button className="user-card" onClick={async () => { await logout(); location.hash = 'login'; location.reload() }}><span>C</span>{!collapsed && <><b>Cissa<small>ADMIN</small></b><i>⌄</i></>}</button>
   </aside></>
@@ -340,7 +349,7 @@ const perfilOptions: ComboOption[] = [{ value: 'vendedor', label: 'Vendedor' }, 
 const statusOptions: ComboOption[] = statusValues.map(([status]) => ({ value: status, label: status }))
 function StatusBars({ rows = statusValues }: { rows?: [Status, number, number][] }) { return <div className="status-bars">{rows.map(([s, n, w]) => <div key={s}><span>{s}</span><i><b className={s.toLowerCase()} style={{ width: `${w}%` }} /></i><em>{n}</em></div>)}</div> }
 
-function Dashboard() {
+export function DashboardLegacy() {
   const [reportOpen, setReportOpen] = useState(false)
   const [feedback, setFeedback] = useState('')
   const [error, setError] = useState('')
@@ -409,6 +418,53 @@ function Dashboard() {
 
 const backendStatusByColumn: Record<Status, string> = { Gerando: 'Gerando orçamento', Planejando: 'Planejando', Enviado: 'Orçamento gerado', Ajuste: 'Ajuste solicitado', Aprovado: 'Aprovado', Perdido: 'Orçamento negado' }
 const columnByBackendStatus: Record<string, Status> = { 'Gerando orçamento': 'Gerando', 'Planejando': 'Planejando', 'Orçamento gerado': 'Enviado', 'Ajuste solicitado': 'Ajuste', 'Aprovado': 'Aprovado', 'Orçamento negado': 'Perdido', 'Entregue': 'Aprovado', 'Faturado': 'Aprovado', 'Devolvido': 'Perdido' }
+function DailyGrossProfitChart({ vendas, lancamentos, loading }: { vendas: Venda[]; lancamentos: Lancamento[]; loading: boolean }) {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+  const ontem = new Date(hoje); ontem.setDate(hoje.getDate() - 1)
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+  const primeiroDiaGrafico = new Date(ontem); primeiroDiaGrafico.setDate(ontem.getDate() - 9)
+  const inicioGrafico = primeiroDiaGrafico < inicioMes ? inicioMes : primeiroDiaGrafico
+  const dias = Array.from({ length: Math.max(1, Math.floor((ontem.getTime() - inicioGrafico.getTime()) / 86400000) + 1) }, (_, index) => { const dia = new Date(inicioGrafico); dia.setDate(inicioGrafico.getDate() + index); return dia })
+  const inicioMedia = new Date(hoje); inicioMedia.setDate(hoje.getDate() - 29)
+  const mesmoDia = (data: string | null, dia: Date) => { if (!data) return false; const d = new Date(data); return d.getFullYear() === dia.getFullYear() && d.getMonth() === dia.getMonth() && d.getDate() === dia.getDate() }
+  const receita = (dia: Date) => vendas.filter(v => mesmoDia(v.data_venda, dia)).reduce((t, v) => t + v.valor_total, 0) / 100 + lancamentos.filter(l => l.tipo === 'ENTRADA' && mesmoDia(l.data_pagamento || l.data_vencimento, dia)).reduce((t, l) => t + l.valor, 0) / 100
+  const despesas = lancamentos.filter(l => l.tipo === 'SAIDA' && new Date(l.data_pagamento || l.data_vencimento) >= inicioMedia).reduce((t, l) => t + l.valor, 0) / 100
+  const media = despesas / 30
+  const pontos = dias.map(dia => ({ dia, receita: receita(dia), lucro: receita(dia) - media }))
+  const escala = Math.max(1, ...pontos.map(p => Math.max(Math.abs(p.receita), Math.abs(p.lucro), media)))
+  const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' })
+  return <article className="card profit-card"><div className="card-title"><div><p className="eyebrow">FINANCEIRO · PROJEÇÃO DIÁRIA</p><h2>Lucro bruto diário</h2></div><span className="mono">MÉDIA DE DESPESAS · 30 DIAS</span></div><div className="profit-summary"><strong>{loading ? '...' : moeda.format(pontos[6].lucro)}</strong><span>estimativa de hoje</span><em>{loading ? '...' : `${moeda.format(media)} / dia em despesas médias`}</em></div><div className="profit-chart" aria-label="Gráfico de lucro bruto diário dos últimos sete dias">{pontos.map(p => <div className="profit-day" key={p.dia.toISOString()}><div className="profit-bars"><i style={{ height: `${Math.max(3, Math.round(Math.abs(p.receita) / escala * 100))}%` }} title={`Receitas: ${moeda.format(p.receita)}`} /><b className={p.lucro < 0 ? 'negative' : ''} style={{ height: `${Math.max(3, Math.round(Math.abs(p.lucro) / escala * 100))}%` }} title={`Lucro: ${moeda.format(p.lucro)}`} /></div><span>{new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(p.dia).replace('.', '')}</span><small>{p.dia.getDate()}</small></div>)}</div><footer className="profit-legend"><span><i className="revenue-key" />Receitas</span><span><i className="profit-key" />Lucro projetado</span><span><i className="expense-key" />Despesa média: {moeda.format(media)}/dia</span></footer></article>
+}
+
+function DashboardWithOperations() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [userName, setUserName] = useState('')
+  const [quotes, setQuotes] = useState<Quote[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [events, setEvents] = useState<CalendarEvent[]>([])
+  useEffect(() => { let mounted = true; Promise.all([listQuotes(), listInventoryProducts(), listCalendarEvents(), getSessionUser()]).then(([q, p, e, u]) => { if (!mounted) return; setQuotes(q); setProducts(p); setEvents(e); setUserName(String(u.nome || '').split(' ')[0]) }).catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar o painel.') }).finally(() => { if (mounted) setLoading(false) }); return () => { mounted = false } }, [])
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+  const proximos = events.filter(e => new Date(e.start) >= hoje).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()).slice(0, 5)
+  const entregas = proximos.filter(e => e.tipo.toLowerCase().includes('entrega'))
+  const instalacoes = proximos.filter(e => e.tipo.toLowerCase().includes('instal'))
+  const criticos = products.filter(p => p.quantidade_estoque <= p.estoque_minimo)
+  const producao = quotes.filter(q => ['Planejando', 'OrÃ§amento gerado', 'Ajuste solicitado'].includes(q.status))
+  const aprovados = quotes.filter(q => ['Aprovado', 'Entregue', 'Faturado'].includes(q.status))
+  const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' })
+  const curto = (v: string) => new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(v)).replace('.', '')
+  const label = (s: string) => ({ 'Planejando': 'Em produção', 'OrÃ§amento gerado': 'Aguardando cliente', 'Ajuste solicitado': 'Ajuste pendente' }[s] || s)
+  return <><PageHead eyebrow="OPERAÇÃO · MARMORARIA" title={userName ? `Bom dia, ${userName}.` : 'Bom dia.'} subtitle="Acompanhe o que precisa sair da bancada, do galpão e da obra hoje." actions={<><Button variant="secondary" onClick={() => { location.hash = 'schedule'; location.reload() }}>Ver agenda</Button><Button onClick={() => { location.hash = 'builder'; location.reload() }}>Novo orçamento</Button></>} />{error && <p className="form-error" role="alert">{error}</p>}<section className="kpi-grid dashboard-kpis"><Kpi label="EM PRODUÇÃO" value={loading ? '...' : String(producao.length)} note={`${moeda.format(producao.reduce((t, q) => t + (q.valor_total || 0), 0) / 100)} em pedidos`} /><Kpi label="ENTREGAS / 7 DIAS" value={loading ? '...' : String(entregas.length)} note={`${instalacoes.length} instalação${instalacoes.length === 1 ? '' : 'ões'} programada${instalacoes.length === 1 ? '' : 's'}`} /><Kpi label="ESTOQUE CRÍTICO" value={loading ? '...' : String(criticos.length)} note={criticos.length ? 'reposição necessária' : 'tudo dentro do mínimo'} /><Kpi dark label="PEDIDOS APROVADOS" value={loading ? '...' : String(aprovados.length)} note="prontos para o próximo passo" /></section><section className="dashboard-grid marmoraria-dashboard"><article className="card span-two production-card"><div className="card-title"><div><p className="eyebrow">CHÃO DE FÁBRICA</p><h2>Pedidos que pedem atenção</h2></div><button className="text-action" onClick={() => { location.hash = 'pipeline'; location.reload() }}>Abrir produção →</button></div>{producao.slice(0, 5).map(q => <div className="production-row" key={q.id}><span className="production-dot" /><div><b>{q.cliente_nome || 'Cliente sem nome'}</b><small>{q.itens?.[0]?.nome || q.tipo_orcamento} · {q.itens?.length || 0} item(ns)</small></div><Badge tone="info">{label(q.status)}</Badge><strong>{moeda.format((q.valor_total || 0) / 100)}</strong></div>)}{!producao.length && <p className="empty-state">Nenhum pedido em produção no momento.</p>}</article><article className="card attention-card"><div className="card-title"><h2>Próximos compromissos</h2><span className="mono">7 DIAS</span></div>{proximos.length ? <ul className="events">{proximos.map(e => <li key={e.id}><i className={e.tipo.toLowerCase().includes('entrega') ? 'success' : 'warning'} /><span><b>{e.tipo}</b><small>{e.cliente_nome || e.title}</small></span><em>{curto(e.start)}</em></li>)}</ul> : <p className="empty-state">Agenda livre nos próximos dias.</p>}</article><article className="card stock-card"><div className="card-title"><div><p className="eyebrow">GALPÃO</p><h2>Estoque para repor</h2></div><button className="text-action" onClick={() => { location.hash = 'inventory'; location.reload() }}>Ver estoque →</button></div>{criticos.slice(0, 4).map(p => <div className="stock-row" key={p.id}><span className="material-chip">{(p.material || p.tipo || 'MP').slice(0, 2).toUpperCase()}</span><div><b>{p.nome}</b><small>{p.material || 'Matéria-prima'}</small></div><strong>{p.quantidade_estoque} <small>un.</small></strong></div>)}{!criticos.length && <p className="empty-state">Nenhum item abaixo do mínimo.</p>}</article><article className="card calendar"><div className="card-title"><div><p className="eyebrow">CAPACIDADE DA SEMANA</p><h2>Entregas e instalações</h2></div><span className="mono">{entregas.length + instalacoes.length} AGENDA(S)</span></div><div className="week marmoraria-week">{Array.from({ length: 7 }, (_, i) => { const d = new Date(hoje); d.setDate(hoje.getDate() + i); const day = events.filter(e => new Date(e.start).toDateString() === d.toDateString()); return <div className={i === 0 ? 'today' : ''} key={d.toISOString()}><span>{new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(d).replace('.', '').toUpperCase()} {d.getDate()}</span>{day.map(e => <b className={e.tipo.toLowerCase().includes('entrega') ? 'sage' : 'gold'} key={e.id}>{e.tipo} · {e.cliente_nome || e.title}</b>)}</div> })}</div></article></section></>
+}
+
+function Dashboard() {
+  const [vendas, setVendas] = useState<Venda[]>([])
+  const [lancamentos, setLancamentos] = useState<Lancamento[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => { let mounted = true; Promise.all([listVendas(), listLancamentos()]).then(([v, l]) => { if (!mounted) return; setVendas(v); setLancamentos(l) }).finally(() => { if (mounted) setLoading(false) }); return () => { mounted = false } }, [])
+  return <><DashboardWithOperations /><DailyGrossProfitChart vendas={vendas} lancamentos={lancamentos} loading={loading} /></>
+}
+
 type KanbanQuote = { id: string; backendId?: number; project: string; client: string; status: Status; value: number; date: string; owner: string; vendedor: string }
 
 function quoteToCard(quote: Quote): KanbanQuote {
@@ -1745,7 +1801,7 @@ function SalesHistory() {
   </>
 }
 
-function Profile() {
+export function ProfileLegacy() {
   const [me, setMe] = useState<TeamMember | null>(null)
   const [nome, setNome] = useState('')
   const [contato, setContato] = useState('')
@@ -2434,6 +2490,25 @@ function Portal({ token }: { token: string }) {
       <article className="card decision"><p className="mono">SUA DECISÃO</p>{decided ? <><h2>{proposal.decisao_cliente === 'aprovado' ? 'Intenção de aprovação registrada.' : 'Pedido de ajuste registrado.'}</h2><p>Registrado por {proposal.decisao_cliente_nome || name} em {portalDate(proposal.decisao_cliente_em)}.</p>{proposal.decisao_cliente === 'recusado' && <p><strong>Motivo informado:</strong> {proposal.decisao_cliente_motivo}</p>}</> : canDecide ? <><h2>Aprovar esta proposta?</h2><p>Registre sua decisão para que o arquiteto possa dar sequência ao atendimento.</p><form className="modal-form" onSubmit={approve}><label>Seu nome<input value={name} onChange={event => setName(event.target.value)} minLength={2} maxLength={200} required autoComplete="name"/></label>{decisionError && <p className="form-error" role="alert">{decisionError}</p>}<Button type="submit" loading={busy}>{busy ? 'Registrando…' : 'Aprovar proposta'}</Button></form><Button variant="secondary" onClick={() => setAdjustOpen(true)} loading={busy}>Pedir ajuste</Button></> : <><h2>{proposal.status_publico}</h2><p>Esta proposta não está aberta para uma nova decisão.</p></>}{proposal.arquiteto_nome && <small>Em caso de dúvida, fale com {proposal.arquiteto_nome}{proposal.arquiteto_contato ? ` · ${proposal.arquiteto_contato}` : ''}.</small>}</article>
       <article className="card timeline"><h2>Andamento</h2>{steps.map((step, index) => <div className={index < currentStep ? 'done' : index === currentStep ? 'current' : ''} key={step}><i/><b>{step}<small>{index === 0 ? portalDate(proposal.criado_em) : index === 1 ? (decided ? portalDate(proposal.decisao_cliente_em) : 'aguardando sua decisão') : index === 2 && decided ? 'aguardando confirmação' : 'após confirmação'}</small></b></div>)}</article>
     </aside></div></main>{adjustOpen && <Modal title="Pedir ajuste" close={() => setAdjustOpen(false)}><form className="modal-form" onSubmit={requestAdjustment}><label>O que precisa revisar?<textarea value={motive} onChange={event => { setMotive(event.target.value); if (motiveError) setMotiveError('') }} minLength={10} maxLength={2000} required autoFocus aria-invalid={Boolean(motiveError)} placeholder="Descreva o acabamento, prazo ou item…"/></label>{motiveError && <p className="form-error" role="alert">{motiveError}</p>}{decisionError && <p className="form-error" role="alert">{decisionError}</p>}<footer><Button variant="secondary" onClick={() => setAdjustOpen(false)}>Cancelar</Button><Button type="submit" loading={busy}>{busy ? 'Enviando…' : 'Enviar pedido'}</Button></footer></form></Modal>}</div>
+}
+
+function Profile() {
+  const [me, setMe] = useState<TeamMember | null>(null)
+  const [nome, setNome] = useState('')
+  const [contato, setContato] = useState('')
+  const [endereco, setEndereco] = useState(() => localStorage.getItem('arc-profile-address') || '')
+  const [avatar, setAvatar] = useState(() => localStorage.getItem('arc-profile-avatar') || '')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [feedback, setFeedback] = useState('')
+  const roleLabel: Record<string, string> = { admin: 'Administrador', vendedor: 'Vendedor', estoquista: 'Estoquista' }
+  useEffect(() => { getSessionUser().then(user => { setMe(user); setNome(user.nome); setContato(user.contato || '') }).catch(err => setError(err instanceof Error ? err.message : 'Falha ao carregar seu perfil.')).finally(() => setLoading(false)) }, [])
+  async function salvar(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!me) return; setSaving(true); setError(''); try { const updated = await updateTeamMember(me.id, { nome, contato: contato || null }); setMe(updated); localStorage.setItem('arc-profile-address', endereco); setFeedback('Perfil atualizado com sucesso.') } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao salvar seu perfil.') } finally { setSaving(false) } }
+  function escolherFoto(event: React.ChangeEvent<HTMLInputElement>) { const file = event.target.files?.[0]; if (!file) return; if (file.size > 2 * 1024 * 1024) { setError('A foto deve ter no máximo 2 MB.'); return } const reader = new FileReader(); reader.onload = () => { const value = String(reader.result); setAvatar(value); localStorage.setItem('arc-profile-avatar', value); setFeedback('Foto de perfil atualizada.') }; reader.readAsDataURL(file) }
+  async function solicitarTrocaSenha() { if (!me) return; try { await forgotPassword(me.email); setFeedback('Enviamos um link seguro para trocar sua senha.') } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível solicitar a troca de senha.') } }
+  const iniciais = nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase() || 'U'
+  return <><PageHead eyebrow="CONTA · MEU PERFIL" title="Meu perfil" subtitle="Gerencie sua identidade, seus dados de contato e a segurança de acesso." />{error && <p className="form-error" role="alert">{error}</p>}{loading ? <Skeleton rows={4} label="Carregando perfil" /> : me && <div className="profile-layout"><section><article className="card profile-hero"><div className="profile-avatar">{avatar ? <img src={avatar} alt="Foto de perfil" /> : iniciais}<label title="Alterar foto"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={escolherFoto} />+</label></div><div><p className="eyebrow">PERFIL ARC · STONE</p><h2>{nome}</h2><p>{roleLabel[me.role] || me.role} · {me.email}</p><span className="profile-status"><i /> Conta ativa</span></div></article><form className="card profile-form" onSubmit={salvar}><div className="card-title"><div><p className="eyebrow">IDENTIDADE</p><h2>Dados pessoais</h2></div><span className="mono">EDITÁVEL</span></div><div className="profile-fields"><label>Nome completo<input value={nome} onChange={e => setNome(e.target.value)} required /></label><label>Telefone<input value={contato} onChange={e => setContato(e.target.value)} placeholder="(11) 99999-9999" /></label><label className="full-field">Endereço profissional<textarea value={endereco} onChange={e => setEndereco(e.target.value)} placeholder="Rua, número, complemento, cidade e CEP" rows={3} /></label></div><footer><small>O endereço fica salvo neste dispositivo até o cadastro ser integrado ao servidor.</small><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Salvar alterações'}</Button></footer></form></section><aside><article className="card profile-info"><p className="eyebrow">ACESSO</p><h2>Dados da conta</h2><dl><dt>E-mail de acesso</dt><dd>{me.email}</dd><dt>Cargo</dt><dd><Badge tone="info">{roleLabel[me.role] || me.role}</Badge></dd><dt>Status</dt><dd className="success-text">Ativo</dd></dl></article><article className="card profile-security"><p className="eyebrow">SEGURANÇA</p><h2>Proteja seu acesso</h2><div className="security-action"><span>••••••••</span><div><b>Senha de acesso</b><small>Receba um link para criar uma nova senha.</small></div><button className="text-action" onClick={() => void solicitarTrocaSenha()}>Trocar</button></div><div className="security-action"><span>✓</span><div><b>Autenticação em duas etapas</b><small>Configure o MFA no módulo de segurança.</small></div><button className="text-action" onClick={() => { location.hash = 'profile'; location.reload() }}>Gerenciar</button></div></article><article className="card profile-tip"><b>Uma conta, todos os produtos ARC</b><p>Seus dados identificam você no ARC Stone e nos próximos produtos da plataforma.</p></article></aside></div>}{feedback && <Feedback message={feedback} close={() => setFeedback('')} />}</>
 }
 
 function ForgotPasswordModal({ close }: { close: () => void }) {

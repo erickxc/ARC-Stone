@@ -27,6 +27,7 @@ from routers import servicos as servicos_router
 from routers import equipamentos as equipamentos_router
 from routers import materia_prima as materia_prima_router
 from routers import perdas as perdas_router
+from routers import catalogos as catalogos_router
 from fastapi.middleware.cors import CORSMiddleware
 import auth as auth_module
 import shutil
@@ -107,6 +108,7 @@ app.include_router(servicos_router.router)
 app.include_router(equipamentos_router.router)
 app.include_router(materia_prima_router.router)
 app.include_router(perdas_router.router)
+app.include_router(catalogos_router.router)
 
 
 @app.get("/static/uploads/{filename:path}")
@@ -225,6 +227,33 @@ def on_startup():
         ))
         # ARC Stone: item de orçamento pode referenciar um serviço do catálogo (além/no lugar de produto)
         conn.execute(text("ALTER TABLE orcamento_itens ADD COLUMN IF NOT EXISTS servico_id INTEGER REFERENCES servicos(id)"))
+        # ARC Stone: catálogos configuráveis ganham ordem/built_in (condicoes_pagamento é pré-existente)
+        conn.execute(text("ALTER TABLE condicoes_pagamento ADD COLUMN IF NOT EXISTS ordem INTEGER NOT NULL DEFAULT 0"))
+        conn.execute(text("ALTER TABLE condicoes_pagamento ADD COLUMN IF NOT EXISTS built_in BOOLEAN NOT NULL DEFAULT FALSE"))
+        conn.execute(text("ALTER TABLE condicoes_pagamento ALTER COLUMN ativo SET DEFAULT TRUE"))
+        conn.execute(text("UPDATE condicoes_pagamento SET ativo = TRUE WHERE ativo IS NULL"))
+        conn.execute(text("ALTER TABLE condicoes_pagamento ALTER COLUMN ativo SET NOT NULL"))
+        # Condições legadas não tinham ordem: usa o id como ordem inicial, preservando a sequência atual.
+        conn.execute(text("UPDATE condicoes_pagamento SET ordem = id WHERE ordem = 0"))
+        # ARC Stone: cliente PF/PJ, endereço estruturado, relacionamento e trilha de autoria
+        for coluna, tipo in [
+            ("tipo_pessoa", "VARCHAR NOT NULL DEFAULT 'juridica'"),
+            ("nome", "VARCHAR"), ("sobrenome", "VARCHAR"), ("razao_social", "VARCHAR"),
+            ("telefone_secundario", "VARCHAR"),
+            ("cep", "VARCHAR"), ("numero", "VARCHAR"), ("complemento", "VARCHAR"),
+            ("bairro", "VARCHAR"), ("cidade", "VARCHAR"), ("estado", "VARCHAR(2)"),
+            ("carteira", "BOOLEAN NOT NULL DEFAULT FALSE"),
+            ("indicado_por", "VARCHAR"), ("profissional_tipo", "VARCHAR"),
+            ("criado_por_id", "INTEGER REFERENCES usuarios(id)"),
+            ("editado_por_id", "INTEGER REFERENCES usuarios(id)"),
+            ("editado_em", "TIMESTAMPTZ"),
+        ]:
+            conn.execute(text(f"ALTER TABLE clientes ADD COLUMN IF NOT EXISTS {coluna} {tipo}"))
+        # Clientes legados foram cadastrados como PJ (só tinham nome_fantasia): backfill de
+        # razao_social a partir do nome de exibição, para o formulário PF/PJ abrir preenchido.
+        conn.execute(text("UPDATE clientes SET razao_social = nome_fantasia WHERE razao_social IS NULL"))
+        # Autoria retroativa: sem histórico de quem criou, assume o vendedor dono.
+        conn.execute(text("UPDATE clientes SET criado_por_id = usuario_id WHERE criado_por_id IS NULL"))
 
     db = database.SessionLocal()
     try:
@@ -249,8 +278,62 @@ def on_startup():
                 )
                 db.add(admin_user)
                 db.commit()
+
+        _semear_catalogos(db)
     finally:
         db.close()
+
+
+def _semear_catalogos(db):
+    """Popula os catálogos configuráveis com os valores padrão do sistema.
+
+    Idempotente por catálogo: só semeia o que está vazio, para não ressuscitar itens que
+    o usuário desativou nem duplicar a cada start. Tudo entra com `built_in=True` — pode
+    ser desativado e reordenado na tela de Configurações, nunca excluído.
+    """
+    from models import TipoPagamento, FormaPagamento, Local, MotivoPerdaAvaria
+
+    if db.query(TipoPagamento).count() == 0:
+        # Só Cartão se desdobra em Crédito/Débito; os demais tipos não têm segunda etapa.
+        tipos = [
+            TipoPagamento(nome="Cartão", ordem=1, ativo=True, built_in=True, exige_forma=True),
+            TipoPagamento(nome="Dinheiro", ordem=2, ativo=True, built_in=True, exige_forma=False),
+            TipoPagamento(nome="Crediário", ordem=3, ativo=True, built_in=True, exige_forma=False),
+            TipoPagamento(nome="Cheque", ordem=4, ativo=True, built_in=True, exige_forma=False),
+            TipoPagamento(nome="Pix", ordem=5, ativo=True, built_in=True, exige_forma=False),
+        ]
+        db.add_all(tipos)
+        db.flush()  # precisa do id do Cartão para vincular as formas
+        cartao = next(t for t in tipos if t.nome == "Cartão")
+        db.add_all([
+            FormaPagamento(nome="Crédito", tipo_pagamento_id=cartao.id, ordem=1, ativo=True, built_in=True),
+            FormaPagamento(nome="Débito", tipo_pagamento_id=cartao.id, ordem=2, ativo=True, built_in=True),
+        ])
+        db.commit()
+
+    if db.query(Local).count() == 0:
+        padroes = ["Cozinha", "Banheiro", "Área de serviço", "Área externa", "Sala", "Churrasqueira"]
+        db.add_all([
+            Local(nome=nome, ordem=i, ativo=True, built_in=True)
+            for i, nome in enumerate(padroes, start=1)
+        ])
+        db.commit()
+
+    if db.query(MotivoPerdaAvaria).count() == 0:
+        # slug preserva os valores que PerdaAvaria.motivo já grava (coluna continua texto).
+        padroes = [
+            ("quebra_manuseio", "Quebra no manuseio"),
+            ("quebra_transporte", "Quebra no transporte"),
+            ("defeito_fabricacao", "Defeito de fabricação"),
+            ("corte_errado", "Corte errado"),
+            ("armazenamento_inadequado", "Armazenamento inadequado"),
+            ("outro", "Outro"),
+        ]
+        db.add_all([
+            MotivoPerdaAvaria(slug=slug, nome=nome, ordem=i, ativo=True, built_in=True)
+            for i, (slug, nome) in enumerate(padroes, start=1)
+        ])
+        db.commit()
 
 @app.get("/")
 def read_root():

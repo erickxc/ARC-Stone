@@ -39,7 +39,8 @@ class Usuario(Base):
     sessao_token_version = Column(Integer, nullable=False, default=0)  # incrementa no logout e na troca de senha, invalidando os refresh tokens emitidos
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    clientes = relationship("Cliente", back_populates="vendedor")
+    # Cliente tem 3 FKs para usuarios (dono, criado_por, editado_por) — precisa desambiguar.
+    clientes = relationship("Cliente", back_populates="vendedor", foreign_keys="Cliente.usuario_id")
     orcamentos = relationship("Orcamento", back_populates="vendedor")
 
 class Produto(Base):
@@ -93,17 +94,44 @@ class Cliente(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False) # Vendedor Dono
+    # Nome de exibição do cliente. É DERIVADO: o router o recalcula a partir de
+    # nome+sobrenome (PF) ou razao_social (PJ) em toda escrita. Não é campo de entrada.
+    # Motivo de manter a coluna: é lida em ~12 pontos (PDF, portal, kanban, calendário);
+    # trocar todos por lógica tipo_pessoa-aware teria blast radius alto sem ganho.
     nome_fantasia = Column(String, index=True, nullable=False)
+    tipo_pessoa = Column(String, nullable=False, default="juridica", server_default="juridica")  # 'fisica' | 'juridica'
+    nome = Column(String, nullable=True)          # PF
+    sobrenome = Column(String, nullable=True)     # PF
+    razao_social = Column(String, nullable=True)  # PJ
     cpf_cnpj = Column(String, unique=True, index=True, nullable=True)
     nome_responsavel = Column(String, nullable=True)
     email = Column(String, nullable=True)
-    contato = Column(String, nullable=True)
+    contato = Column(String, nullable=True)  # telefone principal
+    telefone_secundario = Column(String, nullable=True)
     status = Column(String, default="ativo", nullable=False)
+    # Endereço estruturado. Os campos de texto livre abaixo continuam existindo: o PDF e o
+    # portal já os consomem, e migrá-los está fora do escopo desta entrega.
+    cep = Column(String, nullable=True)
+    numero = Column(String, nullable=True)
+    complemento = Column(String, nullable=True)
+    bairro = Column(String, nullable=True)
+    cidade = Column(String, nullable=True)
+    estado = Column(String(2), nullable=True)
     endereco_entrega = Column(String, nullable=True)
     endereco_faturamento = Column(String, nullable=True)
+    # Relacionamento comercial
+    carteira = Column(Boolean, default=False, nullable=False, server_default="false")  # cliente recorrente
+    indicado_por = Column(String, nullable=True)  # preenchido = veio por indicação
+    profissional_tipo = Column(String, nullable=True)  # arquiteto, engenheiro, ...
+    # Autoria: criado_por nunca muda; editado_por/em são reescritos a cada update.
+    criado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    editado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    editado_em = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
-    vendedor = relationship("Usuario", back_populates="clientes")
+
+    vendedor = relationship("Usuario", back_populates="clientes", foreign_keys=[usuario_id])
+    criado_por = relationship("Usuario", foreign_keys=[criado_por_id])
+    editado_por = relationship("Usuario", foreign_keys=[editado_por_id])
     orcamentos = relationship("Orcamento", back_populates="cliente")
 
 class Orcamento(Base):
@@ -233,12 +261,65 @@ class OrcamentoConfig(Base):
     # Co-marca: nome do escritorio exibido ao lado do ARC (lockup "ARC / Stone").
     organizacao_nome = Column(String, nullable=True)
 
-class CondicaoPagamento(Base):
+class CatalogoSimplesMixin:
+    """Colunas comuns aos catálogos configuráveis pelo usuário (Configurações do orçamento).
+
+    `built_in` marca os registros semeados pelo sistema: podem ser desativados e reordenados,
+    nunca excluídos — a exclusão é recusada no router com 400.
+    """
+    nome = Column(String, nullable=False)
+    ativo = Column(Boolean, default=True, nullable=False)
+    ordem = Column(Integer, nullable=False, default=0)
+    built_in = Column(Boolean, default=False, nullable=False)
+
+
+class CondicaoPagamento(CatalogoSimplesMixin, Base):
+    """Condição de parcelamento (ex: "40% entrada + 3x")."""
     __tablename__ = "condicoes_pagamento"
 
     id = Column(Integer, primary_key=True, index=True)
-    nome = Column(String, nullable=False)
-    ativo = Column(Boolean, default=True)
+
+
+class TipoPagamento(CatalogoSimplesMixin, Base):
+    """Categoria macro do pagamento: Cartão, Dinheiro, Crediário, Cheque, Pix.
+
+    `exige_forma` liga a segunda etapa da cascata — só Cartão se desdobra em Crédito/Débito.
+    """
+    __tablename__ = "tipos_pagamento"
+
+    id = Column(Integer, primary_key=True, index=True)
+    exige_forma = Column(Boolean, default=False, nullable=False)
+
+    formas = relationship("FormaPagamento", back_populates="tipo", cascade="all, delete-orphan")
+
+
+class FormaPagamento(CatalogoSimplesMixin, Base):
+    """Sub-opção de um TipoPagamento (Crédito/Débito sob Cartão)."""
+    __tablename__ = "formas_pagamento"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tipo_pagamento_id = Column(Integer, ForeignKey("tipos_pagamento.id"), nullable=False, index=True)
+
+    tipo = relationship("TipoPagamento", back_populates="formas")
+
+
+class Local(CatalogoSimplesMixin, Base):
+    """Local de instalação do item (Banheiro, Cozinha, Área externa...)."""
+    __tablename__ = "locais"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+
+class MotivoPerdaAvaria(CatalogoSimplesMixin, Base):
+    """Catálogo que alimenta o seletor de motivo em Perdas e Avarias.
+
+    `PerdaAvaria.motivo` continua gravando texto (o slug), não FK — trocar o tipo da coluna
+    quebraria filtros/relatórios existentes sem ganho proporcional.
+    """
+    __tablename__ = "motivos_perda_avaria"
+
+    id = Column(Integer, primary_key=True, index=True)
+    slug = Column(String, nullable=False, unique=True, index=True)
 
 class Projeto(Base):
     """Projeto importado de um software de arquitetura (ex: SketchUp). Independente do orçamento

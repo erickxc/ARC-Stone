@@ -15,7 +15,7 @@ def test_vendedor_dup_cpf_cnpj_na_propria_carteira_bloqueado(client, make_user, 
     make_client(vendedor, cpf_cnpj=cpf)
     _login(client, vendedor)
 
-    resp = client.post("/clientes/", json={"nome_fantasia": "Cliente Duplicado", "cpf_cnpj": cpf, "status": "ativo"})
+    resp = client.post("/clientes/", json={"tipo_pessoa": "juridica", "razao_social": "Cliente Duplicado", "cpf_cnpj": cpf, "status": "ativo"})
     assert resp.status_code == 400
 
 
@@ -28,7 +28,7 @@ def test_vendedor_nao_descobre_cliente_de_outro_vendedor_via_dup_check(client, m
     make_client(dono, cpf_cnpj=cpf)
 
     _login(client, outro)
-    resp = client.post("/clientes/", json={"nome_fantasia": "Tentativa", "cpf_cnpj": cpf, "status": "ativo"})
+    resp = client.post("/clientes/", json={"tipo_pessoa": "juridica", "razao_social": "Tentativa", "cpf_cnpj": cpf, "status": "ativo"})
 
     # A unicidade global continua valendo (não dá pra cadastrar), mas sem a mensagem que
     # confirma que já existe "no sistema" — só a genérica de falha na constraint do banco.
@@ -44,7 +44,7 @@ def test_admin_ve_mensagem_especifica_de_duplicidade(client, make_user, make_cli
     make_client(vendedor, cpf_cnpj=cpf)
 
     _login(client, admin)
-    resp = client.post("/clientes/", json={"nome_fantasia": "Tentativa Admin", "cpf_cnpj": cpf, "status": "ativo"})
+    resp = client.post("/clientes/", json={"tipo_pessoa": "juridica", "razao_social": "Tentativa Admin", "cpf_cnpj": cpf, "status": "ativo"})
     assert resp.status_code == 400
     assert "já cadastrado no sistema" in resp.json()["detail"].lower()
 
@@ -55,7 +55,7 @@ def test_clientes_crud_gera_audit_log(client, make_user, db_session):
     vendedor = make_user(role="vendedor")
     _login(client, vendedor)
 
-    criado = client.post("/clientes/", json={"nome_fantasia": "Cliente Auditado", "status": "ativo"})
+    criado = client.post("/clientes/", json={"tipo_pessoa": "juridica", "razao_social": "Cliente Auditado", "status": "ativo"})
     assert criado.status_code == 201
     cliente_id = criado.json()["id"]
 
