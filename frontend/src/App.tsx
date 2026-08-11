@@ -149,12 +149,16 @@ function Combobox({ options, value, onChange, placeholder = 'Selecionar…', sea
   ariaLabel?: string
   disabled?: boolean
   compact?: boolean
-  onCreate?: (termo: string) => void
+  onCreate?: (termo: string, criado?: Client) => void
   createLabel?: string
 }) {
   const [open, setOpen] = useState(false)
   const [termo, setTermo] = useState('')
   const [ativo, setAtivo] = useState(0)
+  const [quickOpen, setQuickOpen] = useState(false)
+  const [quickSaving, setQuickSaving] = useState(false)
+  const [quickError, setQuickError] = useState('')
+  const [quickCreated, setQuickCreated] = useState<Client | null>(null)
   const idLista = useId()
   const raiz = useRef<HTMLDivElement>(null)
   const campo = useRef<HTMLInputElement>(null)
@@ -162,7 +166,8 @@ function Combobox({ options, value, onChange, placeholder = 'Selecionar…', sea
 
   const filtradas = options.filter(option => `${option.label} ${option.meta || ''}`.toLowerCase().includes(termo.trim().toLowerCase()))
   const podeCriar = Boolean(onCreate && termo.trim() && !options.some(option => option.label.toLowerCase() === termo.trim().toLowerCase()))
-  const selecionada = options.find(option => option.value === value)
+  const selecionada = options.find(option => option.value === value) || (quickCreated && String(quickCreated.id) === value ? { value, label: quickCreated.nome_fantasia } : undefined)
+  const mostrarMeta = ariaLabel !== 'Cliente'
 
   useEffect(() => {
     if (!open) return
@@ -185,6 +190,13 @@ function Combobox({ options, value, onChange, placeholder = 'Selecionar…', sea
   function escolher(option: ComboOption) {
     onChange(option.value)
     fechar()
+  }
+
+  async function salvarClienteRapido(input: ClientInput) {
+    setQuickSaving(true); setQuickError('')
+    try { const criado = await createClient(input); setQuickCreated(criado); onChange(String(criado.id)); onCreate?.('', criado); setQuickOpen(false) }
+    catch (err) { setQuickError(err instanceof Error ? err.message : 'Falha ao salvar cliente.') }
+    finally { setQuickSaving(false) }
   }
 
   function aoDigitar(event: ReactKeyboardEvent<HTMLInputElement>) {
@@ -214,12 +226,13 @@ function Combobox({ options, value, onChange, placeholder = 'Selecionar…', sea
           aria-expanded={false} aria-haspopup="listbox" onClick={abrir}
           onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); abrir() } }}>
           <span className={selecionada ? '' : 'combobox-vazio'}>{selecionada?.label || placeholder}</span>
-          {selecionada?.meta && <em className="combobox-meta">{selecionada.meta}</em>}
+          {mostrarMeta && selecionada?.meta && <em className="combobox-meta">{selecionada.meta}</em>}
         </button>}
+    {ariaLabel === 'Cliente' && <button type="button" className="combobox-quick-create" onClick={() => { setQuickError(''); setQuickOpen(true) }} aria-label="Cadastrar novo cliente">+</button>}
     {open && <div className="combobox-pop" id={idLista} role="listbox" aria-label={ariaLabel}>
       {filtradas.map((option, indice) => <button key={option.value} type="button" role="option" aria-selected={option.value === value}
         className={indice === ativo ? 'ativo' : ''} onPointerEnter={() => setAtivo(indice)} onClick={() => escolher(option)}>
-        <span>{option.label}</span>{option.meta && <em className="combobox-meta">{option.meta}</em>}
+        <span>{option.label}</span>{mostrarMeta && option.meta && <em className="combobox-meta">{option.meta}</em>}
       </button>)}
       {podeCriar && <button type="button" className={`combobox-criar${ativo >= filtradas.length ? ' ativo' : ''}`}
         onPointerEnter={() => setAtivo(filtradas.length)} onClick={() => { onCreate?.(termo.trim()); fechar() }}>
@@ -227,6 +240,7 @@ function Combobox({ options, value, onChange, placeholder = 'Selecionar…', sea
       </button>}
       {!filtradas.length && !podeCriar && <p className="combobox-nada">Nada encontrado.</p>}
     </div>}
+    {quickOpen && <Drawer title="Novo cliente" close={() => setQuickOpen(false)}><ClienteFormulario modo="criacao" salvando={quickSaving} onSubmit={salvarClienteRapido} />{quickError && <p className="form-error" role="alert">{quickError}</p>}</Drawer>}
   </div>
 }
 
@@ -240,7 +254,6 @@ const navGroups: NavGroup[] = [
     ['projects', 'Projetos', '', 'projects'],
   ] },
   { label: 'Vendas', items: [
-    ['clients', 'Carteira de clientes', '', 'clients'],
     ['pipeline', 'Pipeline de vendas', '18', 'pipeline'],
     ['salesHistory', 'Histórico de vendas', '', 'salesHistory'],
   ] },
@@ -254,6 +267,7 @@ const navGroups: NavGroup[] = [
   ] },
   { label: 'Gestão', items: [
     ['schedule', 'Calendário de entregas', '', 'schedule'],
+    ['clients', 'Carteira de clientes', '', 'clients'],
     ['finance', 'Painel financeiro', '', 'finance'],
     ['team', 'Equipe', '', 'team'],
   ] },
@@ -348,77 +362,9 @@ const tipoOrcamentoOptions: ComboOption[] = [
   { value: 'Externo', label: 'Externo', meta: 'peça de terceiro' },
 ]
 const prazoOptions: ComboOption[] = [{ value: '', label: 'Sem prazo' }, { value: 'dias', label: 'dias' }, { value: 'meses', label: 'meses' }]
-// Renovar sempre estende: "Sem prazo" não é opção aqui, ao contrário do cadastro do orçamento.
 const perfilOptions: ComboOption[] = [{ value: 'vendedor', label: 'Vendedor' }, { value: 'estoquista', label: 'Estoquista' }, { value: 'admin', label: 'Admin' }]
 const statusOptions: ComboOption[] = statusValues.map(([status]) => ({ value: status, label: status }))
-function StatusBars({ rows = statusValues }: { rows?: [Status, number, number][] }) { return <div className="status-bars">{rows.map(([s, n, w]) => <div key={s}><span>{s}</span><i><b className={s.toLowerCase()} style={{ width: `${w}%` }} /></i><em>{n}</em></div>)}</div> }
 
-export function DashboardLegacy() {
-  const [reportOpen, setReportOpen] = useState(false)
-  const [feedback, setFeedback] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [quotesData, setQuotesData] = useState<Quote[]>([])
-  const [clientsData, setClientsData] = useState<Client[]>([])
-  const [productsData, setProductsData] = useState<Product[]>([])
-  const [eventsData, setEventsData] = useState<CalendarEvent[]>([])
-  const [userName, setUserName] = useState('')
-
-  useEffect(() => {
-    let mounted = true
-    Promise.all([listQuotes(), listClients(), listInventoryProducts(), listCalendarEvents()])
-      .then(([quotesRes, clientsRes, productsRes, eventsRes]) => {
-        if (!mounted) return
-        setQuotesData(quotesRes); setClientsData(clientsRes); setProductsData(productsRes); setEventsData(eventsRes)
-      })
-      .catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar o painel.') })
-      .finally(() => { if (mounted) setLoading(false) })
-    getSessionUser().then(data => { if (mounted) setUserName(String(data.nome || '').split(' ')[0]) }).catch(() => undefined)
-    return () => { mounted = false }
-  }, [])
-
-  const criticalStock = productsData.filter(product => product.quantidade_estoque <= product.estoque_minimo).length
-  const openQuotes = quotesData.filter(quote => !['Aprovado','Orçamento negado','Entregue','Faturado','Devolvido'].includes(quote.status))
-  const openValue = openQuotes.reduce((total, quote) => total + (quote.valor_total || 0), 0)
-  const pendingApproval = quotesData.filter(quote => ['Orçamento gerado', 'Ajuste solicitado'].includes(quote.status)).length
-
-  const today = new Date()
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const weekStart = new Date(startOfToday); weekStart.setDate(startOfToday.getDate() - ((today.getDay() + 6) % 7))
-  const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7)
-  const weekEvents = eventsData.filter(event => { const d = new Date(event.start); return d >= weekStart && d < weekEnd })
-  const deliveriesThisWeek = weekEvents.filter(event => event.tipo === 'Entrega').length
-
-  const upcomingEvents = [...eventsData]
-    .filter(event => new Date(event.start) >= startOfToday)
-    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-    .slice(0, 4)
-  function daysUntil(dateStr: string) { return Math.round((new Date(dateStr).getTime() - startOfToday.getTime()) / 86400000) }
-  function relativeLabel(dateStr: string) { const diff = daysUntil(dateStr); if (diff <= 0) return 'hoje'; if (diff === 1) return 'amanhã'; return `${diff} dias` }
-  function relativeTone(dateStr: string) { const diff = daysUntil(dateStr); if (diff <= 0) return 'danger'; if (diff <= 3) return 'warning'; return 'success' }
-
-  const revenueByVendor = new Map<string, number>()
-  quotesData.forEach(quote => { const name = quote.vendedor_nome || 'Sem vendedor'; revenueByVendor.set(name, (revenueByVendor.get(name) || 0) + (quote.valor_total || 0)) })
-  const teamRanking = [...revenueByVendor.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3)
-  const topRevenue = teamRanking[0]?.[1] || 1
-
-  const statusCounts = statusValues.map(([status]) => [status, quotesData.filter(quote => (columnByBackendStatus[quote.status] || 'Gerando') === status).length] as [Status, number])
-  const maxStatusCount = Math.max(1, ...statusCounts.map(([, count]) => count))
-  const statusRows: [Status, number, number][] = statusCounts.map(([status, count]) => [status, count, count ? Math.max(10, Math.round(count / maxStatusCount * 100)) : 0])
-
-  const weekDayLabels = ['SEG','TER','QUA','QUI','SEX','SÁB','DOM']
-  const weekDays = Array.from({length: 7}, (_, i) => { const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d })
-  const weekMonthLabel = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(weekDays[0])
-
-  return <><PageHead eyebrow="PAINEL DE CONTROLE · ADM" title={userName ? `Bom dia, ${userName}.` : 'Bom dia.'} subtitle={`${deliveriesThisWeek} entrega${deliveriesThisWeek===1?'':'s'} nesta semana · ${pendingApproval} proposta${pendingApproval===1?'':'s'} pendente${pendingApproval===1?'':'s'} de decisão ou ajuste.`} actions={<><Button variant="secondary" onClick={() => setReportOpen(true)}>Relatório mensal</Button><Button onClick={() => { location.hash = 'builder'; location.reload() }}>Novo orçamento</Button></>} />
-    {error && <p className="form-error" role="alert">{error}</p>}
-    <section className="kpi-grid"><Kpi label="ORÇAMENTOS GLOBAIS" value={loading?'...':String(quotesData.length)} note={`${openQuotes.length} em andamento`} /><Kpi label="CLIENTES NA BASE" value={loading?'...':String(clientsData.length)} note="cadastrados no CRM" /><Kpi label="ITENS NO GALPÃO" value={loading?'...':String(productsData.length)} note={`${criticalStock} abaixo do mínimo`} /><Kpi dark label="EM APROVAÇÃO" value={loading?'...':new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',notation:'compact'}).format(openValue/100)} note={`${openQuotes.length} propostas abertas`} /></section>
-    <section className="dashboard-grid"><article className="card span-two"><div className="card-title"><h2>Orçamentos por status</h2><span className="mono">FUNIL · TODOS OS REGISTROS</span></div><StatusBars rows={statusRows} /></article>
-      <article className="card"><h2>Próximos eventos</h2>{upcomingEvents.length ? <ul className="events">{upcomingEvents.map(event => <li key={event.id}><i className={relativeTone(event.start)} />{event.tipo} · {event.cliente_nome} <b>{relativeLabel(event.start)}</b></li>)}</ul> : <p className="empty-state">Nenhum evento agendado.</p>}</article>
-      <article className="card team"><h2>Equipe comercial</h2>{teamRanking.length ? teamRanking.map(([name, total]) => <div key={name}><span>{name.split(' ').map(part=>part[0]).slice(0,2).join('')}</span><p>{name}<i><b style={{width:`${Math.round(total/topRevenue*100)}%`}} /></i></p><em>{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',notation:'compact'}).format(total/100)}</em></div>) : <p className="empty-state">Sem orçamentos ainda.</p>}</article>
-      <article className="card calendar"><div className="card-title"><h2>Visão da semana</h2><span className="mono">{String(weekDays[0].getDate()).padStart(2,'0')} — {String(weekDays[6].getDate()).padStart(2,'0')} DE {weekMonthLabel.toUpperCase()}</span></div><div className="week">{weekDays.map((d,i)=>{ const isToday = d.toDateString()===today.toDateString(); const dayEvents = weekEvents.filter(event=>new Date(event.start).toDateString()===d.toDateString()); return <div className={isToday?'today':''} key={d.toISOString()}><span>{weekDayLabels[i]} {String(d.getDate()).padStart(2,'0')}</span>{dayEvents.map(event=><b key={event.id}>{event.tipo} · {event.cliente_nome}</b>)}</div> })}</div></article>
-    </section>{reportOpen&&<Modal title="Relatório mensal" close={()=>setReportOpen(false)}><div className="modal-form"><p>Resumo pronto para exportação.</p><ul className="modal-summary"><li>{quotesData.length} orçamentos globais</li><li>{deliveriesThisWeek} entregas nesta semana</li><li>{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(openValue/100)} em aprovação</li></ul><footer><Button variant="secondary" onClick={()=>setReportOpen(false)}>Fechar</Button><Button onClick={()=>{setFeedback('Relatório preparado para download.');setReportOpen(false)}}>Exportar relatório</Button></footer></div></Modal>}{feedback&&<Feedback message={feedback} close={()=>setFeedback('')}/>}</>
-}
 
 const backendStatusByColumn: Record<Status, string> = { Gerando: 'Gerando orçamento', Planejando: 'Planejando', Enviado: 'Orçamento gerado', Ajuste: 'Ajuste solicitado', Aprovado: 'Aprovado', Perdido: 'Orçamento negado' }
 const columnByBackendStatus: Record<string, Status> = { 'Gerando orçamento': 'Gerando', 'Planejando': 'Planejando', 'Orçamento gerado': 'Enviado', 'Ajuste solicitado': 'Ajuste', 'Aprovado': 'Aprovado', 'Orçamento negado': 'Perdido', 'Entregue': 'Aprovado', 'Faturado': 'Aprovado', 'Devolvido': 'Perdido' }
@@ -544,7 +490,7 @@ function Pipeline() {
   const [vendedor, setVendedor] = useState('')
   const [novoCliente, setNovoCliente] = useState('')
   const [novoTipo, setNovoTipo] = useState('Obra')
-  const abrirNovo = () => { setNovoCliente(''); setNovoTipo('Venda'); setQuoteError(''); setOpen(true) }
+  const abrirNovo = () => { setNovoCliente(''); setNovoTipo('Obra'); setQuoteError(''); setOpen(true) }
 
   useEffect(() => {
     let mounted = true
@@ -671,7 +617,9 @@ function tipoDoItem(item: BuilderItem): 'produto' | 'servico' | 'externo' {
   return item.servicoId ? 'servico' : 'produto'
 }
 
-function codigoItem(item: BuilderItem): string {
+/** Referência do item no catálogo (CAT-/SRV-/LIVRE). Não confundir com
+ *  `codigo_item`, o sequencial da linha dentro do orçamento, gerado no backend. */
+function referenciaCatalogo(item: BuilderItem): string {
   if (item.isExternal) return 'LIVRE'
   if (item.servicoId) return `SRV-${String(item.servicoId).padStart(4, '0')}`
   return `CAT-${String(item.productId).padStart(4, '0')}`
@@ -690,7 +638,7 @@ const STATUS_FECHADOS = ['Aprovado', 'Entregue', 'Devolvido', 'Faturado']
 
 type BuilderItem = {
   key: string; productId: number | null; servicoId: number | null; servicoComponenteId: number | null
-  name: string; quantity: number; unit: string; unitPrice: number
+  name: string; quantity: number; unitPrice: number
   isExternal: boolean; projetoItemId: number | null
   localId: number | null; localInstalacao: string | null
   unidadeMedida: UnidadeMedida; comprimento: number | null; largura: number | null
@@ -735,7 +683,6 @@ function itemDaApi(item: QuoteItem, indice: number): BuilderItem {
     servicoComponenteId: item.servico_componente_id ?? null,
     name: item.nome || item.nome_externo || 'Item',
     quantity: item.quantidade,
-    unit: 'un.',
     unitPrice: item.preco_unitario_aplicado,
     isExternal: Boolean(item.is_externo),
     projetoItemId: item.projeto_item_id ?? null,
@@ -1096,7 +1043,7 @@ function ModalItemServico({ servico, locais, onCancelar, onConfirmar }: {
       onConfirmar([{
         ...itemVazio,
         key: `servico-${servico.id}-${agora}`, productId: null, servicoId: servico.id, servicoComponenteId: null,
-        name: servico.nome, quantity: 1, unit: 'un.', unitPrice: servico.preco_padrao,
+        name: servico.nome, quantity: 1, unitPrice: servico.preco_padrao,
         isExternal: false, projetoItemId: null,
         localId: localId === '' ? null : Number(localId),
         prazoValor: servico.tempo_medio_valor, prazoUnidade: servico.tempo_medio_unidade,
@@ -1110,7 +1057,7 @@ function ModalItemServico({ servico, locais, onCancelar, onConfirmar }: {
         key: `servico-${servico.id}-${componente.id}-${agora}-${indice}`,
         productId: null, servicoId: servico.id, servicoComponenteId: componente.id,
         name: `${servico.nome} · ${componente.nome}`,
-        quantity: escolha.quantidade || 1, unit: UNIDADE_ROTULO[componente.unidade_medida],
+        quantity: escolha.quantidade || 1,
         // Preco congela na adicao: mexer no catalogo depois nao altera orcamento existente.
         unitPrice: componente.preco_unitario ?? 0,
         isExternal: false, projetoItemId: null,
@@ -1365,8 +1312,7 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
         productId: row.matchedProductId,
         name: produto?.nome || row.nome,
         quantity: row.quantidade,
-        unit: 'un.',
-        unitPrice: row.unitPrice,
+            unitPrice: row.unitPrice,
         isExternal: !row.matchedProductId,
         projetoItemId: row.projetoItemId,
       }
@@ -1464,11 +1410,11 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
 
   function addCatalogItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget); const product = productsList.find(item => item.id === Number(form.get('produto_id'))); if (!product) return
-    setItems(current => [...current, { key: `product-${product.id}-${Date.now()}`, productId: product.id, name: product.nome, quantity: Number(form.get('quantidade') || 1), unit: 'un.', unitPrice: product.preco_venda, isExternal: false, projetoItemId: null, ...itemVazio }]); setItemModal(null)
+    setItems(current => [...current, { key: `product-${product.id}-${Date.now()}`, productId: product.id, name: product.nome, quantity: Number(form.get('quantidade') || 1), unitPrice: product.preco_venda, isExternal: false, projetoItemId: null, ...itemVazio }]); setItemModal(null)
   }
 
   function addFreeItem(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); const form = new FormData(event.currentTarget); setItems(current => [...current, { key: `free-${Date.now()}`, productId: null, name: String(form.get('nome') || 'Item livre'), quantity: Number(form.get('quantidade') || 1), unit: String(form.get('unidade') || 'un.'), unitPrice: Math.round(Number(form.get('preco') || 0) * 100), isExternal: true, projetoItemId: null, ...itemVazio }]); setItemModal(null)
+    event.preventDefault(); const form = new FormData(event.currentTarget); setItems(current => [...current, { key: `free-${Date.now()}`, productId: null, name: String(form.get('nome') || 'Item livre'), quantity: Number(form.get('quantidade') || 1), unitPrice: Math.round(Number(form.get('preco') || 0) * 100), isExternal: true, projetoItemId: null, ...itemVazio }]); setItemModal(null)
   }
 
   return <><PageHead eyebrow={quoteIdRota ? `ORC-${String(quoteIdRota).padStart(4, '0')} · EDIÇÃO` : quoteId ? `ORC-${String(quoteId).padStart(4, '0')} · RASCUNHO` : 'NOVO ORÇAMENTO · RASCUNHO'} title={`${selectedClientName} — orçamento`} actions={<><Badge>Gerando</Badge><Button variant="secondary" onClick={() => saveQuote()} loading={saving} disabled={Boolean(quoteIdRota) && !carregouParaEditar} title={quoteIdRota && !carregouParaEditar ? 'Aguardando o orçamento carregar.' : undefined}>{saving ? 'Salvando…' : quoteIdRota ? 'Salvar alterações' : 'Salvar rascunho'}</Button><Button onClick={regeneratePdf}>Gerar PDF e enviar</Button></>} />{error && <p className="form-error" role="alert">{error}</p>}{loading ? <article className="card" style={{ padding: 20 }}><Skeleton rows={4} label="Carregando clientes e catálogo" /></article> : <form onSubmit={saveQuote}><div className="builder"><div><article className="card fields">
@@ -1495,7 +1441,7 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
               <div className={`item-row ${aberto ? 'editing' : ''}`}>
                 <input type="checkbox" className="item-selecao" aria-label={`Selecionar ${item.name}`} checked={selecionados.has(item.key)} onChange={() => alternaSelecao(item.key)} />
                 <button type="button" className="item-abrir" aria-expanded={aberto} onClick={() => setItemAberto(atual => atual === item.key ? null : item.key)}>
-                  <b>{item.name}</b><small>{codigoItem(item)} · {TIPO_ITEM_ROTULO[tipoDoItem(item)]}</small>
+                  <b>{item.name}</b><small>{referenciaCatalogo(item)} · {TIPO_ITEM_ROTULO[tipoDoItem(item)]}</small>
                 </button>
                 <span>{item.unidadeMedida === 'm2' ? (areaDoItem(item) !== null ? `${areaDoItem(item)!.toFixed(2)} m²` : <i className="celula-na">—</i>) : item.quantity}</span>
                 <span>{UNIDADE_ROTULO[item.unidadeMedida]}</span>
@@ -1554,7 +1500,7 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
     </div></Modal>}
     {servicoModal && <ModalItemServico servico={servicoModal} locais={locais} onCancelar={() => setServicoModal(null)}
       onConfirmar={linhas => { setItems(atual => [...atual, ...linhas]); setServicoModal(null) }} />}
-    {itemModal === 'free' && <Modal title="Adicionar item livre" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addFreeItem}><label>Descrição<input name="nome" required autoFocus placeholder="Bancada especial…"/></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><label>Unidade<input name="unidade" defaultValue="un." required/></label><label>Preço unitário<input name="preco" type="number" min="0" step="0.01" required placeholder="0,00"/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}
+    {itemModal === 'free' && <Modal title="Adicionar item livre" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addFreeItem}><label>Descrição<input name="nome" required autoFocus placeholder="Bancada especial…"/></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><label>Preço unitário<input name="preco" type="number" min="0" step="0.01" required placeholder="0,00"/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}
     {itemModal === 'project' && <Modal title="Importar de um projeto" close={() => setItemModal(null)}>
       <div className="modal-form" style={{ gridTemplateColumns: '1fr' }}>
         {projetosList.length ? <DataTable headers={['PROJETO', 'ORIGEM', 'CLIENTE', '#ITENS', '']} rows={sortedProjects.map(p => [
@@ -2364,91 +2310,6 @@ function SalesHistory() {
   </>
 }
 
-export function ProfileLegacy() {
-  const [me, setMe] = useState<TeamMember | null>(null)
-  const [nome, setNome] = useState('')
-  const [contato, setContato] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [feedback, setFeedback] = useState('')
-  const [mfaSetup, setMfaSetup] = useState<{ secret: string; qr_code_url: string } | null>(null)
-  const [mfaCode, setMfaCode] = useState('')
-  const [mfaBusy, setMfaBusy] = useState(false)
-  const [mfaError, setMfaError] = useState('')
-  const [disableMfaOpen, setDisableMfaOpen] = useState(false)
-  const [disableMfaPassword, setDisableMfaPassword] = useState('')
-
-  useEffect(() => {
-    let mounted = true
-    getSessionUser().then(data => { if (mounted) { setMe(data); setNome(data.nome); setContato(data.contato || '') } })
-      .catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar seu perfil.') })
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
-  }, [])
-
-  async function salvarPerfil(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (!me) return; setSaving(true); setError('')
-    try { const updated = await updateTeamMember(me.id, { nome, contato: contato || null }); setMe(updated); setFeedback('Perfil atualizado.') }
-    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao salvar perfil.') }
-    finally { setSaving(false) }
-  }
-
-  async function startMfaSetup() {
-    setMfaError(''); setMfaBusy(true)
-    try { setMfaSetup(await enableMfa()) }
-    catch (err) { setMfaError(err instanceof Error ? err.message : 'Falha ao iniciar configuração do MFA.') }
-    finally { setMfaBusy(false) }
-  }
-  async function confirmMfaSetup(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setMfaError(''); setMfaBusy(true)
-    try { await verifyMfa(mfaCode); setMe(current => current ? { ...current, mfa_enabled: true } : current); setMfaSetup(null); setMfaCode(''); setFeedback('MFA ativado com sucesso.') }
-    catch (err) { setMfaError(err instanceof Error ? err.message : 'Código inválido.') }
-    finally { setMfaBusy(false) }
-  }
-  async function confirmDisableMfa(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setMfaError(''); setMfaBusy(true)
-    try { await disableMfa(disableMfaPassword); setMe(current => current ? { ...current, mfa_enabled: false } : current); setDisableMfaOpen(false); setDisableMfaPassword(''); setFeedback('MFA desativado.') }
-    catch (err) { setMfaError(err instanceof Error ? err.message : 'Falha ao desativar MFA.') }
-    finally { setMfaBusy(false) }
-  }
-
-  const roleLabel: Record<string, string> = { admin: 'Admin', vendedor: 'Vendedor', estoquista: 'Estoquista' }
-
-  return <><PageHead eyebrow="CONTA · MEU PERFIL" title="Meu Perfil" subtitle={me ? `${roleLabel[me.role] || me.role} · ${me.email}` : ''}/>
-    {error && <p className="form-error" role="alert">{error}</p>}
-    {loading ? <Skeleton rows={3} label="Carregando perfil" /> : me && <>
-      <article className="card" style={{ padding: 20 }}>
-        <div className="card-title"><h2>Dados pessoais</h2></div>
-        <form className="modal-form" onSubmit={salvarPerfil}>
-          <label>Nome<input value={nome} onChange={e => setNome(e.target.value)} required/></label>
-          <label>E-mail<input value={me.email} disabled/></label>
-          <label>Telefone<input value={contato} onChange={e => setContato(e.target.value)} placeholder="(11) 99999-9999"/></label>
-          <footer><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Salvar'}</Button></footer>
-        </form>
-      </article>
-      <article className="card" style={{ padding: 20, marginTop: 14 }}>
-        <div className="card-title"><h2>Autenticação em duas etapas</h2></div>
-        {me.mfa_enabled ? (disableMfaOpen ? <form onSubmit={confirmDisableMfa} className="modal-form">
-            <p>Confirme sua senha atual para desativar o MFA.</p>
-            <label>Senha<input type="password" value={disableMfaPassword} onChange={e => setDisableMfaPassword(e.target.value)} autoFocus required/></label>
-            {mfaError && <p className="form-error" role="alert">{mfaError}</p>}
-            <footer><Button type="button" variant="secondary" onClick={() => { setDisableMfaOpen(false); setDisableMfaPassword(''); setMfaError('') }}>Cancelar</Button><Button type="submit" disabled={mfaBusy}>{mfaBusy ? 'Desativando…' : 'Confirmar e desativar'}</Button></footer>
-          </form>
-        : <><p className="subtitle">MFA está ativo na sua conta.</p>{mfaError && <p className="form-error" role="alert">{mfaError}</p>}<Button variant="secondary" onClick={() => setDisableMfaOpen(true)}>Desativar MFA</Button></>)
-        : mfaSetup ? <form onSubmit={confirmMfaSetup} className="modal-form">
-            <p>No seu aplicativo autenticador, adicione uma conta manualmente e informe a chave abaixo:</p>
-            <label>Chave manual<input readOnly value={mfaSetup.secret} onFocus={e => e.currentTarget.select()}/></label>
-            <label>Código do aplicativo<input value={mfaCode} onChange={e => setMfaCode(e.target.value)} placeholder="428913" autoFocus required/></label>
-            {mfaError && <p className="form-error" role="alert">{mfaError}</p>}
-            <footer><Button type="button" variant="secondary" onClick={() => { setMfaSetup(null); setMfaCode(''); setMfaError('') }}>Cancelar</Button><Button type="submit" disabled={mfaBusy}>{mfaBusy ? 'Verificando…' : 'Confirmar e ativar'}</Button></footer>
-          </form>
-        : <><p className="subtitle">Adicione uma camada extra de segurança à sua conta.</p>{mfaError && <p className="form-error" role="alert">{mfaError}</p>}<Button variant="secondary" onClick={startMfaSetup} disabled={mfaBusy}>{mfaBusy ? 'Gerando…' : 'Ativar MFA'}</Button></>}
-      </article>
-    </>}
-    {feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}
-  </>
-}
 
 const deliveryEvents: Record<number, [string,string,string][]> = { 3:[['Entrega','Casa Ibiúna','09:00'],['Reunião','Incorporadora Ventura','14:30']], 8:[['Medição','Escritório Faria Lima','10:00']], 12:[['Faturamento','Apto Vila Madalena','08:30']], 17:[['Retirada','MDF · Duratex','16:00']], 24:[['Entrega','Loja Pinheiros','11:00']], 29:[['Montagem','Hotel Santa Cecília','07:30']] }
 function Schedule() {
@@ -2683,6 +2544,7 @@ function CatalogoConfiguravel<T extends ItemCatalogo>({ titulo, descricao, acoes
   async function renomear(item: T) {
     const nome = window.prompt('Novo nome:', item.nome)?.trim()
     if (!nome || nome === item.nome) return
+    if (nome.length > 120) { setErro('O nome pode ter no máximo 120 caracteres.'); return }
     setOcupado(true); setErro('')
     try { const salvo = await acoes.atualizar(item.id, { nome }); setItens(atual => atual.map(i => i.id === salvo.id ? salvo : i)) }
     catch (err) { setErro(err instanceof Error ? err.message : 'Falha ao renomear.') }
@@ -2750,6 +2612,7 @@ function FormasPagamentoConfig() {
   const [formas, setFormas] = useState<FormaPagamento[]>([])
   const [tipoId, setTipoId] = useState<number | ''>('')
   const [nova, setNova] = useState('')
+  const [carregando, setCarregando] = useState(true)
   const [ocupado, setOcupado] = useState(false)
   const [erro, setErro] = useState('')
 
@@ -2758,6 +2621,7 @@ function FormasPagamentoConfig() {
     Promise.all([catalogoTiposPagamento.listar(), catalogoFormasPagamento.listar()])
       .then(([t, f]) => { if (!vivo) return; setTipos(t); setFormas(f) })
       .catch(err => { if (vivo) setErro(err instanceof Error ? err.message : 'Falha ao carregar.') })
+      .finally(() => { if (vivo) setCarregando(false) })
     return () => { vivo = false }
   }, [])
 
@@ -2790,7 +2654,7 @@ function FormasPagamentoConfig() {
     <div className="card-title"><h2>Formas de pagamento</h2><Badge>{formas.length}</Badge></div>
     <p className="subtitle" style={{ padding: '0 16px 12px' }}>Sub-opção de um tipo que exige escolha (ex.: Crédito e Débito sob Cartão). Só aparece no checkout quando o tipo escolhido exige forma.</p>
     {erro && <p className="form-error" role="alert" style={{ padding: '0 16px' }}>{erro}</p>}
-    {formas.length ? <DataTable headers={['NOME', 'TIPO', 'STATUS', 'AÇÕES']} rows={formas.map(forma => [
+    {carregando ? <Skeleton rows={2} label="Carregando formas de pagamento" /> : formas.length ? <DataTable headers={['NOME', 'TIPO', 'STATUS', 'AÇÕES']} rows={formas.map(forma => [
       <span><b>{forma.nome}</b>{forma.built_in && <> <Badge>Padrão do sistema</Badge></>}</span>,
       <span>{tipos.find(t => t.id === forma.tipo_pagamento_id)?.nome || '—'}</span>,
       <Toggle checked={forma.ativo} disabled={ocupado} ariaLabel={`${forma.nome} ativa`} label={forma.ativo ? 'Ativa' : 'Inativa'} onChange={() => void alternar(forma)} />,

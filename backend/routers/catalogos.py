@@ -9,10 +9,12 @@ response_model continua concreto e o /docs continua legível.
 Regra transversal: registro com `built_in=True` é semeado pelo sistema. Pode ser
 renomeado, desativado e reordenado; nunca excluído.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import Type
+from typing import Callable, Type
+import re
+import unicodedata
 
 from database import get_db
 import models, schemas, auth
@@ -23,6 +25,27 @@ router = APIRouter(prefix="/catalogos", tags=["Catálogos configuráveis"])
 _somente_admin = auth.RoleChecker(["admin"])
 
 
+def _slug(nome: str) -> str:
+    """Slug ASCII do nome. MotivoPerdaAvaria.slug é NOT NULL/unique e o valor gravado em
+    PerdaAvaria.motivo continua sendo texto — o slug é a chave estável entre os dois."""
+    sem_acento = unicodedata.normalize("NFKD", nome).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "_", sem_acento.lower()).strip("_") or "motivo"
+
+
+def _log(db: Session, request: Request, usuario, acao: str, detalhes: str, entidade: str, entidade_id: int) -> None:
+    """Catálogo muda o comportamento do checkout e das telas do galpão — alteração de
+    admin aqui precisa deixar rastro, igual aos outros routers do projeto."""
+    db.add(models.AuditLog(
+        usuario_id=usuario.id,
+        acao=acao,
+        detalhes=detalhes,
+        entidade=entidade,
+        entidade_id=entidade_id,
+        ip=request.headers.get('X-Real-IP', request.client.host if request.client else None),
+    ))
+    db.commit()
+
+
 def registrar_catalogo(
     caminho: str,
     model: Type,
@@ -30,6 +53,7 @@ def registrar_catalogo(
     schema_create: Type,
     schema_update: Type,
     rotulo: str,
+    derivar: Callable[[dict], dict] | None = None,
 ):
     """Gera GET/POST/PATCH/PATCH-reordenar/DELETE para um catálogo simples."""
 
@@ -46,16 +70,22 @@ def registrar_catalogo(
 
     @router.post(f"/{caminho}", response_model=schema_out, status_code=status.HTTP_201_CREATED, name=f"criar_{caminho}")
     def criar(
+        request: Request,
         dados: schema_create,
         db: Session = Depends(get_db),
         current_user: models.Usuario = Depends(_somente_admin),
     ):
         proxima_ordem = (db.query(func.coalesce(func.max(model.ordem), 0)).scalar() or 0) + 1
+        campos = dados.model_dump()
+        # Catálogo com coluna obrigatória além do nome (ex: slug) preenche aqui.
+        if derivar:
+            campos.update(derivar(campos))
         # built_in nunca vem do payload: item criado por usuário é sempre excluível.
-        registro = model(**dados.model_dump(), ordem=proxima_ordem, ativo=True, built_in=False)
+        registro = model(**campos, ordem=proxima_ordem, ativo=True, built_in=False)
         db.add(registro)
         db.commit()
         db.refresh(registro)
+        _log(db, request, current_user, "CRIOU_CATALOGO", f"{rotulo} '{registro.nome}' criado", rotulo, registro.id)
         return registro
 
     @router.patch(f"/{caminho}/reordenar", response_model=list[schema_out], name=f"reordenar_{caminho}")
@@ -78,6 +108,7 @@ def registrar_catalogo(
 
     @router.patch(f"/{caminho}/{{registro_id}}", response_model=schema_out, name=f"atualizar_{caminho}")
     def atualizar(
+        request: Request,
         registro_id: int,
         dados: schema_update,
         db: Session = Depends(get_db),
@@ -86,14 +117,18 @@ def registrar_catalogo(
         registro = db.query(model).filter(model.id == registro_id).first()
         if not registro:
             raise HTTPException(status_code=404, detail=f"{rotulo} não encontrado.")
-        for campo, valor in dados.model_dump(exclude_unset=True).items():
+        alteracoes = dados.model_dump(exclude_unset=True)
+        for campo, valor in alteracoes.items():
             setattr(registro, campo, valor)
         db.commit()
         db.refresh(registro)
+        _log(db, request, current_user, "EDITOU_CATALOGO",
+             f"{rotulo} '{registro.nome}' alterado: {alteracoes}", rotulo, registro.id)
         return registro
 
     @router.delete(f"/{caminho}/{{registro_id}}", status_code=status.HTTP_204_NO_CONTENT, name=f"excluir_{caminho}")
     def excluir(
+        request: Request,
         registro_id: int,
         db: Session = Depends(get_db),
         current_user: models.Usuario = Depends(_somente_admin),
@@ -106,8 +141,10 @@ def registrar_catalogo(
                 status_code=400,
                 detail="Item padrão do sistema não pode ser excluído — desative-o para escondê-lo.",
             )
+        nome = registro.nome
         db.delete(registro)
         db.commit()
+        _log(db, request, current_user, "EXCLUIU_CATALOGO", f"{rotulo} '{nome}' excluído", rotulo, registro_id)
         return None
 
 
@@ -130,6 +167,7 @@ registrar_catalogo(
     "motivos-perda", models.MotivoPerdaAvaria,
     schemas.MotivoPerdaAvariaOut, schemas.MotivoPerdaAvariaCreate, schemas.MotivoPerdaAvariaUpdate,
     "Motivo de perda/avaria",
+    derivar=lambda campos: {"slug": _slug(campos["nome"])},
 )
 
 

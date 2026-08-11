@@ -164,18 +164,10 @@ def build_client_section(orcamento_data, styles):
             f'Tel. Arquiteto: <b>{esc(orcamento_data.get("arquiteto_contato", ""))}</b>'
         )
     
-    tipo = orcamento_data.get("tipo_orcamento", "Venda")
-    if tipo == 'Locacao':
-        prazo_val = orcamento_data.get("prazo_locacao_valor", "")
-        prazo_uni = orcamento_data.get("prazo_locacao_unidade", "")
-        if prazo_val:
-            client_lines.append(f'Obs.: Orçamento tipo <b>{tipo}</b>')
-            client_lines.append(f'<font color="#2E2D2C"><b>Prazo Limite da Locação:</b> {prazo_val} {prazo_uni} corridos. A contagem inicia-se a partir do momento da chegada dos móveis no local.</font>')
-        else:
-            client_lines.append(f'Obs.: Orçamento tipo <b>{tipo}</b>')
-            client_lines.append(f'<font color="#2E2D2C">A contagem do prazo de locação inicia-se a partir do momento da chegada dos móveis no local.</font>')
-    else:
-        client_lines.append(f'Obs.: Orçamento tipo <b>{tipo}</b>')
+    # Locação foi descartada (marmoraria não aluga): o ramo que imprimia o prazo de
+    # locação saiu junto, os tipos válidos hoje são Obra/Peça/Projeto/Externo.
+    tipo = orcamento_data.get("tipo_orcamento", "Obra")
+    client_lines.append(f'Obs.: Orçamento tipo <b>{tipo}</b>')
     
     for line in client_lines:
         elements.append(Paragraph(line, styles['ArcBody']))
@@ -259,7 +251,7 @@ def get_item_image(item, max_width=2*cm, max_height=1.5*cm):
     return Paragraph('<font color="#999999" size="7">Sem foto</font>', getSampleStyleSheet()['Normal'])
 
 
-def build_items_table(itens, styles):
+def build_items_table(itens, styles, desconto_global_centavos: int = 0):
     """Constrói a tabela de itens do orçamento."""
     elements = []
     
@@ -305,7 +297,11 @@ def build_items_table(itens, styles):
         
         qtd = item.get('quantidade', 1)
         preco_unit = item.get('preco_unitario_aplicado', 0)  # em centavos
-        total_item = qtd * preco_unit
+        # O total vem calculado do router (a fórmula depende da unidade da peça: m²,
+        # metro linear ou unidade). Recalcular aqui divergiria do que é cobrado.
+        total_item = item.get('total_centavos')
+        if total_item is None:
+            total_item = qtd * preco_unit
         subtotal += total_item
         
         img_cell = get_item_image(item)
@@ -350,6 +346,8 @@ def build_items_table(itens, styles):
     
     # Tabela de totais
     frete = 25000  # R$ 250,00 em centavos
+    # Desconto de fechamento abate do subtotal antes do frete.
+    subtotal = max(0, subtotal - (desconto_global_centavos or 0))
     total_geral = subtotal + frete
     
     totals_data = [
@@ -483,7 +481,10 @@ def generate_orcamento_pdf(orcamento_data: dict) -> str:
     elements.extend(build_client_section(orcamento_data, styles))
     
     # 3. Tabela de itens + totais
-    items_elements, total = build_items_table(orcamento_data.get('itens', []), styles)
+    items_elements, total = build_items_table(
+        orcamento_data.get('itens', []), styles,
+        orcamento_data.get('desconto_global_centavos', 0) or 0,
+    )
     elements.extend(items_elements)
     
     # 4. Informações importantes

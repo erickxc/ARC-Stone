@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func
 from datetime import datetime, timezone, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 import os
 import uuid
 from database import get_db
@@ -17,6 +18,9 @@ from anexo_utils import (
 )
 
 router = APIRouter(prefix="/orcamentos", tags=["Orçamentos e Kanban"])
+
+# Status em que o orçamento já virou compromisso (estoque retido, título gerado).
+STATUS_FECHADOS = ["Aprovado", "Entregue", "Devolvido", "Faturado"]
 
 
 def _get_orcamento_autorizado(orcamento_id: int, db: Session, current_user: models.Usuario) -> models.Orcamento:
@@ -126,7 +130,12 @@ def _processar_itens_orcamento(itens_in, db: Session) -> list[dict]:
         dados['codigo_item'] = indice
         comprimento = dados.get('comprimento_m')
         largura = dados.get('largura_m')
-        dados['area_m2'] = round(comprimento * largura, 2) if (comprimento and largura) else None
+        # ROUND_HALF_UP e não round(): o round() do Python usa banker's rounding e daria
+        # área diferente da prévia do frontend (toFixed) em valores terminados em 5.
+        dados['area_m2'] = (
+            (Decimal(str(comprimento)) * Decimal(str(largura))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            if (comprimento and largura) else None
+        )
         processados.append(dados)
     return processados
 
@@ -142,6 +151,82 @@ def _total_item(item) -> int:
         acrescimo_centavos=getattr(item, 'acrescimo_centavos', 0) or 0,
         desconto_centavos=getattr(item, 'desconto_centavos', 0) or 0,
     )
+
+
+def _valor_total_orcamento(orcamento) -> int:
+    """Total do orçamento em centavos: soma das linhas menos o desconto de fechamento.
+
+    Fonte única — PDF, portal, financeiro e Venda precisam do MESMO número, senão o
+    documento que o cliente assina diverge do que é cobrado.
+    """
+    total = sum(_total_item(item) for item in orcamento.itens)
+    return max(0, total - (getattr(orcamento, 'desconto_global_centavos', 0) or 0))
+
+
+def _validar_cnpj_faturamento(orcamento, cnpj_faturamento: str | None, db: Session) -> None:
+    """Whitelist de CNPJ emissor. Vale para qualquer caminho que aprove o orçamento."""
+    config = db.query(models.OrcamentoConfig).filter(models.OrcamentoConfig.id == 1).first()
+    permitidos = cnpjs_configurados(config)
+    escolhido = (cnpj_faturamento or "").strip()
+    if permitidos:
+        if escolhido not in permitidos:
+            raise HTTPException(
+                status_code=400,
+                detail="Selecione um CNPJ de faturamento válido entre as empresas configuradas.",
+            )
+        orcamento.cnpj_faturamento = escolhido
+    elif escolhido:
+        # Sem empresas configuradas: não grava CNPJ arbitrário
+        raise HTTPException(
+            status_code=400,
+            detail="Nenhum CNPJ de faturamento configurado. Remova a seleção ou cadastre as empresas nas configurações.",
+        )
+
+
+def _reter_estoque(orcamento, db: Session) -> None:
+    """Reserva o estoque dos itens internos, recusando se não houver disponível.
+
+    Extraído de atualizar_status para a venda direta usar o MESMO caminho — sem isso ela
+    registraria venda de estoque inexistente.
+    """
+    produto_ids = [item.produto_id for item in orcamento.itens if item.produto_id and not item.is_externo]
+    if not produto_ids:
+        return
+    # Trava as linhas: duas aprovações concorrentes do mesmo item leriam o mesmo saldo.
+    produtos_map = {
+        p.id: p for p in db.query(models.Produto).filter(
+            models.Produto.id.in_(produto_ids)
+        ).with_for_update().all()
+    }
+    for item in orcamento.itens:
+        p = produtos_map.get(item.produto_id) if item.produto_id and not item.is_externo else None
+        if p:
+            disponivel = p.quantidade_estoque - p.quantidade_retida
+            if disponivel < item.quantidade:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Estoque insuficiente para aprovar: '{p.nome}' tem {disponivel} unidade(s) disponível(is), mas o orçamento pede {item.quantidade}.",
+                )
+    for item in orcamento.itens:
+        p = produtos_map.get(item.produto_id) if item.produto_id and not item.is_externo else None
+        if p:
+            p.quantidade_retida += item.quantidade
+
+
+def _gerar_lancamento_financeiro(orcamento, db: Session, usuario_id: int) -> None:
+    """Título a receber automático. Todo caminho que fecha negócio passa por aqui."""
+    valor_total = _valor_total_orcamento(orcamento)
+    if valor_total > 0:
+        db.add(models.LancamentoFinanceiro(
+            tipo="ENTRADA",
+            descricao=f"Orçamento #{orcamento.id} — {orcamento.tipo_orcamento}",
+            valor=valor_total,
+            status="pendente",
+            data_vencimento=datetime.now(timezone.utc),
+            automatico=True,
+            orcamento_id=orcamento.id,
+            usuario_id=usuario_id,
+        ))
 
 
 def _ensure_fornecedor(nome_fornecedor: str, db: Session):
@@ -185,6 +270,14 @@ def _build_pdf_data(orc, db=None):
         item_dict = {
             'quantidade': item.quantidade,
             'preco_unitario_aplicado': item.preco_unitario_aplicado,
+            # Total já resolvido aqui: o PDF é o documento que o cliente assina e não pode
+            # divergir da tela. Recalcular lá com quantidade × preço erraria todo item
+            # medido em m² ou metro linear.
+            'total_centavos': _total_item(item),
+            'unidade_medida': getattr(item, 'unidade_medida', 'un'),
+            'comprimento_m': float(item.comprimento_m) if item.comprimento_m is not None else None,
+            'largura_m': float(item.largura_m) if item.largura_m is not None else None,
+            'area_m2': float(item.area_m2) if item.area_m2 is not None else None,
             'is_externo': item.is_externo,
             'nome_externo': item.nome_externo,
             'descricao_externa': item.descricao_externa,
@@ -210,6 +303,7 @@ def _build_pdf_data(orc, db=None):
     result = {
         'id': orc.id,
         'tipo_orcamento': orc.tipo_orcamento,
+        'desconto_global_centavos': getattr(orc, 'desconto_global_centavos', 0) or 0,
         'cliente_nome': (cliente.nome_fantasia or '') if cliente else '',
         'cliente_cpf_cnpj': (cliente.cpf_cnpj or '') if cliente else '',
         'cliente_responsavel': (cliente.nome_responsavel or '') if cliente else '',
@@ -292,10 +386,16 @@ def criar_orcamento(orcamento: schemas.OrcamentoCreate, db: Session = Depends(ge
     # registrada sem orçamento (ou o contrário).
     if orcamento.modalidade == "venda_direta":
         _validar_pagamento(orcamento.pagamento, db)
-        novo_orcamento.status = "Aprovado"
-        novo_orcamento.data_aprovacao = datetime.now(timezone.utc)
         db.flush()
         db.refresh(novo_orcamento)
+        # Venda direta aprova de fato: precisa dos MESMOS efeitos colaterais da transição
+        # manual para "Aprovado" — reter estoque, validar o CNPJ emissor e gerar o título
+        # a receber. Sem isso, venderia estoque inexistente e sumiria do contas a receber.
+        _validar_cnpj_faturamento(novo_orcamento, orcamento.cnpj_faturamento_venda, db)
+        _reter_estoque(novo_orcamento, db)
+        novo_orcamento.status = "Aprovado"
+        novo_orcamento.data_aprovacao = datetime.now(timezone.utc)
+        _gerar_lancamento_financeiro(novo_orcamento, db, current_user.id)
         _criar_venda(novo_orcamento, orcamento.pagamento, db, current_user)
 
     db.commit()
@@ -381,6 +481,17 @@ def editar_orcamento(orcamento_id: int, orcamento_in: schemas.OrcamentoCreate, d
     if current_user.role != 'admin' and cliente.usuario_id != current_user.id:
         raise HTTPException(status_code=403, detail="Cliente pertence a outro vendedor.")
     
+    if orcamento.status in STATUS_FECHADOS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Orçamento com status '{orcamento.status}' não pode ser editado. Duplique-o como novo orçamento.",
+        )
+    if db.query(models.Venda).filter(models.Venda.orcamento_id == orcamento.id).first():
+        raise HTTPException(
+            status_code=400,
+            detail="Este orçamento já foi convertido em venda e não pode mais ser editado.",
+        )
+
     orcamento.cliente_id = orcamento_in.cliente_id
     orcamento.tipo_orcamento = orcamento_in.tipo_orcamento
     orcamento.modalidade = orcamento_in.modalidade
@@ -438,13 +549,19 @@ def listar_orcamentos(db: Session = Depends(get_db), current_user: models.Usuari
         orcamentos = db.query(models.Orcamento).options(
             joinedload(models.Orcamento.cliente),
             joinedload(models.Orcamento.vendedor),
-            selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.produto)
+            selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.produto),
+        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico),
+        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico_componente),
+        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.local)
         ).all()
     else:
         orcamentos = db.query(models.Orcamento).options(
             joinedload(models.Orcamento.cliente),
             joinedload(models.Orcamento.vendedor),
-            selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.produto)
+            selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.produto),
+        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico),
+        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico_componente),
+        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.local)
         ).filter(
             models.Orcamento.vendedor_id == current_user.id
         ).all()
@@ -457,50 +574,9 @@ def listar_orcamentos(db: Session = Depends(get_db), current_user: models.Usuari
 
 # --- Condições de Pagamento Dinâmicas ---
 
-@router.get("/condicoes-pagamento", response_model=list[schemas.CondicaoPagamentoOut])
-def listar_condicoes_pagamento(db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
-    # Retorna todas, ordenadas pelo ID
-    return db.query(models.CondicaoPagamento).order_by(models.CondicaoPagamento.id.asc()).all()
-
-@router.post("/condicoes-pagamento", response_model=schemas.CondicaoPagamentoOut)
-def criar_condicao_pagamento(condicao: schemas.CondicaoPagamentoCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
-    if current_user.role != 'admin':
-        raise HTTPException(status_code=403, detail="Apenas admin pode gerenciar.")
-    nova_condicao = models.CondicaoPagamento(**condicao.dict())
-    db.add(nova_condicao)
-    db.commit()
-    db.refresh(nova_condicao)
-    return nova_condicao
-
-@router.patch("/condicoes-pagamento/{condicao_id}", response_model=schemas.CondicaoPagamentoOut)
-def atualizar_condicao_pagamento(condicao_id: int, condicao_in: schemas.CondicaoPagamentoUpdate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
-    if current_user.role != 'admin':
-        raise HTTPException(status_code=403, detail="Apenas admin pode gerenciar.")
-    condicao = db.query(models.CondicaoPagamento).filter(models.CondicaoPagamento.id == condicao_id).first()
-    if not condicao:
-        raise HTTPException(status_code=404, detail="Condição não encontrada.")
-    
-    if condicao_in.nome != None:
-        condicao.nome = condicao_in.nome
-    if condicao_in.ativo != None:
-        condicao.ativo = condicao_in.ativo
-        
-    db.commit()
-    db.refresh(condicao)
-    return condicao
-
-
-@router.delete("/condicoes-pagamento/{condicao_id}", status_code=status.HTTP_204_NO_CONTENT)
-def excluir_condicao_pagamento(condicao_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
-    if current_user.role != 'admin':
-        raise HTTPException(status_code=403, detail="Apenas admin pode gerenciar.")
-    condicao = db.query(models.CondicaoPagamento).filter(models.CondicaoPagamento.id == condicao_id).first()
-    if not condicao:
-        raise HTTPException(status_code=404, detail="Condição não encontrada.")
-    db.delete(condicao)
-    db.commit()
-    return None
-
+# CRUD de condições de pagamento vive em routers/catalogos.py desde a reorganização.
+# As rotas antigas daqui foram removidas: tinham divergido (ignoravam built_in, não
+# setavam ordem) e permitiam excluir item padrão do sistema.
 
 # --- Vendas (entidade própria, distinta de Orçamento) ---
 # Rota literal precisa vir ANTES de /{orcamento_id} — Starlette casa rotas na ordem de
@@ -531,7 +607,10 @@ def obter_orcamento(orcamento_id: int, db: Session = Depends(get_db), current_us
     orcamento = db.query(models.Orcamento).options(
         joinedload(models.Orcamento.cliente),
         joinedload(models.Orcamento.vendedor),
-        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.produto)
+        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.produto),
+        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico),
+        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico_componente),
+        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.local)
     ).filter(models.Orcamento.id == orcamento_id).first()
     
     if not orcamento:
@@ -854,22 +933,7 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
 
     # Ao aprovar, exige CNPJ da whitelist configurada pelo admin (quando houver)
     if novo_status == "Aprovado" and status_anterior != "Aprovado":
-        config = db.query(models.OrcamentoConfig).filter(models.OrcamentoConfig.id == 1).first()
-        permitidos = cnpjs_configurados(config)
-        escolhido = (cnpj_faturamento or "").strip()
-        if permitidos:
-            if escolhido not in permitidos:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Selecione um CNPJ de faturamento válido entre as empresas configuradas.",
-                )
-            orcamento.cnpj_faturamento = escolhido
-        elif escolhido:
-            # Sem empresas configuradas: não grava CNPJ arbitrário
-            raise HTTPException(
-                status_code=400,
-                detail="Nenhum CNPJ de faturamento configurado. Remova a seleção ou cadastre as empresas nas configurações.",
-            )
+        _validar_cnpj_faturamento(orcamento, cnpj_faturamento, db)
 
     orcamento.status = novo_status
 
@@ -878,18 +942,7 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
     # ficam como histórico mesmo se o orçamento voltar de status depois.
     financeiro_statuses = ["Aprovado", "Entregue", "Devolvido", "Faturado"]
     if novo_status in financeiro_statuses and status_anterior not in financeiro_statuses:
-        valor_total = sum(item.quantidade * item.preco_unitario_aplicado for item in orcamento.itens)
-        if valor_total > 0:
-            db.add(models.LancamentoFinanceiro(
-                tipo="ENTRADA",
-                descricao=f"Orçamento #{orcamento.id} — {orcamento.tipo_orcamento}",
-                valor=valor_total,
-                status="pendente",
-                data_vencimento=datetime.now(timezone.utc),
-                automatico=True,
-                orcamento_id=orcamento.id,
-                usuario_id=current_user.id,
-            ))
+        _gerar_lancamento_financeiro(orcamento, db, current_user.id)
     elif status_anterior in financeiro_statuses and novo_status not in financeiro_statuses:
         db.query(models.LancamentoFinanceiro).filter(
             models.LancamentoFinanceiro.orcamento_id == orcamento.id,
@@ -977,26 +1030,31 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
 def _validar_pagamento(pagamento: schemas.VendaPagamentoIn, db: Session) -> None:
     """A obrigatoriedade da Forma depende de TipoPagamento.exige_forma, que só é conhecida
     consultando o banco — por isso a regra vive aqui e não no schema Pydantic."""
-    tipo = db.query(models.TipoPagamento).filter(models.TipoPagamento.id == pagamento.tipo_pagamento_id).first()
+    tipo = db.query(models.TipoPagamento).filter(
+        models.TipoPagamento.id == pagamento.tipo_pagamento_id,
+        models.TipoPagamento.ativo.is_(True),
+    ).first()
     if not tipo:
-        raise HTTPException(status_code=404, detail="Tipo de pagamento não encontrado.")
+        raise HTTPException(status_code=404, detail="Tipo de pagamento não encontrado ou inativo.")
 
     if tipo.exige_forma:
         if not pagamento.forma_pagamento_id:
             raise HTTPException(status_code=400, detail=f"Pagamento em {tipo.nome} exige informar a forma.")
         forma = db.query(models.FormaPagamento).filter(
-            models.FormaPagamento.id == pagamento.forma_pagamento_id
+            models.FormaPagamento.id == pagamento.forma_pagamento_id,
+            models.FormaPagamento.ativo.is_(True),
         ).first()
         if not forma:
-            raise HTTPException(status_code=404, detail="Forma de pagamento não encontrada.")
+            raise HTTPException(status_code=404, detail="Forma de pagamento não encontrada ou inativa.")
         if forma.tipo_pagamento_id != tipo.id:
             raise HTTPException(status_code=400, detail=f"A forma escolhida não pertence a {tipo.nome}.")
     if pagamento.condicao_pagamento_id:
         existe = db.query(models.CondicaoPagamento).filter(
-            models.CondicaoPagamento.id == pagamento.condicao_pagamento_id
+            models.CondicaoPagamento.id == pagamento.condicao_pagamento_id,
+            models.CondicaoPagamento.ativo.is_(True),
         ).first()
         if not existe:
-            raise HTTPException(status_code=404, detail="Condição de pagamento não encontrada.")
+            raise HTTPException(status_code=404, detail="Condição de pagamento não encontrada ou inativa.")
 
 
 def _expandir_venda(venda: models.Venda, orcamento: models.Orcamento) -> models.Venda:
@@ -1014,7 +1072,7 @@ def _criar_venda(orcamento: models.Orcamento, pagamento: schemas.VendaPagamentoI
     venda = models.Venda(
         orcamento_id=orcamento.id,
         vendedor_id=orcamento.vendedor_id,
-        valor_total=_enrich_orcamento(orcamento).valor_total,
+        valor_total=_valor_total_orcamento(orcamento),
         tipo_pagamento_id=pagamento.tipo_pagamento_id,
         forma_pagamento_id=pagamento.forma_pagamento_id,
         condicao_pagamento_id=pagamento.condicao_pagamento_id,
@@ -1067,7 +1125,10 @@ def regenerar_pdf(orcamento_id: int, db: Session = Depends(get_db), current_user
     orcamento = db.query(models.Orcamento).options(
         joinedload(models.Orcamento.cliente),
         joinedload(models.Orcamento.vendedor),
-        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.produto)
+        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.produto),
+        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico),
+        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico_componente),
+        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.local)
     ).filter(models.Orcamento.id == orcamento_id).first()
     
     if not orcamento:

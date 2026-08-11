@@ -202,31 +202,45 @@ def test_admin_exclui_orcamento_de_outro_vendedor(client, make_user, make_client
     assert client.delete(f"/orcamentos/{orcamento_id}").status_code == 204
 
 
+# Condicoes de pagamento migraram para /catalogos/ — as rotas antigas em /orcamentos/
+# foram removidas porque tinham divergido (ignoravam built_in, nao setavam ordem).
+
 def test_condicao_pagamento_vendedor_nao_gerencia(client, make_user):
     vendedor = make_user(role="vendedor")
     _login(client, vendedor)
 
-    assert client.post("/orcamentos/condicoes-pagamento", json={"nome": "Teste"}).status_code == 403
-    assert client.patch("/orcamentos/condicoes-pagamento/1", json={"ativo": False}).status_code == 403
-    assert client.delete("/orcamentos/condicoes-pagamento/1").status_code == 403
+    assert client.post("/catalogos/condicoes-pagamento", json={"nome": "Teste"}).status_code == 403
+    assert client.patch("/catalogos/condicoes-pagamento/1", json={"ativo": False}).status_code == 403
+    assert client.delete("/catalogos/condicoes-pagamento/1").status_code == 403
 
 
 def test_condicao_pagamento_admin_cria_desativa_e_exclui(client, make_user):
     admin = make_user(role="admin")
     _login(client, admin)
 
-    criada = client.post("/orcamentos/condicoes-pagamento", json={"nome": "3x sem juros (teste)"})
-    assert criada.status_code == 200, criada.text
+    criada = client.post("/catalogos/condicoes-pagamento", json={"nome": "3x sem juros (teste)"})
+    assert criada.status_code == 201, criada.text
     condicao_id = criada.json()["id"]
     assert criada.json()["ativo"] is True
+    assert criada.json()["built_in"] is False
 
-    desativada = client.patch(f"/orcamentos/condicoes-pagamento/{condicao_id}", json={"ativo": False})
+    desativada = client.patch(f"/catalogos/condicoes-pagamento/{condicao_id}", json={"ativo": False})
     assert desativada.status_code == 200
     assert desativada.json()["ativo"] is False
 
-    assert client.delete(f"/orcamentos/condicoes-pagamento/{condicao_id}").status_code == 204
-    restantes = [item["id"] for item in client.get("/orcamentos/condicoes-pagamento").json()]
+    assert client.delete(f"/catalogos/condicoes-pagamento/{condicao_id}").status_code == 204
+    restantes = [item["id"] for item in client.get("/catalogos/condicoes-pagamento").json()]
     assert condicao_id not in restantes
+
+
+def test_rotas_antigas_de_condicao_pagamento_nao_existem_mais(client, make_user):
+    """Duas portas para o mesmo recurso divergem: a antiga deixava excluir item padrao
+    do sistema, que a nova recusa com 400."""
+    _login(client, make_user(role="admin"))
+    # Sem rota propria, o caminho cai em /orcamentos/{orcamento_id} e falha ao converter
+    # "condicoes-pagamento" em int (422). O que importa e nao responder 200.
+    assert client.get("/orcamentos/condicoes-pagamento").status_code in (404, 422)
+    assert client.post("/orcamentos/condicoes-pagamento", json={"nome": "X"}).status_code in (404, 405, 422)
 
 
 def test_resetar_config_exige_admin(client, make_user):

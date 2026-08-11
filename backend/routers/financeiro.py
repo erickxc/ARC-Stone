@@ -61,7 +61,16 @@ def resumo(
         models.Orcamento.data_aprovacao >= inicio,
         models.OrcamentoItem.is_externo.is_(False),
     ).all()
-    soma_venda = sum(i.quantidade * i.preco_unitario_aplicado for i in itens)
+    # Mesma fórmula do orçamento: item em m²/metro linear não é quantidade × preço.
+    soma_venda = sum(schemas.calcular_total_linha(
+        unidade_medida=getattr(i, 'unidade_medida', None) or 'un',
+        quantidade=i.quantidade,
+        preco_unitario=i.preco_unitario_aplicado,
+        area_m2=float(i.area_m2) if i.area_m2 is not None else None,
+        comprimento_m=float(i.comprimento_m) if i.comprimento_m is not None else None,
+        acrescimo_centavos=getattr(i, 'acrescimo_centavos', 0) or 0,
+        desconto_centavos=getattr(i, 'desconto_centavos', 0) or 0,
+    ) for i in itens)
     soma_custo = sum(i.quantidade * i.produto.preco_custo for i in itens if i.produto)
     margem_media = round((soma_venda - soma_custo) / soma_venda * 100, 1) if soma_venda > 0 else None
 

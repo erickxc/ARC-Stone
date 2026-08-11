@@ -196,10 +196,36 @@ class ClienteCreate(BaseModel):
         return (self.razao_social or "").strip()
 
 
-class ClienteOut(ClienteCreate):
+class ClienteOut(BaseModel):
+    """Saída sem as constraints de ClienteCreate (ver OrcamentoItemOut para o porquê).
+
+    Um cliente legado com `contato` acima de 30 caracteres ou `estado` fora do padrão de
+    2 letras derrubaria `GET /clientes/` inteiro — não só aquele registro.
+    """
     id: int
     usuario_id: int
     nome_fantasia: str
+    tipo_pessoa: str = "juridica"
+    nome: Optional[str] = None
+    sobrenome: Optional[str] = None
+    razao_social: Optional[str] = None
+    cpf_cnpj: Optional[str] = None
+    nome_responsavel: Optional[str] = None
+    email: Optional[str] = None
+    contato: Optional[str] = None
+    telefone_secundario: Optional[str] = None
+    cep: Optional[str] = None
+    numero: Optional[str] = None
+    complemento: Optional[str] = None
+    bairro: Optional[str] = None
+    cidade: Optional[str] = None
+    estado: Optional[str] = None
+    endereco_entrega: Optional[str] = None
+    endereco_faturamento: Optional[str] = None
+    carteira: bool = False
+    indicado_por: Optional[str] = None
+    profissional_tipo: Optional[str] = None
+    status: Optional[str] = "ativo"
     criado_por_id: Optional[int] = None
     editado_por_id: Optional[int] = None
     editado_em: Optional[datetime] = None
@@ -236,8 +262,10 @@ def calcular_total_linha(
       - linear  → R$/metro, multiplicado pelo comprimento (saia, rodabase, soleira)
       - un      → R$/unidade, multiplicado pela quantidade (cuba, peça avulsa, item externo)
 
-    Arredonda uma única vez, no fim: arredondar a área antes propaga erro de centavo para
-    o total do orçamento e gera divergência entre a tela e o PDF.
+    Sobre arredondamento: a área é quantizada a 2 casas antes de chegar aqui — é o
+    contrato da coluna `Numeric(10,2)`. Este cálculo arredonda só o resultado final, com
+    ROUND_HALF_UP para casar com o `toFixed(2)` da prévia no frontend (o `round()` nativo
+    do Python usa banker's rounding e divergiria em valores terminados em 5).
     """
     if unidade_medida == "m2":
         base = Decimal(str(area_m2 or 0)) * Decimal(preco_unitario)
@@ -253,8 +281,10 @@ class OrcamentoItemCreate(BaseModel):
     produto_id: Optional[int] = None
     servico_id: Optional[int] = None
     servico_componente_id: Optional[int] = None
-    quantidade: int
-    preco_unitario_aplicado: int
+    # gt/ge obrigatórios: sem eles um item com quantidade ou preço negativo gera total
+    # negativo, que vira crédito no ledger financeiro e no valor congelado da Venda.
+    quantidade: int = Field(..., gt=0)
+    preco_unitario_aplicado: int = Field(..., ge=0)
     unidade_medida: UnidadeMedida = "un"
     local_id: Optional[int] = None
     local_instalacao: Optional[str] = None  # legado; itens novos usam local_id
@@ -294,10 +324,61 @@ class OrcamentoItemCreate(BaseModel):
             raise ValueError("Item medido em metro linear exige comprimento.")
         return self
 
+    def base_centavos(self) -> int:
+        """Valor da linha antes de acréscimo e desconto."""
+        area = (self.comprimento_m * self.largura_m) if (self.comprimento_m and self.largura_m) else None
+        return calcular_total_linha(
+            unidade_medida=self.unidade_medida,
+            quantidade=self.quantidade,
+            preco_unitario=self.preco_unitario_aplicado,
+            area_m2=area,
+            comprimento_m=self.comprimento_m,
+        )
 
-class OrcamentoItemOut(OrcamentoItemCreate):
+    @model_validator(mode="after")
+    def validar_desconto_nao_excede_linha(self):
+        """Desconto maior que a linha viraria total negativo, que entra no ledger
+        financeiro e no valor congelado da Venda como crédito inventado."""
+        teto = self.base_centavos() + self.acrescimo_centavos
+        if self.desconto_centavos > teto:
+            raise ValueError(
+                f"Desconto de R$ {self.desconto_centavos / 100:.2f} excede o valor da linha "
+                f"(R$ {teto / 100:.2f})."
+            )
+        return self
+
+
+class OrcamentoItemOut(BaseModel):
+    """Saída deliberadamente SEM as constraints e validadores de OrcamentoItemCreate.
+
+    Herdar do schema de entrada faria toda regra nova de validação valer retroativamente
+    na leitura: apertar `quantidade > 0` derrubaria a listagem inteira (500) por causa de
+    uma linha antiga gravada antes da regra existir. Entrada valida o que entra; saída
+    só descreve o que sai.
+    """
     id: int
     orcamento_id: int
+    produto_id: Optional[int] = None
+    servico_id: Optional[int] = None
+    servico_componente_id: Optional[int] = None
+    quantidade: int
+    preco_unitario_aplicado: int
+    unidade_medida: str = "un"
+    local_id: Optional[int] = None
+    local_instalacao: Optional[str] = None
+    comprimento_m: Optional[float] = None
+    largura_m: Optional[float] = None
+    acrescimo_centavos: int = 0
+    desconto_centavos: int = 0
+    is_externo: bool = False
+    nome_externo: Optional[str] = None
+    descricao_externa: Optional[str] = None
+    fornecedor_externo: Optional[str] = None
+    foto_externa_url: Optional[str] = None
+    personalizacao_aplicada: Optional[str] = None
+    prazo_entrega_valor: Optional[int] = None
+    prazo_entrega_unidade: Optional[str] = None
+    projeto_item_id: Optional[int] = None
     codigo_item: Optional[int] = None
     area_m2: Optional[float] = None
     grupo_id: Optional[str] = None
@@ -335,6 +416,23 @@ class OrcamentoCreate(BaseModel):
     # Venda direta fecha a venda no mesmo request; orçamento formal só coleta pagamento
     # depois da aprovação do cliente, na conversão em venda.
     pagamento: Optional[VendaPagamentoIn] = None
+    # CNPJ emissor: na venda direta a aprovação acontece já na criação, então a escolha
+    # (validada contra a whitelist de OrcamentoConfig) precisa vir junto.
+    cnpj_faturamento_venda: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validar_desconto_global(self):
+        """Mesma razão do desconto de linha: total negativo vira crédito inventado."""
+        total_itens = sum(
+            item.base_centavos() + item.acrescimo_centavos - item.desconto_centavos
+            for item in self.itens
+        )
+        if self.desconto_global_centavos > total_itens:
+            raise ValueError(
+                f"Desconto de fechamento de R$ {self.desconto_global_centavos / 100:.2f} excede "
+                f"o total dos itens (R$ {total_itens / 100:.2f})."
+            )
+        return self
 
     @model_validator(mode="after")
     def validar_regras_por_tipo(self):

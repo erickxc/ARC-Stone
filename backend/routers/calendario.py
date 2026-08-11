@@ -86,57 +86,8 @@ def listar_entregas(db: Session = Depends(get_db), current_user: models.Usuario 
                         "fornecedor_nome": "Fornecedor Externo" if item.is_externo else (item.produto.fornecedor.nome_fantasia if item.produto and item.produto.fornecedor else "ARC (Interno)")
                     })
         
-        # Evento de Fim de Locação
-        if orc.tipo_orcamento == "Locacao" and orc.data_fim_locacao:
-            # Resumo dos itens
-            nomes_itens = []
-            for i in orc.itens:
-                n = i.nome_externo if i.is_externo else (i.produto.nome if i.produto else f"Produto #{i.produto_id}")
-                nomes_itens.append(f"{i.quantidade}x {n}")
-            resumo = ", ".join(nomes_itens)
-            
-            valor_total = sum((i.quantidade * (i.preco_unitario_aplicado or 0)) for i in orc.itens)
-            
-            eventos.append({
-                "id": f"fim-locacao-{orc.id}",
-                "title": f"Fim Locação: {orc.cliente.nome_fantasia}",
-                "start": orc.data_fim_locacao,
-                "end": orc.data_fim_locacao,
-                "allDay": True,
-                "orcamento_id": orc.id,
-                "cliente_nome": orc.cliente.nome_fantasia,
-                "tipo": "Devolucao",
-                "status": "Pendente",
-                "resumo_itens": resumo,
-                "valor_total": valor_total,
-                "vendedor_nome": orc.vendedor.nome if orc.vendedor else None,
-                "cliente_endereco": orc.cliente.endereco_entrega
-            })
-        
-        # Evento de Fim de Produção (faturamento)
-        if orc.tipo_orcamento == "Producao" and orc.data_fim_locacao:
-            nomes_itens = []
-            for i in orc.itens:
-                n = i.nome_externo if i.is_externo else (i.produto.nome if i.produto else f"Produto #{i.produto_id}")
-                nomes_itens.append(f"{i.quantidade}x {n}")
-            resumo = ", ".join(nomes_itens)
-            
-            valor_total = sum((i.quantidade * (i.preco_unitario_aplicado or 0)) for i in orc.itens)
-            
-            eventos.append({
-                "id": f"fim-producao-{orc.id}",
-                "title": f"Faturamento: {orc.cliente.nome_fantasia}",
-                "start": orc.data_fim_locacao,
-                "end": orc.data_fim_locacao,
-                "allDay": True,
-                "orcamento_id": orc.id,
-                "cliente_nome": orc.cliente.nome_fantasia,
-                "tipo": "Faturamento",
-                "status": "Pendente",
-                "resumo_itens": resumo,
-                "valor_total": valor_total,
-                "vendedor_nome": orc.vendedor.nome if orc.vendedor else None,
-                "cliente_endereco": orc.cliente.endereco_entrega
-            })
-                    
+        # Os eventos de "Fim de Locação" e "Fim de Produção" foram removidos junto com a
+        # locação: marmoraria não aluga, e os tipos Locacao/Producao não existem mais no
+        # Literal TipoOrcamento (a migração em main.py converteu os registros antigos).
+
     return eventos

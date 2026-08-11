@@ -138,3 +138,66 @@ Duvidas: a verificacao de tema claro e de responsivo em 800px (itens 19-20 do pl
 - Split de `App.tsx` (hoje ~3.000 linhas) em modulos: entrega propria, puro movimento.
 - "Esteira de producao": nao existe no repositorio nem no plano; escopo a definir.
 - `CLAUDE.md` referencia `planos/CHECKLIST-reorganizacao-nav-tema.md`, que nao existe.
+
+## Varredura de segurança e refatoração — concluída em 2026-08-11
+
+Auditoria do diff `9fa6e73..HEAD` por leitura de código (dois revisores independentes) e
+por **sonda de exploração real** contra a API rodando.
+
+### Corrigido — segurança / integridade
+
+| Sev. | Problema | Correção |
+|---|---|---|
+| ALTO | Venda direta gravava `status="Aprovado"` sem passar pela máquina de aprovação: não retinha estoque, não validava a whitelist de CNPJ e não gerava o título a receber. Vendia peça inexistente. | Efeitos colaterais extraídos em `_reter_estoque`, `_validar_cnpj_faturamento` e `_gerar_lancamento_financeiro`, chamados nos dois caminhos. `OrcamentoCreate` ganhou `cnpj_faturamento_venda`. |
+| ALTO | Total divergia entre tela e PDF/portal/financeiro: só `_enrich_orcamento` usava a fórmula por unidade; os demais seguiam `quantidade × preço`, errando todo item em m²/linear e ignorando descontos. O cliente assinava um documento com valor diferente do cobrado. | `_valor_total_orcamento` virou fonte única; PDF recebe `total_centavos` pronto; portal e financeiro chamam `calcular_total_linha`. |
+| ALTO | `/orcamentos/condicoes-pagamento` continuou vivo duplicando `/catalogos/`, e tinha divergido: **permitia excluir item `built_in`** que o router novo recusa, e criava com `ordem=0`. | 4 rotas removidas; testes migrados; teste novo garante que não voltem. |
+| MÉDIO | Preço e quantidade negativos aceitos → total negativo virava crédito no ledger e em `Venda.valor_total`. (Pré-existente, amplificado pelos campos novos.) | `quantidade: gt=0`, `preco_unitario_aplicado: ge=0`. |
+| MÉDIO | Desconto de linha e de fechamento sem teto → total negativo. (Introduzido nesta entrega.) | Validadores `validar_desconto_nao_excede_linha` e `validar_desconto_global`. Total zero continua válido (cortesia). |
+| MÉDIO | `PUT /orcamentos/{id}` reescrevia orçamento já aprovado/vendido: apagava os itens sem estornar a retenção de estoque e fazia a Venda divergir da origem. | Recusa quando o status está em `STATUS_FECHADOS` ou já existe `Venda`. |
+| MÉDIO | Schema de saída herdava validador de entrada (`ClienteOut(ClienteCreate)`, `OrcamentoItemOut(OrcamentoItemCreate)`). Apertar uma regra de entrada derrubava a **leitura** de dado legado: `GET /orcamentos/` inteiro respondia 500 por causa de uma linha antiga. Reproduzido em runtime. | Saídas declaradas sem constraints nem validadores. |
+| BAIXO | `POST /catalogos/motivos-perda` estourava 500: o helper genérico não preenchia `slug` (NOT NULL/unique). | Parâmetro `derivar` no helper + `_slug()`. |
+| BAIXO | `_validar_pagamento` aceitava tipo/forma/condição **desativados** pelo admin. | Filtro `ativo=True` nas três consultas. |
+
+**Auditado e correto** (sem alteração): RBAC das 24 rotas de catálogo e das de componente
+de serviço; isolamento por vendedor (IDOR) em cliente, orçamento, venda e componente;
+SSRF do proxy de CEP (host literal, `assert_public_http_url`, timeout, sem redirect);
+mass assignment (`built_in`, `id`, `usuario_id`, `area_m2`, `codigo_item` não vêm do
+payload); `PortalItemOut` sem vazamento de custo; frontend sem XSS.
+
+### Corrigido — refatoração
+
+- Código morto: `DashboardLegacy`, `ProfileLegacy`, `StatusBars`, `BuilderItem.unit`
+  (escrito em 5 lugares, lido em nenhum) e o campo "Unidade" do modal de item livre que
+  só o alimentava; CSS `.renovacao-campos`, `.profit-card` duplicado e a regra
+  `content:attr(data-rotulo)` cujo atributo nunca foi emitido; comentários órfãos.
+- Restos de locação: ramos inalcançáveis em `calendario.py` (eventos de fim de
+  locação/produção) e em `pdf_generator.py` (prazo de locação).
+- `Pipeline.abrirNovo` resetava `novoTipo` para `'Venda'`, valor que não existe mais.
+- N+1: `_enrich_orcamento` passou a ler `servico`, `servico_componente` e `local` de cada
+  item, mas as queries não pré-carregavam — ~500 queries extras num kanban de 40
+  orçamentos. `joinedload` adicionado nos 4 pontos.
+- `AuditLog` nos catálogos: era o único router de escrita sem rastro, num módulo cujo
+  propósito é justamente proteger histórico.
+- Arredondamento: `_processar_itens_orcamento` usava `round()` (banker's rounding) e
+  divergia do `toFixed(2)` do frontend em valores terminados em 5 → trocado por
+  `ROUND_HALF_UP`. O docstring de `calcular_total_linha` prometia uma garantia que a
+  pipeline não dava (a área já chega quantizada por `Numeric(10,2)`) — corrigido.
+- `FormasPagamentoConfig` exibia "nada cadastrado" durante o fetch → `Skeleton`.
+- `codigoItem()` → `referenciaCatalogo()`: colidia com `OrcamentoItem.codigo_item`, que é
+  outra coisa (sequencial da linha).
+
+Testes novos: `backend/tests/test_seguranca_orcamento.py` (10 regressões). Suíte: 169
+passam; a única falha segue sendo `test_push_revisao_nova...`, pendência pré-existente.
+
+### Achados registrados, NÃO corrigidos (fora do escopo)
+
+- **Frete de R$ 250,00 hardcoded em todo PDF**, rotulado "Frete RJ Capital"
+  (`pdf_generator.py:348`) — herança do ARC-ERP (negócio no Rio). O cliente assina um
+  total com R$ 250 que ninguém escolheu. Pré-existente; precisa virar configuração.
+- Limite de desconto por perfil de usuário (dívida já registrada).
+- Foto e endereço em `localStorage` sem chave por usuário: persistem entre contas no
+  mesmo dispositivo (`App.tsx`, Meu Perfil). Privacidade, não segurança.
+- Duplicação restante: `atualizar_forma_pagamento`/`excluir_forma_pagamento` são cópia do
+  helper genérico (~35 linhas); `NOME_CATALOGO` não tem variante opcional e o pattern se
+  repete nos 5 `*Update`; o Builder mantém estado de pagamento paralelo ao da
+  `CascataPagamento`, causando duas requisições ao mesmo endpoint no mount.

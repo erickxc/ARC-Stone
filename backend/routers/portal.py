@@ -115,7 +115,17 @@ def _publicar_proposta(proposta: models.Orcamento, organizacao_nome: str | None 
                 descricao=descricao,
                 quantidade=item.quantidade,
                 preco_unitario=preco_unitario,
-                subtotal=item.quantidade * preco_unitario,
+                # Mesma fórmula do resto do sistema (ver schemas.calcular_total_linha):
+                # item medido em m²/metro não é quantidade × preço.
+                subtotal=schemas.calcular_total_linha(
+                    unidade_medida=getattr(item, 'unidade_medida', None) or 'un',
+                    quantidade=item.quantidade,
+                    preco_unitario=preco_unitario,
+                    area_m2=float(getattr(item, 'area_m2', None)) if getattr(item, 'area_m2', None) is not None else None,
+                    comprimento_m=float(getattr(item, 'comprimento_m', None)) if getattr(item, 'comprimento_m', None) is not None else None,
+                    acrescimo_centavos=getattr(item, 'acrescimo_centavos', 0) or 0,
+                    desconto_centavos=getattr(item, 'desconto_centavos', 0) or 0,
+                ),
                 local_instalacao=item.local_instalacao,
                 prazo_entrega_valor=item.prazo_entrega_valor,
                 prazo_entrega_unidade=item.prazo_entrega_unidade,
