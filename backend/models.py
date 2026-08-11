@@ -123,6 +123,9 @@ class Cliente(Base):
     carteira = Column(Boolean, default=False, nullable=False, server_default="false")  # cliente recorrente
     indicado_por = Column(String, nullable=True)  # preenchido = veio por indicação
     profissional_tipo = Column(String, nullable=True)  # arquiteto, engenheiro, ...
+    data_nascimento = Column(DateTime(timezone=True), nullable=True)  # gancho de recompra
+    origem_contato = Column(String, nullable=True)  # como chegou: Instagram, obra vizinha, Google...
+    preferencia_contato = Column(String, nullable=True)  # whatsapp | ligacao | email
     # Autoria: criado_por nunca muda; editado_por/em são reescritos a cada update.
     criado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     editado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
@@ -478,6 +481,63 @@ class Venda(Base):
     tipo_pagamento = relationship("TipoPagamento")
     forma_pagamento = relationship("FormaPagamento")
     condicao_pagamento = relationship("CondicaoPagamento")
+
+class EtapaProducao(CatalogoSimplesMixin, Base):
+    """Etapa da esteira de produção (Medição, Corte, Acabamento, Instalação...).
+
+    É um catálogo configurável como os demais: a marmoraria ajusta as etapas ao próprio
+    processo. `ordem` define a sequência da esteira, não só a exibição.
+    """
+    __tablename__ = "etapas_producao"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # Etapa final: ao chegar aqui a ordem sai da esteira ativa.
+    is_final = Column(Boolean, default=False, nullable=False, server_default="false")
+
+
+class OrdemProducao(Base):
+    """Acompanha o que foi vendido enquanto passa pela oficina.
+
+    Nasce automaticamente junto com a Venda — vendeu, tem que produzir. Fica separada da
+    Venda porque o ciclo é outro: a venda é um fato consumado, a ordem é um trabalho que
+    anda por etapas e pode voltar (peça quebrou no corte, refaz).
+    """
+    __tablename__ = "ordens_producao"
+
+    id = Column(Integer, primary_key=True, index=True)
+    venda_id = Column(Integer, ForeignKey("vendas.id"), unique=True, nullable=False, index=True)
+    etapa_id = Column(Integer, ForeignKey("etapas_producao.id"), nullable=False, index=True)
+    responsavel_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    observacoes = Column(String, nullable=True)
+    previsao_entrega = Column(DateTime(timezone=True), nullable=True)
+    iniciada_em = Column(DateTime(timezone=True), server_default=func.now())
+    concluida_em = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    venda = relationship("Venda")
+    etapa = relationship("EtapaProducao")
+    responsavel = relationship("Usuario")
+    historico = relationship(
+        "OrdemProducaoEtapa", back_populates="ordem",
+        cascade="all, delete-orphan", order_by="OrdemProducaoEtapa.registrado_em",
+    )
+
+
+class OrdemProducaoEtapa(Base):
+    """Trilha de por onde a ordem passou — sem isso não dá para saber onde a peça travou."""
+    __tablename__ = "ordem_producao_etapas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ordem_id = Column(Integer, ForeignKey("ordens_producao.id"), nullable=False, index=True)
+    etapa_id = Column(Integer, ForeignKey("etapas_producao.id"), nullable=False)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    observacao = Column(String, nullable=True)
+    registrado_em = Column(DateTime(timezone=True), server_default=func.now())
+
+    ordem = relationship("OrdemProducao", back_populates="historico")
+    etapa = relationship("EtapaProducao")
+    usuario = relationship("Usuario")
+
 
 class PerdaAvaria(Base):
     """Registro de perda/avaria de estoque. Ao ser criada, debita quantidade_estoque do

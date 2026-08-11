@@ -28,6 +28,7 @@ from routers import equipamentos as equipamentos_router
 from routers import materia_prima as materia_prima_router
 from routers import perdas as perdas_router
 from routers import catalogos as catalogos_router
+from routers import producao as producao_router
 from fastapi.middleware.cors import CORSMiddleware
 import auth as auth_module
 import shutil
@@ -109,6 +110,7 @@ app.include_router(equipamentos_router.router)
 app.include_router(materia_prima_router.router)
 app.include_router(perdas_router.router)
 app.include_router(catalogos_router.router)
+app.include_router(producao_router.router)
 
 
 @app.get("/static/uploads/{filename:path}")
@@ -280,6 +282,13 @@ def on_startup():
         conn.execute(text("ALTER TABLE vendas ADD COLUMN IF NOT EXISTS tipo_pagamento_id INTEGER REFERENCES tipos_pagamento(id)"))
         conn.execute(text("ALTER TABLE vendas ADD COLUMN IF NOT EXISTS forma_pagamento_id INTEGER REFERENCES formas_pagamento(id)"))
         conn.execute(text("ALTER TABLE vendas ADD COLUMN IF NOT EXISTS condicao_pagamento_id INTEGER REFERENCES condicoes_pagamento(id)"))
+        # ARC Stone: campos de relacionamento do cliente
+        for coluna, tipo in [
+            ("data_nascimento", "TIMESTAMPTZ"),
+            ("origem_contato", "VARCHAR"),
+            ("preferencia_contato", "VARCHAR"),
+        ]:
+            conn.execute(text(f"ALTER TABLE clientes ADD COLUMN IF NOT EXISTS {coluna} {tipo}"))
         # Tipos herdados do ERP de interiores não existem na marmoraria. Ambiente ainda em
         # desenvolvimento: converte em vez de manter valores órfãos fora do novo Literal.
         conn.execute(text("UPDATE orcamentos SET tipo_orcamento = 'Peça' WHERE tipo_orcamento IN ('Venda', 'Locacao', 'Locação')"))
@@ -346,6 +355,20 @@ def _semear_catalogos(db):
         db.add_all([
             Local(nome=nome, ordem=i, ativo=True, built_in=True)
             for i, nome in enumerate(padroes, start=1)
+        ])
+        db.commit()
+
+    from models import EtapaProducao
+    if db.query(EtapaProducao).count() == 0:
+        # Sequência padrão de uma marmoraria. `ordem` é a sequência da esteira, não só
+        # exibição; a última etapa fecha a ordem (is_final).
+        padroes = [
+            ("Medição", False), ("Corte", False), ("Acabamento", False),
+            ("Instalação", False), ("Concluído", True),
+        ]
+        db.add_all([
+            EtapaProducao(nome=nome, ordem=i, ativo=True, built_in=True, is_final=final)
+            for i, (nome, final) in enumerate(padroes, start=1)
         ])
         db.commit()
 

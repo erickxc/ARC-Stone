@@ -1079,6 +1079,9 @@ def _criar_venda(orcamento: models.Orcamento, pagamento: schemas.VendaPagamentoI
     )
     db.add(venda)
     db.flush()
+    # Vendeu, tem que produzir: a ordem nasce junto, na primeira etapa da esteira.
+    from routers.producao import criar_ordem_para_venda
+    criar_ordem_para_venda(venda, db, current_user.id)
     db.add(models.AuditLog(
         usuario_id=current_user.id,
         vendedor_id=orcamento.vendedor_id,

@@ -317,3 +317,58 @@ p.empty-state{display:block;padding:22px 16px;color:var(--ink2);font-size:15px;t
   .componente-medidas input{width:100%}
 }
 .combobox{position:relative}.combobox-quick-create{position:absolute;right:5px;top:5px;z-index:2;width:28px;height:28px;border:0;border-radius:7px;background:var(--brand);color:var(--brand-ink);font-size:18px;font-weight:600;line-height:1}.combobox-quick-create:hover{background:var(--brand-hover)}.fields:has(.combobox-quick-create) .combobox-gatilho{padding-right:42px}.items .card-title h2{display:flex;align-items:baseline;gap:5px}.items .card-title h2 small{font:var(--mono-label);color:var(--ink3)}.items .item-head{padding-left:16px;text-align:left}.items .item-row{grid-template-columns:18px minmax(180px,1.8fr) .65fr .45fr .7fr .7fr 24px;text-align:right}.items .item-row .item-abrir{text-align:left;justify-self:stretch}.items .item-head span:nth-child(2){text-align:left}.items .item-head span:not(:nth-child(2)){text-align:right}.items .item-row>span{white-space:nowrap}.items .item-row .item-remover{text-align:center}
+
+/* ARC Stone — tabela de itens com 11 colunas, botoes de adicionar e esteira */
+.itens-tabela{margin:0 0 4px}
+.itens-tabela table{min-width:960px;table-layout:fixed}
+/* Larguras fixas: sem isso a coluna DESCRIÇÃO estica e empurra TOTAL para fora. */
+.itens-tabela th:nth-child(1),.itens-tabela td:nth-child(1){width:34px}
+.itens-tabela th:nth-child(2),.itens-tabela td:nth-child(2){width:46px}
+.itens-tabela th:nth-child(3),.itens-tabela td:nth-child(3){width:106px}
+.itens-tabela th:nth-child(4),.itens-tabela td:nth-child(4){width:62px}
+.itens-tabela th:nth-child(6),.itens-tabela td:nth-child(6){width:74px}
+.itens-tabela th:nth-child(7),.itens-tabela td:nth-child(7),
+.itens-tabela th:nth-child(8),.itens-tabela td:nth-child(8){width:74px}
+.itens-tabela th:nth-child(9),.itens-tabela td:nth-child(9){width:58px}
+.itens-tabela th:nth-child(10),.itens-tabela td:nth-child(10),
+.itens-tabela th:nth-child(11),.itens-tabela td:nth-child(11){width:78px}
+.itens-tabela th:nth-child(12),.itens-tabela td:nth-child(12){width:94px}
+.itens-tabela th:nth-child(13),.itens-tabela td:nth-child(13){width:36px}
+.itens-tabela th,.itens-tabela td{padding:0 6px;vertical-align:middle}
+.itens-tabela .item-abrir b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;display:block}
+.itens-tabela td{height:56px}
+.itens-tabela th.num,.itens-tabela td.num{text-align:right}
+.itens-tabela .celula-num{width:100%;max-width:70px;height:34px;padding:0 8px;border-radius:8px;text-align:right;font-variant-numeric:tabular-nums}
+.itens-tabela td .combobox{min-width:0}
+.itens-tabela .item-abrir{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:0;background:transparent;padding:0;text-align:left;cursor:pointer;color:inherit}
+.itens-tabela .item-abrir b{font-size:14px}
+.itens-tabela .item-abrir small{font:var(--mono-label);color:var(--ink3)}
+.itens-tabela tr.editing>td{background:var(--surface2)}
+.itens-tabela .linha-detalhe>td{height:auto;padding:0 8px 14px}
+.itens-tabela .linha-vazia>td{height:auto;padding:18px 8px}
+.item-remover{width:28px;height:28px;border:0;border-radius:8px;background:transparent;color:var(--danger);font-size:20px;font-weight:600;line-height:1;cursor:pointer}
+.item-remover:hover{background:var(--danger-soft,rgba(200,60,60,.12))}
+/* Barra de adicionar: faixa propria, alvo grande, icone + rotulo. */
+.acoes-item{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 14px}
+.acao-item{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:13px;font-weight:500;cursor:pointer}
+.acao-item:hover:not(:disabled){border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
+.acao-item:disabled{opacity:.45;cursor:not-allowed}
+.acao-item .nav-icon{width:17px;height:17px}
+/* Esteira de producao */
+.esteira .quote-card{display:flex;flex-direction:column;gap:8px}
+.ordem-abrir{display:flex;flex-direction:column;align-items:flex-start;gap:3px;border:0;background:transparent;padding:0;text-align:left;cursor:pointer;color:inherit;width:100%}
+.ordem-abrir b{font:var(--mono-label);color:var(--brand)}
+.ordem-abrir span{font-size:14px;font-weight:600}
+.ordem-abrir small{color:var(--ink3);line-height:1.35}
+.esteira .quote-card footer{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.esteira .quote-card footer em{font-style:normal;font-weight:600}
+.kanban-vazio{color:var(--ink3);font-size:13px;padding:10px 2px}
+.ordem-dados{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0}
+.ordem-dados dt{font:var(--mono-label);color:var(--ink3)}
+.ordem-dados dd{margin:2px 0 0;font-size:14px}
+@media(max-width:900px){
+  .acoes-item{padding:0 12px 12px}
+  .acao-item{flex:1 1 44%;justify-content:center}
+}
+.modal-form fieldset{border:0;padding:0;margin:0;display:contents}.modal-form legend{grid-column:1/-1;font:var(--mono-label);letter-spacing:.14em;color:var(--brand);padding:12px 0 8px;background:transparent}.modal-form fieldset:first-child legend{padding-top:0}.modal-form fieldset .segmented{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;grid-column:1/-1}.modal-form fieldset .segmented button{width:100%;min-width:0}
+.modal-form fieldset:first-child .segmented{display:flex;grid-column:1/-1;width:100%;visibility:visible;opacity:1}.modal-form fieldset:first-child .segmented button{display:block;flex:1 1 50%;width:50%;visibility:visible}

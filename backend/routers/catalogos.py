@@ -164,6 +164,11 @@ registrar_catalogo(
     "Local",
 )
 registrar_catalogo(
+    "etapas-producao", models.EtapaProducao,
+    schemas.EtapaProducaoOut, schemas.EtapaProducaoCreate, schemas.EtapaProducaoUpdate,
+    "Etapa de produção",
+)
+registrar_catalogo(
     "motivos-perda", models.MotivoPerdaAvaria,
     schemas.MotivoPerdaAvariaOut, schemas.MotivoPerdaAvariaCreate, schemas.MotivoPerdaAvariaUpdate,
     "Motivo de perda/avaria",

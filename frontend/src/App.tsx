@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, converterEmVenda, createApiKey, createCatalogProduct, createClient, createEquipamento, createLancamento, createMateriaPrima, createPerda, createQuote, createServico, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteEquipamento, deleteMateriaPrima, deleteProjeto, deleteQuote, deleteServico, deleteSupplier, disableMfa, enableMfa, encerrarSessao, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getClient, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listEquipamentos, listInventoryProducts, listLancamentos, listLogs, listMateriaPrima, listPaymentConditions, listPerdas, listProjetos, listQuoteAttachments, listQuotes, listServicos, listSuppliers, listTeam, listVendas, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetOrcamentoConfig, resetPassword, revogarPortalLink, revokeApiKey, updateEquipamento, updateOrcamentoConfig, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, uploadArquivo, UPLOAD_EXTENSOES, UPLOAD_TAMANHO_MAXIMO, verifyMfa, catalogoCondicoesPagamento, catalogoTiposPagamento, catalogoFormasPagamento, catalogoLocais, catalogoMotivosPerda, listServicoComponentes, consultarCep, updateClient } from './api'
-import type { ApiKey, ApiKeyCreated, AuditLog, AuditLogEntry, CalendarEvent, Client, ClientInput, Equipamento, EquipamentoInput, FinanceiroResumo, FluxoMensalItem, Lancamento, MateriaPrima, MateriaPrimaInput, OrcamentoAnexo, OrcamentoConfig, PaymentCondition, PerdaAvaria, PerdaAvariaInput, PortalLink, PortalProposta, Product, Projeto, ProjetoDetail, Quote, QuoteDetail as QuoteData, QuoteItem, Servico, ServicoInput, Supplier, SupplierInput, TeamMember, TeamMemberInput, Venda, TipoOrcamento, Modalidade, UnidadeMedida, TipoPagamento, FormaPagamento, Local, ItemCatalogo, AcoesCatalogo, ServicoComponente, QuoteCreateInput, TipoPessoa } from './api'
+import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, converterEmVenda, createApiKey, createCatalogProduct, createClient, createEquipamento, createLancamento, createMateriaPrima, createPerda, createQuote, createServico, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteEquipamento, deleteMateriaPrima, deleteProjeto, deleteQuote, deleteServico, deleteSupplier, disableMfa, enableMfa, encerrarSessao, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getClient, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listEquipamentos, listInventoryProducts, listLancamentos, listLogs, listMateriaPrima, listPaymentConditions, listPerdas, listProjetos, listQuoteAttachments, listQuotes, listServicos, listSuppliers, listTeam, listVendas, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, resetOrcamentoConfig, resetPassword, revogarPortalLink, revokeApiKey, updateEquipamento, updateOrcamentoConfig, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, uploadArquivo, UPLOAD_EXTENSOES, UPLOAD_TAMANHO_MAXIMO, verifyMfa, catalogoCondicoesPagamento, catalogoTiposPagamento, catalogoFormasPagamento, catalogoLocais, catalogoMotivosPerda, listServicoComponentes, consultarCep, updateClient, createServicoComponente, updateServicoComponente, deleteServicoComponente, catalogoEtapasProducao, listOrdensProducao, moverOrdemProducao, getOrdemProducao } from './api'
+import type { ApiKey, ApiKeyCreated, AuditLog, AuditLogEntry, CalendarEvent, Client, ClientInput, Equipamento, EquipamentoInput, FinanceiroResumo, FluxoMensalItem, Lancamento, MateriaPrima, MateriaPrimaInput, OrcamentoAnexo, OrcamentoConfig, PaymentCondition, PerdaAvaria, PerdaAvariaInput, PortalLink, PortalProposta, Product, Projeto, ProjetoDetail, Quote, QuoteDetail as QuoteData, QuoteItem, Servico, ServicoInput, Supplier, SupplierInput, TeamMember, TeamMemberInput, Venda, TipoOrcamento, Modalidade, UnidadeMedida, TipoPagamento, FormaPagamento, Local, ItemCatalogo, AcoesCatalogo, ServicoComponente, QuoteCreateInput, TipoPessoa, PreferenciaContato, EtapaProducao, OrdemProducao } from './api'
 import { money } from './data'
 import type { Status } from './data'
 
-type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'quotesList' | 'salesHistory' | 'projects' | 'catalog' | 'servicesCatalog' | 'inventory' | 'suppliers' | 'losses' | 'equipment' | 'schedule' | 'finance' | 'team' | 'orcamentoConfig' | 'integrations' | 'logs' | 'profile' | 'orcamento'
-const routes: Route[] = ['dashboard', 'clients', 'pipeline', 'builder', 'quotesList', 'salesHistory', 'projects', 'catalog', 'servicesCatalog', 'inventory', 'suppliers', 'losses', 'equipment', 'schedule', 'finance', 'team', 'orcamentoConfig', 'integrations', 'logs', 'profile']
+type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'producao' | 'quotesList' | 'salesHistory' | 'projects' | 'catalog' | 'servicesCatalog' | 'inventory' | 'suppliers' | 'losses' | 'equipment' | 'schedule' | 'finance' | 'team' | 'orcamentoConfig' | 'integrations' | 'logs' | 'profile' | 'orcamento'
+const routes: Route[] = ['dashboard', 'clients', 'pipeline', 'builder', 'producao', 'quotesList', 'salesHistory', 'projects', 'catalog', 'servicesCatalog', 'inventory', 'suppliers', 'losses', 'equipment', 'schedule', 'finance', 'team', 'orcamentoConfig', 'integrations', 'logs', 'profile']
 
 type IconName = Exclude<Route, 'orcamento'> | 'menu' | 'close'
 const iconPaths: Record<IconName, ReactNode> = {
@@ -30,6 +30,7 @@ const iconPaths: Record<IconName, ReactNode> = {
   equipment: <><rect x="3" y="10" width="14" height="7" rx="1"/><path d="M17 12h2l2 2v3h-4M7 17v3M11 17v3"/></>,
   profile: <><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></>,
   orcamentoConfig: <><path d="M4 5h16M4 12h16M4 19h9"/><circle cx="9" cy="5" r="2"/><circle cx="15" cy="12" r="2"/></>,
+  producao: <><path d="M3 17h18M6 17V9l4-3 4 3v8"/><path d="M14 12h5v5"/><circle cx="7" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></>,
   menu: <path d="M4 7h16M4 12h16M4 17h16"/>,
   close: <path d="m6 6 12 12M18 6 6 18"/>,
 }
@@ -264,6 +265,7 @@ const navGroups: NavGroup[] = [
     ['losses', 'Perdas e Avarias', '', 'losses'],
     ['equipment', 'Equipamentos', '', 'equipment'],
     ['inventory', 'Controle de estoque', '7', 'inventory'],
+    ['producao', 'Esteira de produção', '', 'producao'],
   ] },
   { label: 'Gestão', items: [
     ['schedule', 'Calendário de entregas', '', 'schedule'],
@@ -920,6 +922,15 @@ function ClientDetail({ clientId }: { clientId: number }) {
             <div><dt>Endereço de faturamento</dt><dd>{client.endereco_faturamento || 'Não informado'}</dd></div>
             <div><dt>Status</dt><dd><Badge tone={client.status === 'ativo' ? 'success' : 'warning'}>{client.status || 'indefinido'}</Badge></dd></div>
             <div><dt>Cliente desde</dt><dd>{portalDate(client.created_at)}</dd></div>
+            {client.data_nascimento && <div><dt>Nascimento</dt><dd>{portalDate(client.data_nascimento)}</dd></div>}
+            {client.preferencia_contato && <div><dt>Prefere contato por</dt><dd>{PREFERENCIA_CONTATO_ROTULO[client.preferencia_contato] || client.preferencia_contato}</dd></div>}
+            {client.indicado_por && <div><dt>Indicado por</dt><dd>{client.indicado_por}</dd></div>}
+            {client.origem_contato && <div><dt>Como conheceu</dt><dd>{ORIGEM_CONTATO_OPTIONS.find(o => o.value === client.origem_contato)?.label || client.origem_contato}</dd></div>}
+            {client.profissional_tipo && <div><dt>Profissional</dt><dd>{client.profissional_tipo}</dd></div>}
+            {client.carteira && <div><dt>Carteira</dt><dd>Cliente recorrente</dd></div>}
+            {/* Autoria: o backend grava e devolve; aqui é só leitura. */}
+            {client.criado_por_nome && <div><dt>Criado por</dt><dd>{client.criado_por_nome}</dd></div>}
+            {client.editado_por_nome && <div><dt>Editado por</dt><dd>{client.editado_por_nome}{client.editado_em ? ` · ${portalDate(client.editado_em)}` : ''}</dd></div>}
           </dl>
         </article>
       </aside>
@@ -1367,6 +1378,15 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
     setModalidade(proxima)
   }
 
+  // `indeterminate` nao existe como atributo JSX: so via ref.
+  const marcarTodos = useCallback((el: HTMLInputElement | null) => {
+    if (el) el.indeterminate = selecionados.size > 0 && selecionados.size < items.length
+  }, [selecionados.size, items.length])
+
+  function alternaTodos() {
+    setSelecionados(atual => atual.size === items.length ? new Set() : new Set(items.map(i => i.key)))
+  }
+
   function alternaSelecao(key: string) {
     setSelecionados(atual => {
       const proximo = new Set(atual)
@@ -1430,35 +1450,51 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
             </article><article className="card items">
               {selecionados.size > 0
                 ? <div className="barra-selecao"><b>{selecionados.size} {selecionados.size === 1 ? 'item selecionado' : 'itens selecionados'}</b><span><button type="button" className="text-action" onClick={() => setSelecionados(new Set())}>Limpar seleção</button> <HoldButton onConfirm={removerSelecionados} compacto>Remover selecionados</HoldButton></span></div>
-                : <div className="card-title"><h2>Itens <small>· {items.length}</small></h2><span>
-                    <Button type="button" variant="secondary" onClick={() => { setNovoProduto(''); setItemModal('catalog') }} disabled={!permite.produto} title={permite.produto ? undefined : GATING_MOTIVO[quoteType]}>Do catálogo</Button>{' '}
-                    <Button type="button" variant="secondary" onClick={() => setItemModal('servico')} disabled={!permite.servico} title={permite.servico ? undefined : 'Serviços só entram em orçamentos de Obra ou Projeto.'}>+ Serviço</Button>{' '}
-                    <Button type="button" variant="secondary" onClick={() => setItemModal('free')}>+ Item livre</Button>{' '}
-                    <Button type="button" variant="secondary" onClick={() => setItemModal('project')} disabled={!permite.projeto} title={permite.projeto ? undefined : 'Importar projeto só em orçamentos de Obra ou Projeto.'}>Importar de um projeto</Button>
-                  </span></div>}
+                : <div className="card-title"><h2>Itens <small>· {items.length}</small></h2></div>}
+              {/* Barra de adicionar em faixa própria, colada na tabela: no card-title os 4
+                  botões espremiam o título e ficavam pequenos demais para o alvo de toque. */}
+              {selecionados.size === 0 && <div className="acoes-item">
+                {[
+                  { id: 'catalog' as const, icone: 'catalog' as IconName, rotulo: 'Do catálogo', ok: permite.produto, motivo: GATING_MOTIVO[quoteType] },
+                  { id: 'servico' as const, icone: 'servicesCatalog' as IconName, rotulo: 'Serviço', ok: permite.servico, motivo: 'Serviços só entram em orçamentos de Obra ou Projeto.' },
+                  { id: 'free' as const, icone: 'builder' as IconName, rotulo: 'Item livre', ok: true, motivo: '' },
+                  { id: 'project' as const, icone: 'projects' as IconName, rotulo: 'De um projeto', ok: permite.projeto, motivo: 'Importar projeto só em orçamentos de Obra ou Projeto.' },
+                ].map(acao => <button key={acao.id} type="button" className="acao-item" disabled={!acao.ok}
+                  title={acao.ok ? undefined : acao.motivo}
+                  onClick={() => { if (acao.id === 'catalog') setNovoProduto(''); setItemModal(acao.id) }}>
+                  <Icon name={acao.icone} /><span>{acao.rotulo}</span>
+                </button>)}
+              </div>}
               {incompativeis.length > 0 && <p className="form-error" role="status">{incompativeis.length} item(ns) não pertencem ao tipo “{quoteType}”. <button type="button" className="text-action" onClick={removerIncompativeis}>Remover os {incompativeis.length} incompatíveis</button></p>}
-              <div className="item-head mono"><span aria-hidden="true"/><span>DESCRIÇÃO</span><span>QTD / M²</span><span>UN.</span><span>UNITÁRIO</span><span>TOTAL</span><span aria-hidden="true"/></div>{items.map(item => { const aberto = itemAberto === item.key; return <div key={item.key}>
-              <div className={`item-row ${aberto ? 'editing' : ''}`}>
-                <input type="checkbox" className="item-selecao" aria-label={`Selecionar ${item.name}`} checked={selecionados.has(item.key)} onChange={() => alternaSelecao(item.key)} />
-                <button type="button" className="item-abrir" aria-expanded={aberto} onClick={() => setItemAberto(atual => atual === item.key ? null : item.key)}>
-                  <b>{item.name}</b><small>{referenciaCatalogo(item)} · {TIPO_ITEM_ROTULO[tipoDoItem(item)]}</small>
-                </button>
-                <span>{item.unidadeMedida === 'm2' ? (areaDoItem(item) !== null ? `${areaDoItem(item)!.toFixed(2)} m²` : <i className="celula-na">—</i>) : item.quantity}</span>
-                <span>{UNIDADE_ROTULO[item.unidadeMedida]}</span>
-                <span>{money(item.unitPrice)}</span><span>{money(totalDoItem(item))}</span>
-                <button type="button" className="item-remover" aria-label={`Remover ${item.name}`} onClick={() => removerItem(item)}>−</button>
-              </div>
-              {aberto && <div className="item-detalhe">
-                <label>Quantidade<input type="number" min="1" step="1" value={item.quantity} onChange={event => atualizaItem(item.key, { quantity: Math.max(1, Number(event.target.value) || 1) })}/></label>
+              <div className="table-wrap itens-tabela"><table><thead><tr>
+                <th><input type="checkbox" aria-label="Selecionar todos os itens" ref={marcarTodos} checked={items.length > 0 && selecionados.size === items.length} onChange={alternaTodos} /></th>
+                <th>CÓD.</th><th>LOCAL</th><th className="num">QTD</th><th>DESCRIÇÃO</th><th>TIPO</th>
+                <th className="num">COMP. (m)</th><th className="num">LARG. (m)</th><th className="num">M²</th>
+                <th className="num">ACRÉSC.</th><th className="num">DESC.</th><th className="num">TOTAL</th><th/>
+              </tr></thead><tbody>{items.map((item, indice) => { const aberto = itemAberto === item.key; return <Fragment key={item.key}>
+               <tr className={aberto ? 'editing' : ''}>
+                <td><input type="checkbox" aria-label={`Selecionar ${item.name}`} checked={selecionados.has(item.key)} onChange={() => alternaSelecao(item.key)} /></td>
+                <td className="mono">{String(indice + 1).padStart(2, '0')}</td>
+                <td><Combobox compact ariaLabel={`Local de ${item.name}`} placeholder="—" options={opcoesLocal(item)} value={item.localId === null ? '' : String(item.localId)} onChange={valor => atualizaItem(item.key, { localId: valor ? Number(valor) : null })} /></td>
+                <td className="num"><input className="celula-num" type="number" min="1" step="1" aria-label={`Quantidade de ${item.name}`} value={item.quantity} onChange={e => atualizaItem(item.key, { quantity: Math.max(1, Number(e.target.value) || 1) })} /></td>
+                <td><button type="button" className="item-abrir" aria-expanded={aberto} onClick={() => setItemAberto(atual => atual === item.key ? null : item.key)}>
+                  <b>{item.name}</b><small>{referenciaCatalogo(item)}</small>
+                </button></td>
+                <td><Badge>{TIPO_ITEM_ROTULO[tipoDoItem(item)]}</Badge></td>
+                {/* Comp./Larg. só existem quando a peça é medida: cuba e item avulso vão por unidade. */}
+                <td className="num">{item.unidadeMedida === 'un' ? <i className="celula-na" title="Item vendido por unidade">—</i>
+                  : <input className="celula-num" type="text" inputMode="decimal" aria-label={`Comprimento de ${item.name}`} value={item.comprimento ?? ''} placeholder="0,00" onChange={e => atualizaItem(item.key, { comprimento: leDecimal(e.target.value) })} />}</td>
+                <td className="num">{item.unidadeMedida !== 'm2' ? <i className="celula-na" title="Não medido em m²">—</i>
+                  : <input className="celula-num" type="text" inputMode="decimal" aria-label={`Largura de ${item.name}`} value={item.largura ?? ''} placeholder="0,00" onChange={e => atualizaItem(item.key, { largura: leDecimal(e.target.value) })} />}</td>
+                <td className="num">{item.unidadeMedida === 'm2' ? (areaDoItem(item) !== null ? areaDoItem(item)!.toFixed(2) : <i className="celula-na">—</i>) : <i className="celula-na">—</i>}</td>
+                <td className="num"><input className="celula-num" type="text" inputMode="decimal" aria-label={`Acréscimo de ${item.name}`} value={(item.acrescimo / 100).toFixed(2)} onChange={e => atualizaItem(item.key, { acrescimo: Math.round((leDecimal(e.target.value) ?? 0) * 100) })} /></td>
+                <td className="num"><input className="celula-num" type="text" inputMode="decimal" aria-label={`Desconto de ${item.name}`} value={(item.desconto / 100).toFixed(2)} onChange={e => atualizaItem(item.key, { desconto: Math.round((leDecimal(e.target.value) ?? 0) * 100) })} /></td>
+                <td className="num"><b>{money(totalDoItem(item))}</b></td>
+                <td><button type="button" className="item-remover" aria-label={`Remover ${item.name}`} onClick={() => removerItem(item)}>−</button></td>
+              </tr>
+              {aberto && <tr className="linha-detalhe"><td colSpan={13}><div className="item-detalhe">
                 <label>Unidade de medida<Combobox ariaLabel="Unidade de medida" options={UNIDADE_OPTIONS} value={item.unidadeMedida} onChange={valor => atualizaItem(item.key, { unidadeMedida: valor as UnidadeMedida })}/></label>
                 <label>Preço unitário ({UNIDADE_PRECO_ROTULO[item.unidadeMedida]})<input type="number" min="0" step="0.01" value={(item.unitPrice / 100).toFixed(2)} onChange={event => atualizaItem(item.key, { unitPrice: Math.round(Number(event.target.value || 0) * 100) })}/></label>
-                {/* Comp./Larg. só existem quando a peça é medida: cuba e item avulso vão por unidade. */}
-                {item.unidadeMedida !== 'un' && <label>Comprimento (m)<input type="text" inputMode="decimal" value={item.comprimento ?? ''} placeholder="2,50" onChange={event => atualizaItem(item.key, { comprimento: leDecimal(event.target.value) })}/></label>}
-                {item.unidadeMedida === 'm2' && <label>Largura (m)<input type="text" inputMode="decimal" value={item.largura ?? ''} placeholder="0,60" onChange={event => atualizaItem(item.key, { largura: leDecimal(event.target.value) })}/></label>}
-                {item.unidadeMedida === 'm2' && <label>Área (m²)<input readOnly value={areaDoItem(item)?.toFixed(2) ?? '—'} title="Calculado: comprimento × largura"/></label>}
-                <label>Local<Combobox ariaLabel="Local de instalação" placeholder="Selecione um local…" options={opcoesLocal(item)} value={item.localId === null ? '' : String(item.localId)} onChange={valor => atualizaItem(item.key, { localId: valor ? Number(valor) : null })}/></label>
-                <label>Acréscimo (R$)<input type="number" min="0" step="0.01" value={(item.acrescimo / 100).toFixed(2)} onChange={event => atualizaItem(item.key, { acrescimo: Math.round(Number(event.target.value || 0) * 100) })}/></label>
-                <label>Desconto (R$)<input type="number" min="0" step="0.01" value={(item.desconto / 100).toFixed(2)} onChange={event => atualizaItem(item.key, { desconto: Math.round(Number(event.target.value || 0) * 100) })}/></label>
                 <label>Prazo de entrega<input type="number" min="0" step="1" value={item.prazoValor ?? ''} placeholder="0" onChange={event => atualizaItem(item.key, { prazoValor: event.target.value ? Number(event.target.value) : null })}/></label>
                 <label>Unidade do prazo<Combobox ariaLabel="Unidade do prazo" placeholder="Sem prazo" options={prazoOptions} value={item.prazoUnidade || ''} onChange={valor => atualizaItem(item.key, { prazoUnidade: valor || null })}/></label>
                 {item.isExternal && <>
@@ -1480,8 +1516,12 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
                     </div>
                   </div>
                 </>}
-              </div>}
-            </div> })}{!items.length && <EmptyState title="Nenhum item no orçamento" description="Puxe do catálogo, crie um item livre ou importe de um projeto." action={<Button variant="secondary" onClick={() => { setNovoProduto(''); setItemModal('catalog') }}>Do catálogo</Button>} />}</article>
+              </div></td></tr>}
+            </Fragment> })}
+            {!items.length && <tr className="linha-vazia"><td colSpan={13}>
+              <EmptyState title="Nenhum item no orçamento" description="Puxe do catálogo, crie um item livre ou importe de um projeto." action={<Button variant="secondary" onClick={() => { setNovoProduto(''); setItemModal('catalog') }}>Do catálogo</Button>} />
+            </td></tr>}
+            </tbody></table></div></article>
             {/* Pagamento fecha o fluxo: e a ultima decisao, depois de saber o total. So aparece
                 na venda direta — no orcamento formal ele e coletado na conversao em venda. */}
             {modalidade === 'venda_direta' && <article className="card fields checkout">
@@ -1669,6 +1709,24 @@ function Feedback({ message, close }: { message: string; close: () => void }) {
   return <div className="toast" role="status" aria-live="polite"><i />{message}<button aria-label="Fechar aviso" onClick={close}>×</button></div>
 }
 
+/** Origem do contato de quem NÃO veio por indicação — orienta onde investir. */
+const ORIGEM_CONTATO_OPTIONS: ComboOption[] = [
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'google', label: 'Google / busca' },
+  { value: 'obra_vizinha', label: 'Obra vizinha' },
+  { value: 'loja', label: 'Passou na loja' },
+  { value: 'feira', label: 'Feira ou evento' },
+  { value: 'outro', label: 'Outro' },
+]
+const PREFERENCIA_CONTATO_OPTIONS: ComboOption[] = [
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'ligacao', label: 'Ligação' },
+  { value: 'email', label: 'E-mail' },
+]
+const PREFERENCIA_CONTATO_ROTULO: Record<string, string> = {
+  whatsapp: 'WhatsApp', ligacao: 'Ligação', email: 'E-mail',
+}
+
 const UFS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO']
 
 function clienteVazio(): ClientInput {
@@ -1677,7 +1735,8 @@ function clienteVazio(): ClientInput {
     nome_responsavel: null, email: null, contato: null, telefone_secundario: null,
     cep: null, numero: null, complemento: null, bairro: null, cidade: null, estado: null,
     endereco_entrega: null, endereco_faturamento: null,
-    carteira: false, indicado_por: null, profissional_tipo: null, status: 'ativo',
+    carteira: false, indicado_por: null, profissional_tipo: null,
+    data_nascimento: null, origem_contato: null, preferencia_contato: null, status: 'ativo',
   }
 }
 
@@ -1730,10 +1789,12 @@ function ClienteFormulario({ inicial, modo, salvando, onSubmit }: {
       bairro: inicial.bairro, cidade: inicial.cidade, estado: inicial.estado,
       endereco_entrega: inicial.endereco_entrega, endereco_faturamento: inicial.endereco_faturamento,
       carteira: inicial.carteira, indicado_por: inicial.indicado_por,
-      profissional_tipo: inicial.profissional_tipo, status: inicial.status,
+      profissional_tipo: inicial.profissional_tipo,
+      data_nascimento: inicial.data_nascimento, origem_contato: inicial.origem_contato,
+      preferencia_contato: inicial.preferencia_contato, status: inicial.status,
     }
   })
-  const [completo, setCompleto] = useState(modo === 'edicao')
+  const [completo, setCompleto] = useState(true)
   const [buscandoCep, setBuscandoCep] = useState(false)
 
   const set = (patch: Partial<ClientInput>) => setDados(atual => ({ ...atual, ...patch }))
@@ -1805,6 +1866,10 @@ function ClienteFormulario({ inicial, modo, salvando, onSubmit }: {
         <legend className="mono">RELACIONAMENTO</legend>
         <label>Profissional<input value={dados.profissional_tipo || ''} placeholder="Arquiteto, engenheiro…" onChange={e => set({ profissional_tipo: e.target.value || null })} /></label>
         <label>Indicado por<input value={dados.indicado_por || ''} placeholder="Quem indicou" onChange={e => set({ indicado_por: e.target.value || null })} /></label>
+        {/* Sem indicação, saber por onde chegou orienta onde investir. */}
+        <label>Como conheceu<Combobox ariaLabel="Como conheceu" placeholder="Selecione…" options={ORIGEM_CONTATO_OPTIONS} value={dados.origem_contato || ''} onChange={valor => set({ origem_contato: valor || null })} /></label>
+        <label>Preferência de contato<Combobox ariaLabel="Preferência de contato" placeholder="Selecione…" options={PREFERENCIA_CONTATO_OPTIONS} value={dados.preferencia_contato || ''} onChange={valor => set({ preferencia_contato: (valor || null) as PreferenciaContato | null })} /></label>
+        <label>Data de nascimento<input type="date" value={(dados.data_nascimento || '').slice(0, 10)} onChange={e => set({ data_nascimento: e.target.value ? `${e.target.value}T00:00:00` : null })} /></label>
         <div className="campo-toggle">
           <Toggle checked={dados.carteira} label="Cliente de carteira" ariaLabel="Cliente de carteira" onChange={() => set({ carteira: !dados.carteira })} />
           <small>Marque para clientes recorrentes.</small>
@@ -2003,8 +2068,107 @@ function Suppliers() {
   return <><PageHead eyebrow="GALPÃO · PARCEIROS" title="Fornecedores" subtitle={`${items.length} fornecedores ativos carregados do backend`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar fornecedor, CNPJ ou contato..."/><Button onClick={() => setOpen(true)}>+ Fornecedor</Button></>}/>{error && <p className="form-error" role="alert">{error}</p>}<section className="kpi-grid compact-kpis"><Kpi label="FORNECEDORES ATIVOS" value={String(items.filter(item => item.ativo !== false).length)} note="sincronizados"/><Kpi label="RESULTADOS" value={String(filtered.length)} note="filtro atual"/><Kpi label="COM E-MAIL" value={String(items.filter(item => item.email).length)} note="contato digital"/><Kpi dark label="STATUS" value={loading ? '...' : 'OK'} note="sincronização concluída"/></section><article className="card list-card"><div className="card-title"><h2>Base de fornecedores</h2><Badge>{filtered.length} resultados</Badge></div>{loading ? <Skeleton rows={5} label="Carregando fornecedores" /> : <DataTable headers={['FORNECEDOR','CONTATO','DOCUMENTO','TELEFONE','STATUS','AÇÕES']} rows={filtered.map(item => [<b>{item.nome_fantasia}</b>, item.contato || item.email || 'Sem contato', item.cnpj || 'Não informado', item.telefone || 'Não informado', <Badge tone={item.ativo === false ? 'warning' : 'success'}>{item.ativo === false ? 'Inativo' : item.status || 'Ativo'}</Badge>, <button className="text-action" onClick={() => removeSupplier(item)}>Excluir</button>])}/>}</article>{open && <Modal title="Novo fornecedor" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitSupplier}><label>Razão social<input name="nome_fantasia" autoFocus required placeholder="Duratex"/></label><label>CNPJ<input name="cnpj" placeholder="00.000.000/0001-00"/></label><label>Contato<input name="contato" placeholder="Marina Lopes"/></label><label>E-mail<input name="email" type="email" placeholder="contato@fornecedor.com.br"/></label><label>Telefone<input name="telefone" placeholder="(11) 3442-8801"/></label><label>Endereço<input name="endereco" placeholder="Rua, número, cidade/UF"/></label><label>Observações<textarea name="observacoes" placeholder="Condições comerciais, prazo e homologação"/></label><footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Salvar fornecedor'}</Button></footer></form></Modal>}</>
 }
 
+/**
+ * Cadastro dos componentes de um serviço composto.
+ *
+ * É aqui que "Bancada Banheiro Completa" ganha bancada, saia, front e ilharga. Cada
+ * componente tem unidade própria porque a marmoraria mede diferente em cada peça, e é
+ * essa unidade que decide a fórmula do total quando o serviço entra num orçamento.
+ */
+function ComponentesServico({ servico, close, onChange }: { servico: Servico; close: () => void; onChange: (total: number) => void }) {
+  const [itens, setItens] = useState<ServicoComponente[]>([])
+  const [carregando, setCarregando] = useState(true)
+  const [ocupado, setOcupado] = useState(false)
+  const [erro, setErro] = useState('')
+  const [nome, setNome] = useState('')
+  const [unidade, setUnidade] = useState<UnidadeMedida>('m2')
+  const [preco, setPreco] = useState('')
+  const [obrigatorio, setObrigatorio] = useState(true)
+
+  useEffect(() => {
+    let vivo = true
+    listServicoComponentes(servico.id)
+      .then(dados => { if (vivo) { setItens(dados); onChange(dados.length) } })
+      .catch(err => { if (vivo) setErro(err instanceof Error ? err.message : 'Falha ao carregar componentes.') })
+      .finally(() => { if (vivo) setCarregando(false) })
+    return () => { vivo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [servico.id])
+
+  async function adicionar() {
+    if (!nome.trim()) return
+    setOcupado(true); setErro('')
+    try {
+      const criado = await createServicoComponente(servico.id, {
+        nome: nome.trim(), obrigatorio, unidade_medida: unidade,
+        preco_unitario: Math.round(Number(preco.replace(',', '.') || 0) * 100), ativo: true,
+      })
+      setItens(atual => { const proximo = [...atual, criado]; onChange(proximo.length); return proximo })
+      setNome(''); setPreco('')
+    } catch (err) { setErro(err instanceof Error ? err.message : 'Falha ao adicionar componente.') }
+    finally { setOcupado(false) }
+  }
+
+  async function alternarObrigatorio(item: ServicoComponente) {
+    setOcupado(true); setErro('')
+    try {
+      const salvo = await updateServicoComponente(servico.id, item.id, { obrigatorio: !item.obrigatorio })
+      setItens(atual => atual.map(i => i.id === salvo.id ? salvo : i))
+    } catch (err) { setErro(err instanceof Error ? err.message : 'Falha ao alterar.') }
+    finally { setOcupado(false) }
+  }
+
+  async function excluir(item: ServicoComponente) {
+    setOcupado(true); setErro('')
+    try {
+      await deleteServicoComponente(servico.id, item.id)
+      setItens(atual => { const proximo = atual.filter(i => i.id !== item.id); onChange(proximo.length); return proximo })
+    } catch (err) { setErro(err instanceof Error ? err.message : 'Falha ao excluir.') }
+    finally { setOcupado(false) }
+  }
+
+  const total = itens.filter(i => i.obrigatorio).reduce((soma, i) => soma + (i.preco_unitario || 0), 0)
+
+  return <Drawer title={`Componentes · ${servico.nome}`} close={close}>
+    <div className="modal-form">
+      <p className="subtitle">Cada componente vira uma linha própria no orçamento. Os obrigatórios entram sempre; os opcionais o vendedor escolhe na hora.</p>
+      {erro && <p className="form-error" role="alert">{erro}</p>}
+      {carregando ? <Skeleton rows={3} label="Carregando componentes" /> : itens.length ? <div className="componentes-servico">
+        {itens.map(item => <div className="componente-linha" key={item.id}>
+          <span className="componente-check">
+            <b>{item.nome}</b>
+            <Badge tone={item.obrigatorio ? 'neutral' : 'warning'}>{item.obrigatorio ? 'Obrigatório' : 'Opcional'}</Badge>
+            <small className="mono">{UNIDADE_ROTULO[item.unidade_medida]}</small>
+          </span>
+          <span className="componente-medidas">
+            <em>{money(item.preco_unitario || 0)}</em>
+            <button type="button" className="text-action" disabled={ocupado} onClick={() => void alternarObrigatorio(item)}>
+              {item.obrigatorio ? 'Tornar opcional' : 'Tornar obrigatório'}
+            </button>
+            <HoldButton compacto disabled={ocupado} onConfirm={() => void excluir(item)} rotuloSegurando="Segure…">Excluir</HoldButton>
+          </span>
+        </div>)}
+        <p className="componentes-total"><span>Mínimo do serviço (só obrigatórios)</span><strong>{money(total)}</strong></p>
+      </div> : <EmptyState title="Nenhum componente" description="Sem componentes, este serviço entra no orçamento como uma linha única pelo preço padrão." />}
+
+      <fieldset>
+        <legend className="mono">NOVO COMPONENTE</legend>
+        <label>Nome<input value={nome} onChange={e => setNome(e.target.value)} placeholder="Bancada, Saia, Front, Ilharga…" /></label>
+        <label>Unidade de medida<Combobox ariaLabel="Unidade do componente" options={UNIDADE_OPTIONS} value={unidade} onChange={v => setUnidade(v as UnidadeMedida)} /></label>
+        <label>Preço ({UNIDADE_PRECO_ROTULO[unidade]})<input type="text" inputMode="decimal" value={preco} onChange={e => setPreco(e.target.value)} placeholder="0,00" /></label>
+        <div className="campo-toggle">
+          <Toggle checked={obrigatorio} label="Obrigatório" ariaLabel="Componente obrigatório" onChange={() => setObrigatorio(!obrigatorio)} />
+          <small>Obrigatório entra sempre; opcional o vendedor marca no orçamento.</small>
+        </div>
+      </fieldset>
+      <footer><Button onClick={adicionar} disabled={ocupado || !nome.trim()}>Adicionar componente</Button></footer>
+    </div>
+  </Drawer>
+}
+
 function ServicesCatalog() {
   const [items, setItems] = useState<Servico[]>([])
+  const [componentesDe, setComponentesDe] = useState<Servico | null>(null)
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -2046,14 +2210,21 @@ function ServicesCatalog() {
   return <><PageHead eyebrow="GALPÃO · SERVIÇOS" title="Catálogo de serviços" subtitle={`${items.length} serviços cadastrados`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar serviço..."/><Button onClick={() => { setTempoUnidade('horas'); setOpen(true) }}>+ Serviço</Button></>}/>
     {error && <p className="form-error" role="alert">{error}</p>}
     <article className="card list-card"><div className="card-title"><h2>Serviços</h2><Badge>{filtered.length} resultados</Badge></div>
-    {loading ? <Skeleton rows={5} label="Carregando serviços" /> : filtered.length ? <DataTable headers={['SERVIÇO','PREÇO PADRÃO','TEMPO MÉDIO','STATUS','AÇÕES']} rows={filtered.map(item => [
+    {loading ? <Skeleton rows={5} label="Carregando serviços" /> : filtered.length ? <DataTable headers={['SERVIÇO','COMPONENTES','PREÇO PADRÃO','TEMPO MÉDIO','STATUS','AÇÕES']} rows={filtered.map(item => [
       <b>{item.nome}<small>{item.descricao || 'Sem descrição'}</small></b>,
+      <button type="button" className="text-action" onClick={() => setComponentesDe(item)}>
+        {item.componentes?.length ? `${item.componentes.length} componente(s)` : 'Cadastrar componentes'}
+      </button>,
       new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.preco_padrao / 100),
       `${item.tempo_medio_valor} ${item.tempo_medio_unidade}`,
       <Badge tone={item.ativo ? 'success' : 'warning'}>{item.ativo ? 'Ativo' : 'Inativo'}</Badge>,
       <button className="text-action" onClick={() => removeServico(item)}>Excluir</button>,
     ])}/> : <EmptyState title="Nenhum serviço cadastrado" description="Cadastre serviços como instalação e acabamento para usar no construtor de orçamento." action={<Button onClick={() => setOpen(true)}>+ Serviço</Button>} />}
     </article>
+    {componentesDe && <ComponentesServico servico={componentesDe} close={() => setComponentesDe(null)}
+      onChange={total => setItems(atual => atual.map(item => item.id === componentesDe.id
+        ? { ...item, componentes: Array.from({ length: total }, (_, i) => (item.componentes?.[i] ?? ({ id: -i - 1 } as ServicoComponente))) }
+        : item))} />}
     {open && <Modal title="Novo serviço" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitServico}>
       <label>Nome<input name="nome" autoFocus required placeholder="Instalação de bancada"/></label>
       <label>Descrição<textarea name="descricao" placeholder="Instalação de bancada de granito no local"/></label>
@@ -2671,9 +2842,109 @@ function FormasPagamentoConfig() {
 const ABAS_CONFIG = [
   { id: 'pagamento', label: 'Pagamento' },
   { id: 'locais', label: 'Locais' },
+  { id: 'producao', label: 'Produção' },
   { id: 'perdas', label: 'Perdas e avarias' },
   { id: 'proposta', label: 'Textos da proposta' },
 ] as const
+
+/**
+ * Esteira de produção: quadro do que está na oficina, por etapa.
+ *
+ * Reaproveita o visual do kanban de vendas, mas move por botão em vez de arrastar —
+ * aqui a transição registra histórico e aceita observação ("quebrou, refazer"), o que
+ * um arrasto não comporta.
+ */
+function EsteiraProducao() {
+  const [ordens, setOrdens] = useState<OrdemProducao[]>([])
+  const [etapas, setEtapas] = useState<EtapaProducao[]>([])
+  const [incluirConcluidas, setIncluirConcluidas] = useState(false)
+  const [detalhe, setDetalhe] = useState<OrdemProducao | null>(null)
+  const [carregando, setCarregando] = useState(true)
+  const [ocupado, setOcupado] = useState(false)
+  const [erro, setErro] = useState('')
+  const [feedback, setFeedback] = useState('')
+
+  // Padrao do projeto: carrega dentro do efeito com guarda de montagem, sem setState
+  // sincrono no corpo do efeito (que dispara render em cascata).
+  useEffect(() => {
+    let vivo = true
+    Promise.all([listOrdensProducao(incluirConcluidas), catalogoEtapasProducao.listar(true)])
+      .then(([o, e]) => { if (!vivo) return; setOrdens(o); setEtapas(e) })
+      .catch(err => { if (vivo) setErro(err instanceof Error ? err.message : 'Falha ao carregar a esteira.') })
+      .finally(() => { if (vivo) setCarregando(false) })
+    return () => { vivo = false }
+  }, [incluirConcluidas])
+
+  async function mover(ordem: OrdemProducao, etapaId: number) {
+    setOcupado(true); setErro('')
+    try {
+      const atualizada = await moverOrdemProducao(ordem.id, etapaId)
+      setFeedback(`Ordem #${ordem.id} → ${atualizada.etapa_nome}.`)
+      // Concluída sai do quadro ativo: recarrega para o filtro valer.
+      if (atualizada.concluida_em && !incluirConcluidas) setOrdens(atual => atual.filter(o => o.id !== ordem.id))
+      else setOrdens(atual => atual.map(o => o.id === atualizada.id ? { ...atualizada, historico: o.historico } : o))
+    } catch (err) { setErro(err instanceof Error ? err.message : 'Falha ao mover a ordem.') }
+    finally { setOcupado(false) }
+  }
+
+  const porEtapa = (etapaId: number) => ordens.filter(o => o.etapa_id === etapaId)
+
+  return <>
+    <PageHead eyebrow="GALPÃO · PRODUÇÃO" title="Esteira de produção"
+      subtitle={`${ordens.length} ${ordens.length === 1 ? 'ordem' : 'ordens'} ${incluirConcluidas ? 'no total' : 'em andamento'}`}
+      actions={<div className="segmented" role="group" aria-label="Filtro da esteira">
+        <button type="button" className={!incluirConcluidas ? 'active' : ''} onClick={() => { setCarregando(true); setIncluirConcluidas(false) }}>Em andamento</button>
+        <button type="button" className={incluirConcluidas ? 'active' : ''} onClick={() => { setCarregando(true); setIncluirConcluidas(true) }}>Todas</button>
+      </div>} />
+    {erro && <p className="form-error" role="alert">{erro}</p>}
+    {carregando ? <article className="card" style={{ padding: 20 }}><Skeleton rows={4} label="Carregando esteira" /></article>
+      : !etapas.length ? <EmptyState title="Nenhuma etapa configurada" description="Cadastre as etapas em Configurações do orçamento › Produção." />
+      : <section className="kanban esteira">
+        {etapas.map(etapa => {
+          const daEtapa = porEtapa(etapa.id)
+          return <div className="kanban-col" key={etapa.id}>
+            <header><h2>{etapa.nome}</h2><Badge>{daEtapa.length}</Badge></header>
+            {daEtapa.map(ordem => <article className="quote-card" key={ordem.id}>
+              <button type="button" className="ordem-abrir" onClick={() => void getOrdemProducao(ordem.id).then(setDetalhe).catch(() => setDetalhe(ordem))}>
+                <b>OP-{String(ordem.id).padStart(4, '0')}</b>
+                <span>{ordem.cliente_nome || 'Cliente não informado'}</span>
+                <small>{ordem.resumo_itens || 'Sem itens'}</small>
+              </button>
+              <footer>
+                <em>{money(ordem.valor_total || 0)}</em>
+                <Combobox compact ariaLabel={`Mover ordem ${ordem.id}`} placeholder="Mover para…"
+                  options={etapas.filter(e => e.id !== etapa.id).map(e => ({ value: String(e.id), label: e.nome }))}
+                  value="" disabled={ocupado} onChange={valor => { if (valor) void mover(ordem, Number(valor)) }} />
+              </footer>
+            </article>)}
+            {!daEtapa.length && <p className="kanban-vazio">Nada aqui.</p>}
+          </div>
+        })}
+      </section>}
+    {detalhe && <Modal title={`OP-${String(detalhe.id).padStart(4, '0')}`} close={() => setDetalhe(null)}>
+      <div className="modal-form">
+        <dl className="ordem-dados">
+          <div><dt>Cliente</dt><dd>{detalhe.cliente_nome || '—'}</dd></div>
+          <div><dt>Vendedor</dt><dd>{detalhe.vendedor_nome || '—'}</dd></div>
+          <div><dt>Etapa atual</dt><dd>{detalhe.etapa_nome}</dd></div>
+          <div><dt>Valor</dt><dd>{money(detalhe.valor_total || 0)}</dd></div>
+          <div><dt>Aberta em</dt><dd>{portalDate(detalhe.iniciada_em)}</dd></div>
+          {detalhe.concluida_em && <div><dt>Concluída em</dt><dd>{portalDate(detalhe.concluida_em)}</dd></div>}
+        </dl>
+        <p className="subtitle">{detalhe.resumo_itens || 'Sem itens'}</p>
+        {detalhe.orcamento_id && <button type="button" className="text-action" onClick={() => { location.hash = `orcamento/${detalhe.orcamento_id}` }}>Ver orçamento de origem</button>}
+        <div className="timeline">
+          {detalhe.historico.length ? detalhe.historico.map(h => <div key={h.id}><i /><div>
+            <b>{h.etapa_nome}</b>{h.observacao && <p>{h.observacao}</p>}
+            <small>{h.usuario_nome || 'Sistema'} · {portalDate(h.registrado_em)}</small>
+          </div></div>) : <p className="empty-state">Sem histórico.</p>}
+        </div>
+        <footer><Button variant="secondary" onClick={() => setDetalhe(null)}>Fechar</Button></footer>
+      </div>
+    </Modal>}
+    {feedback && <Feedback message={feedback} close={() => setFeedback('')} />}
+  </>
+}
 
 function ConfiguracoesOrcamento() {
   const [aba, setAba] = useState<typeof ABAS_CONFIG[number]['id']>('pagamento')
@@ -2697,6 +2968,10 @@ function ConfiguracoesOrcamento() {
     {aba === 'locais' && <CatalogoConfiguravel titulo="Locais de instalação" acoes={catalogoLocais}
       descricao="Onde a peça vai ser instalada. Aparece em cada linha do orçamento."
       placeholderNovo="Cozinha, Lavabo…" />}
+    {aba === 'producao' && <CatalogoConfiguravel titulo="Etapas de produção" acoes={catalogoEtapasProducao}
+      descricao="Sequência da esteira da oficina. A ordem aqui é a ordem em que o trabalho anda; a última etapa fecha a ordem de produção."
+      placeholderNovo="Polimento, Conferência…"
+      colunaExtra={{ cabecalho: 'FECHA A ORDEM', render: item => <span>{item.is_final ? 'Sim' : '—'}</span> }} />}
     {aba === 'perdas' && <CatalogoConfiguravel titulo="Motivos de perda e avaria" acoes={catalogoMotivosPerda}
       descricao="Alimenta o seletor da tela de Perdas e Avarias."
       placeholderNovo="Trinca no polimento…" />}
@@ -3182,7 +3457,7 @@ export default function App() {
     if (rota.nome === 'orcamento') return rota.id === undefined ? <Pipeline/> : <QuoteDetail quoteId={rota.id}/>
     if (rota.nome === 'builder') return <Builder quoteId={rota.id}/>
     if (rota.nome === 'clients' && rota.id !== undefined) return <ClientDetail clientId={rota.id}/>
-    return ({ dashboard: <Dashboard/>, clients: <Clients/>, pipeline: <Pipeline/>, builder: <Builder/>, quotesList: <QuotesList/>, salesHistory: <SalesHistory/>, projects: <Projects/>, catalog: <Catalog/>, servicesCatalog: <ServicesCatalog/>, inventory: <Inventory/>, suppliers: <Suppliers/>, losses: <Losses/>, equipment: <Equipment/>, schedule: <Schedule/>, finance: <Finance/>, team: <Team/>, orcamentoConfig: <ConfiguracoesOrcamento/>, integrations: <Integrations/>, logs: <Logs/>, profile: <Profile/> } as Partial<Record<Route, ReactNode>>)[rota.nome]
+    return ({ dashboard: <Dashboard/>, clients: <Clients/>, pipeline: <Pipeline/>, builder: <Builder/>, quotesList: <QuotesList/>, salesHistory: <SalesHistory/>, projects: <Projects/>, catalog: <Catalog/>, servicesCatalog: <ServicesCatalog/>, inventory: <Inventory/>, suppliers: <Suppliers/>, losses: <Losses/>, equipment: <Equipment/>, schedule: <Schedule/>, finance: <Finance/>, team: <Team/>, producao: <EsteiraProducao/>, orcamentoConfig: <ConfiguracoesOrcamento/>, integrations: <Integrations/>, logs: <Logs/>, profile: <Profile/> } as Partial<Record<Route, ReactNode>>)[rota.nome]
   }, [rota.nome, rota.id])
   if(portalToken) return <Portal token={portalToken}/>
   if(location.pathname==='/reset-password') return <ResetPassword/>

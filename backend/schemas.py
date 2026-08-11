@@ -177,6 +177,9 @@ class ClienteCreate(BaseModel):
     carteira: bool = False
     indicado_por: Optional[str] = Field(None, max_length=150, pattern=r"^[^<>]*$")
     profissional_tipo: Optional[str] = Field(None, max_length=60, pattern=r"^[^<>]*$")
+    data_nascimento: Optional[datetime] = None
+    origem_contato: Optional[str] = Field(None, max_length=80, pattern=r"^[^<>]*$")
+    preferencia_contato: Optional[Literal["whatsapp", "ligacao", "email"]] = None
     status: Optional[str] = "ativo"
 
     @model_validator(mode="after")
@@ -225,6 +228,9 @@ class ClienteOut(BaseModel):
     carteira: bool = False
     indicado_por: Optional[str] = None
     profissional_tipo: Optional[str] = None
+    data_nascimento: Optional[datetime] = None
+    origem_contato: Optional[str] = None
+    preferencia_contato: Optional[str] = None
     status: Optional[str] = "ativo"
     criado_por_id: Optional[int] = None
     editado_por_id: Optional[int] = None
@@ -725,6 +731,26 @@ class LocalOut(BaseModel):
         from_attributes = True
 
 
+class EtapaProducaoCreate(BaseModel):
+    nome: str = NOME_CATALOGO
+    is_final: bool = False
+
+class EtapaProducaoUpdate(BaseModel):
+    nome: Optional[str] = Field(None, min_length=1, max_length=120, pattern=r"^[^<>]*$")
+    ativo: Optional[bool] = None
+    is_final: Optional[bool] = None
+
+class EtapaProducaoOut(BaseModel):
+    id: int
+    nome: str
+    ativo: bool
+    ordem: int
+    built_in: bool
+    is_final: bool
+    class Config:
+        from_attributes = True
+
+
 class MotivoPerdaAvariaCreate(BaseModel):
     nome: str = NOME_CATALOGO
 
@@ -1086,3 +1112,55 @@ class MateriaPrimaOut(MateriaPrimaBase):
     class Config:
         from_attributes = True
 
+
+
+# --- Esteira de produção -------------------------------------------------------
+#
+# A OrdemProducao nasce junto com a Venda: vendeu, tem que produzir. O ciclo dela é
+# diferente do da venda — anda por etapas e pode voltar (peça quebrou no corte, refaz).
+
+class OrdemProducaoEtapaOut(BaseModel):
+    id: int
+    etapa_id: int
+    etapa_nome: Optional[str] = None
+    usuario_nome: Optional[str] = None
+    observacao: Optional[str] = None
+    registrado_em: datetime
+    class Config:
+        from_attributes = True
+
+
+class OrdemProducaoOut(BaseModel):
+    id: int
+    venda_id: int
+    etapa_id: int
+    responsavel_id: Optional[int] = None
+    observacoes: Optional[str] = None
+    previsao_entrega: Optional[datetime] = None
+    iniciada_em: Optional[datetime] = None
+    concluida_em: Optional[datetime] = None
+    created_at: datetime
+    # Expandidos: o kanban precisa disso sem N+1 no cliente.
+    etapa_nome: Optional[str] = None
+    etapa_is_final: bool = False
+    responsavel_nome: Optional[str] = None
+    cliente_nome: Optional[str] = None
+    vendedor_nome: Optional[str] = None
+    orcamento_id: Optional[int] = None
+    valor_total: Optional[int] = None
+    resumo_itens: Optional[str] = None
+    historico: List[OrdemProducaoEtapaOut] = Field(default_factory=list)
+    class Config:
+        from_attributes = True
+
+
+class OrdemProducaoMoverIn(BaseModel):
+    """Mover a ordem para outra etapa. `observacao` fica no histórico daquela transição."""
+    etapa_id: int
+    observacao: Optional[str] = Field(None, max_length=1000)
+
+
+class OrdemProducaoUpdate(BaseModel):
+    responsavel_id: Optional[int] = None
+    observacoes: Optional[str] = Field(None, max_length=2000)
+    previsao_entrega: Optional[datetime] = None

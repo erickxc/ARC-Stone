@@ -20,6 +20,9 @@ export type TipoOrcamento = 'Obra' | 'Peça' | 'Projeto' | 'Externo'
 export type Modalidade = 'venda_direta' | 'orcamento_formal'
 
 export type TipoPessoa = 'fisica' | 'juridica'
+/** Canal por onde o cliente prefere ser procurado — em venda de bancada, ligar para quem
+ *  só responde texto é como não ter ligado. */
+export type PreferenciaContato = 'whatsapp' | 'ligacao' | 'email'
 
 export interface Client {
   id: number
@@ -46,6 +49,9 @@ export interface Client {
   carteira: boolean
   indicado_por: string | null
   profissional_tipo: string | null
+  data_nascimento: string | null
+  origem_contato: string | null
+  preferencia_contato: PreferenciaContato | null
   status: string | null
   created_at: string
   criado_por_nome?: string | null
@@ -121,6 +127,37 @@ export type Local = ItemCatalogo
 export type MotivoPerda = ItemCatalogo & { slug: string }
 export interface TipoPagamento extends ItemCatalogo { exige_forma: boolean }
 export interface FormaPagamento extends ItemCatalogo { tipo_pagamento_id: number }
+export interface EtapaProducao extends ItemCatalogo { is_final: boolean }
+
+export interface OrdemProducaoEtapa {
+  id: number
+  etapa_id: number
+  etapa_nome: string | null
+  usuario_nome: string | null
+  observacao: string | null
+  registrado_em: string
+}
+
+export interface OrdemProducao {
+  id: number
+  venda_id: number
+  etapa_id: number
+  responsavel_id: number | null
+  observacoes: string | null
+  previsao_entrega: string | null
+  iniciada_em: string | null
+  concluida_em: string | null
+  created_at: string
+  etapa_nome: string | null
+  etapa_is_final: boolean
+  responsavel_nome: string | null
+  cliente_nome: string | null
+  vendedor_nome: string | null
+  orcamento_id: number | null
+  valor_total: number | null
+  resumo_itens: string | null
+  historico: OrdemProducaoEtapa[]
+}
 
 export interface OrcamentoConfig {
   id: number
@@ -712,6 +749,27 @@ export const catalogoCondicoesPagamento = criarAcoesCatalogo<PaymentCondition>('
 export const catalogoTiposPagamento = criarAcoesCatalogo<TipoPagamento>('tipos-pagamento')
 export const catalogoLocais = criarAcoesCatalogo<Local>('locais')
 export const catalogoMotivosPerda = criarAcoesCatalogo<MotivoPerda>('motivos-perda')
+export const catalogoEtapasProducao = criarAcoesCatalogo<EtapaProducao>('etapas-producao')
+
+// --- Esteira de produção ---
+
+export function listOrdensProducao(incluirConcluidas = false) {
+  return request<OrdemProducao[]>(`/producao/ordens${incluirConcluidas ? '?incluir_concluidas=true' : ''}`)
+}
+
+export function getOrdemProducao(id: number) {
+  return request<OrdemProducao>(`/producao/ordens/${id}`)
+}
+
+export function moverOrdemProducao(id: number, etapaId: number, observacao?: string) {
+  return request<OrdemProducao>(`/producao/ordens/${id}/mover`, {
+    method: 'PATCH', body: JSON.stringify({ etapa_id: etapaId, observacao: observacao || null }),
+  })
+}
+
+export function atualizarOrdemProducao(id: number, patch: { responsavel_id?: number | null; observacoes?: string | null; previsao_entrega?: string | null }) {
+  return request<OrdemProducao>(`/producao/ordens/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
+}
 
 /** Formas nao usam o catalogo generico: o POST exige o tipo pai e o GET filtra por ele. */
 export const catalogoFormasPagamento = {
