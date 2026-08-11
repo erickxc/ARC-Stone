@@ -105,6 +105,7 @@ export interface CalendarEvent {
 export interface QuoteItem {
   id?: number
   produto_id?: number | null
+  servico_id?: number | null
   quantidade: number
   preco_unitario_aplicado: number
   local_instalacao?: string | null
@@ -339,6 +340,86 @@ export interface FluxoMensalItem {
   mes: string
   entradas: number
   saidas: number
+}
+
+// --- ARC Stone: catálogo de serviços, equipamentos, matéria-prima, perdas/avarias e vendas ---
+
+export interface Servico {
+  id: number
+  nome: string
+  descricao: string | null
+  preco_padrao: number
+  tempo_medio_valor: number
+  tempo_medio_unidade: 'horas' | 'dias'
+  ativo: boolean
+  created_at: string
+}
+
+export type ServicoInput = Omit<Servico, 'id' | 'created_at'>
+
+export interface Equipamento {
+  id: number
+  nome: string
+  tipo: string | null
+  estado: 'operante' | 'manutencao' | 'inativo'
+  numero_serie: string | null
+  data_aquisicao: string | null
+  observacoes: string | null
+  ativo: boolean
+  created_at: string
+}
+
+export type EquipamentoInput = Omit<Equipamento, 'id' | 'created_at'>
+
+export interface MateriaPrima {
+  id: number
+  nome: string
+  tipo_material: string | null
+  fornecedor_id: number | null
+  unidade_medida: 'm2' | 'un' | 'kg'
+  quantidade_estoque: number
+  preco_custo: number | null
+  comprimento: number | null
+  largura: number | null
+  espessura: number | null
+  observacoes: string | null
+  ativo: boolean
+  created_at: string
+}
+
+export type MateriaPrimaInput = Omit<MateriaPrima, 'id' | 'created_at'>
+
+export type MotivoPerdaAvaria = 'quebra_manuseio' | 'quebra_transporte' | 'defeito_fabricacao' | 'corte_errado' | 'armazenamento_inadequado' | 'outro'
+
+export interface PerdaAvaria {
+  id: number
+  produto_id: number
+  quantidade: number
+  motivo: MotivoPerdaAvaria
+  justificativa: string
+  usuario_id: number
+  data_ocorrencia: string
+  created_at: string
+  produto_nome: string | null
+  usuario_nome: string | null
+}
+
+export interface PerdaAvariaInput {
+  produto_id: number
+  quantidade: number
+  motivo: MotivoPerdaAvaria
+  justificativa: string
+}
+
+export interface Venda {
+  id: number
+  orcamento_id: number
+  vendedor_id: number
+  valor_total: number
+  data_venda: string
+  created_at: string
+  cliente_nome: string | null
+  vendedor_nome: string | null
 }
 
 /**
@@ -590,6 +671,73 @@ export function updateSupplier(id: number, input: SupplierInput) {
 
 export function deleteSupplier(id: number) {
   return request<void>(`/fornecedores/${id}`, { method: 'DELETE' })
+}
+
+export function listServicos(ativo?: boolean) {
+  const query = ativo === undefined ? '' : `?${new URLSearchParams({ ativo: String(ativo) })}`
+  return request<Servico[]>(`/servicos/${query}`)
+}
+
+export function createServico(input: ServicoInput) {
+  return request<Servico>('/servicos/', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function updateServico(id: number, input: Partial<ServicoInput>) {
+  return request<Servico>(`/servicos/${id}`, { method: 'PUT', body: JSON.stringify(input) })
+}
+
+export function deleteServico(id: number) {
+  return request<void>(`/servicos/${id}`, { method: 'DELETE' })
+}
+
+export function listEquipamentos(ativo?: boolean) {
+  const query = ativo === undefined ? '' : `?${new URLSearchParams({ ativo: String(ativo) })}`
+  return request<Equipamento[]>(`/equipamentos/${query}`)
+}
+
+export function createEquipamento(input: EquipamentoInput) {
+  return request<Equipamento>('/equipamentos/', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function updateEquipamento(id: number, input: Partial<EquipamentoInput>) {
+  return request<Equipamento>(`/equipamentos/${id}`, { method: 'PUT', body: JSON.stringify(input) })
+}
+
+export function deleteEquipamento(id: number) {
+  return request<void>(`/equipamentos/${id}`, { method: 'DELETE' })
+}
+
+export function listMateriaPrima(ativo?: boolean) {
+  const query = ativo === undefined ? '' : `?${new URLSearchParams({ ativo: String(ativo) })}`
+  return request<MateriaPrima[]>(`/materia-prima/${query}`)
+}
+
+export function createMateriaPrima(input: MateriaPrimaInput) {
+  return request<MateriaPrima>('/materia-prima/', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function updateMateriaPrima(id: number, input: Partial<MateriaPrimaInput>) {
+  return request<MateriaPrima>(`/materia-prima/${id}`, { method: 'PUT', body: JSON.stringify(input) })
+}
+
+export function deleteMateriaPrima(id: number) {
+  return request<void>(`/materia-prima/${id}`, { method: 'DELETE' })
+}
+
+export function listPerdas() {
+  return request<PerdaAvaria[]>('/perdas/')
+}
+
+export function createPerda(input: PerdaAvariaInput) {
+  return request<PerdaAvaria>('/perdas/', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function listVendas() {
+  return request<Venda[]>('/orcamentos/vendas/historico')
+}
+
+export function converterEmVenda(orcamentoId: number) {
+  return request<Venda>(`/orcamentos/${orcamentoId}/converter-venda`, { method: 'POST' })
 }
 
 export function listProjetos(filtros?: { origem?: string; origem_ref?: string }) {

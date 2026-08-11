@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, createApiKey, createCatalogProduct, createClient, createLancamento, createPaymentCondition, createQuote, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deletePaymentCondition, deleteProjeto, deleteQuote, deleteSupplier, disableMfa, enableMfa, encerrarSessao, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getClient, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listInventoryProducts, listLancamentos, listLogs, listPaymentConditions, listProjetos, listQuoteAttachments, listQuotes, listSuppliers, listTeam, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, renovarLocacao, resetOrcamentoConfig, resetPassword, revogarPortalLink, revokeApiKey, updateOrcamentoConfig, updatePaymentCondition, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, uploadArquivo, UPLOAD_EXTENSOES, UPLOAD_TAMANHO_MAXIMO, verifyMfa } from './api'
-import type { ApiKey, ApiKeyCreated, AuditLog, AuditLogEntry, CalendarEvent, Client, ClientInput, FinanceiroResumo, FluxoMensalItem, Lancamento, OrcamentoAnexo, OrcamentoConfig, PaymentCondition, PortalLink, PortalProposta, Product, Projeto, ProjetoDetail, Quote, QuoteDetail as QuoteData, QuoteItem, Supplier, SupplierInput, TeamMember, TeamMemberInput } from './api'
+import { alterarVisibilidadeAnexo, baixarDocumentoPortal, baixarPdfPropostaPortal, converterEmVenda, createApiKey, createCatalogProduct, createClient, createEquipamento, createLancamento, createMateriaPrima, createPaymentCondition, createPerda, createQuote, createServico, createSupplier, createTeamMember, deactivateTeamMember, deleteClient, deleteEquipamento, deleteMateriaPrima, deletePaymentCondition, deleteProjeto, deleteQuote, deleteServico, deleteSupplier, disableMfa, enableMfa, encerrarSessao, enviarDecisaoPortal, forgotPassword, gerarPortalLink, getClient, getFinanceiroResumo, getFluxoMensal, getOrcamentoConfig, getPortalProposta, getProjeto, getQuote, getQuoteHistory, getSessionUser, importarProjetoCsv, listApiKeys, listCalendarEvents, listCatalogProducts, listClients, listEquipamentos, listInventoryProducts, listLancamentos, listLogs, listMateriaPrima, listPaymentConditions, listPerdas, listProjetos, listQuoteAttachments, listQuotes, listServicos, listSuppliers, listTeam, listVendas, login, logout, mfaLogin, moveInventory, pagarLancamento, regenerateQuotePdf, renovarLocacao, resetOrcamentoConfig, resetPassword, revogarPortalLink, revokeApiKey, updateEquipamento, updateOrcamentoConfig, updatePaymentCondition, updateProduct, updateQuote, updateQuoteStatus, updateTeamMember, uploadArquivo, UPLOAD_EXTENSOES, UPLOAD_TAMANHO_MAXIMO, verifyMfa } from './api'
+import type { ApiKey, ApiKeyCreated, AuditLog, AuditLogEntry, CalendarEvent, Client, ClientInput, Equipamento, EquipamentoInput, FinanceiroResumo, FluxoMensalItem, Lancamento, MateriaPrima, MateriaPrimaInput, OrcamentoAnexo, OrcamentoConfig, PaymentCondition, PerdaAvaria, PerdaAvariaInput, PortalLink, PortalProposta, Product, Projeto, ProjetoDetail, Quote, QuoteDetail as QuoteData, QuoteItem, Servico, ServicoInput, Supplier, SupplierInput, TeamMember, TeamMemberInput, Venda } from './api'
 import { money } from './data'
 import type { Status } from './data'
 
-type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'projects' | 'catalog' | 'inventory' | 'suppliers' | 'schedule' | 'finance' | 'team' | 'integrations' | 'logs' | 'orcamento'
-const routes: Route[] = ['dashboard', 'clients', 'pipeline', 'builder', 'projects', 'catalog', 'inventory', 'suppliers', 'schedule', 'finance', 'team', 'integrations', 'logs']
+type Route = 'dashboard' | 'clients' | 'pipeline' | 'builder' | 'quotesList' | 'salesHistory' | 'projects' | 'catalog' | 'servicesCatalog' | 'inventory' | 'suppliers' | 'losses' | 'equipment' | 'schedule' | 'finance' | 'team' | 'integrations' | 'logs' | 'profile' | 'orcamento'
+const routes: Route[] = ['dashboard', 'clients', 'pipeline', 'builder', 'quotesList', 'salesHistory', 'projects', 'catalog', 'servicesCatalog', 'inventory', 'suppliers', 'losses', 'equipment', 'schedule', 'finance', 'team', 'integrations', 'logs', 'profile']
 
 type IconName = Exclude<Route, 'orcamento'> | 'menu' | 'close'
 const iconPaths: Record<IconName, ReactNode> = {
@@ -23,6 +23,12 @@ const iconPaths: Record<IconName, ReactNode> = {
   team: <><circle cx="9" cy="8" r="3"/><circle cx="18" cy="9" r="2.5"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M15 15a5 5 0 0 1 6 4.9V21"/></>,
   integrations: <><circle cx="7" cy="12" r="3.2"/><circle cx="17" cy="12" r="3.2"/><path d="M10.2 12h3.6"/></>,
   logs: <><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></>,
+  quotesList: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></>,
+  salesHistory: <><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></>,
+  servicesCatalog: <><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.97 7.97 0 0 0 0-2l2-1.5-2-3.5-2.4 1a8 8 0 0 0-1.7-1L15 3h-4l-.3 2a8 8 0 0 0-1.7 1l-2.4-1-2 3.5L6.6 11a8 8 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a8 8 0 0 0 1.7 1L11 21h4l.3-2a8 8 0 0 0 1.7-1l2.4 1 2-3.5Z"/></>,
+  losses: <><path d="M12 2 2 21h20L12 2Z"/><path d="M12 9v5M12 17h.01"/></>,
+  equipment: <><rect x="3" y="10" width="14" height="7" rx="1"/><path d="M17 12h2l2 2v3h-4M7 17v3M11 17v3"/></>,
+  profile: <><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></>,
   menu: <path d="M4 7h16M4 12h16M4 17h16"/>,
   close: <path d="m6 6 12 12M18 6 6 18"/>,
 }
@@ -225,20 +231,71 @@ function Combobox({ options, value, onChange, placeholder = 'Selecionar…', sea
 
 type SidebarProps = { route: Route; go: (r: Route) => void; collapsed: boolean; setCollapsed: (v: boolean) => void; mobileOpen: boolean; closeMobile: () => void; escritorio?: string | null; tema: 'light' | 'dark'; alternarTema: () => void }
 
+type NavGroup = { label: string; items: [Route, string, string, IconName][] }
+
+const navGroups: NavGroup[] = [
+  { label: 'Orçamentos', items: [
+    ['builder', 'Novo orçamento', '', 'builder'],
+    ['quotesList', 'Listagem de orçamentos', '', 'quotesList'],
+    ['projects', 'Projetos', '', 'projects'],
+  ] },
+  { label: 'Vendas', items: [
+    ['clients', 'Carteira de clientes', '', 'clients'],
+    ['pipeline', 'Pipeline de vendas', '18', 'pipeline'],
+    ['salesHistory', 'Histórico de vendas', '', 'salesHistory'],
+  ] },
+  { label: 'Galpão', items: [
+    ['catalog', 'Catálogo de produtos', '', 'catalog'],
+    ['servicesCatalog', 'Catálogo de serviços', '', 'servicesCatalog'],
+    ['suppliers', 'Fornecedores', '', 'suppliers'],
+    ['losses', 'Perdas e Avarias', '', 'losses'],
+    ['equipment', 'Equipamentos', '', 'equipment'],
+    ['inventory', 'Controle de estoque', '7', 'inventory'],
+  ] },
+  { label: 'Gestão', items: [
+    ['schedule', 'Calendário de entregas', '', 'schedule'],
+    ['finance', 'Painel financeiro', '', 'finance'],
+    ['team', 'Equipe', '', 'team'],
+  ] },
+  { label: 'Configurações', items: [
+    ['integrations', 'Integrações', '', 'integrations'],
+    ['logs', 'Logs de auditoria', '', 'logs'],
+  ] },
+  { label: 'Meu Perfil', items: [
+    ['profile', 'Meu Perfil', '', 'profile'],
+  ] },
+]
+
+function SidebarGroup({ group, route, collapsed, onNavigate }: { group: NavGroup; route: Route; collapsed: boolean; onNavigate: (r: Route) => void }) {
+  const ativo = group.items.some(([key]) => key === route)
+  const [manualOpen, setManualOpen] = useState<boolean | null>(() => {
+    const salvo = localStorage.getItem(`arc-menu-grupo-${group.label}`)
+    return salvo === null ? null : salvo === '1'
+  })
+  const aberto = ativo || (manualOpen ?? false)
+  const alternar = () => {
+    const proximo = !aberto
+    localStorage.setItem(`arc-menu-grupo-${group.label}`, proximo ? '1' : '0')
+    setManualOpen(proximo)
+  }
+  if (collapsed) return <>{group.items.map(([key, label, , itemIcon]) => <button key={key} className={route === key ? 'active' : ''} onClick={() => onNavigate(key)} title={label}><span><Icon name={itemIcon}/></span></button>)}</>
+  return <div className={`nav-group ${aberto ? 'open' : ''}`}>
+    <button type="button" className="nav-group-head" onClick={alternar} aria-expanded={aberto}>
+      <span className="nav-label">{group.label}</span>
+      <svg className="nav-chevron" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </button>
+    {aberto && group.items.map(([key, label, count, itemIcon]) => <button key={key} className={route === key ? 'active' : ''} onClick={() => onNavigate(key)} title={label}><span><Icon name={itemIcon}/></span>{label}<em>{count}</em></button>)}
+  </div>
+}
+
 function Sidebar(props: SidebarProps) {
   const { route, go, collapsed, setCollapsed, mobileOpen, closeMobile, escritorio, tema, alternarTema } = props
-  const items: [Route, string, string, IconName][] = [
-    ['dashboard', 'Dashboard', '', 'dashboard'], ['clients', 'Carteira de clientes', '', 'clients'], ['pipeline', 'Pipeline de vendas', '18', 'pipeline'], ['builder', 'Construtor de orçamento', '', 'builder'], ['projects', 'Projetos', '', 'projects'], ['catalog', 'Catálogo de produtos', '', 'catalog'], ['inventory', 'Controle de estoque', '7', 'inventory'], ['suppliers', 'Fornecedores', '', 'suppliers'], ['schedule', 'Calendário de entregas', '', 'schedule'], ['finance', 'Painel financeiro', '', 'finance'], ['team', 'Equipe', '', 'team'], ['integrations', 'Integrações', '', 'integrations'], ['logs', 'Logs de auditoria', '', 'logs'],
-  ]
   const navigate = (next: Route) => { go(next); closeMobile() }
   return <><button className={`sidebar-scrim ${mobileOpen ? 'show' : ''}`} onClick={closeMobile} aria-label="Fechar menu lateral"/><aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
     <div className="side-head"><Logo compact={collapsed} escritorio={escritorio} /><button className="mobile-close" onClick={closeMobile} aria-label="Fechar menu"><Icon name="close"/></button><button className="collapse" onClick={alternarTema} aria-label={tema === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}>{tema === 'dark' ? '☀' : '☾'}</button><button className="collapse" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}>«</button></div>
-    <Button onClick={() => navigate('builder')}>{collapsed ? '+' : '+ Novo orçamento'}</Button>
+    <button className={`nav-top ${route === 'dashboard' ? 'active' : ''}`} onClick={() => navigate('dashboard')} title="Dashboard"><span><Icon name="dashboard"/></span>{!collapsed && 'Dashboard'}</button>
     <nav>
-      {items.map(([key, label, count, itemIcon], index) => <div key={key}>
-        {!collapsed && [1, 5, 8].includes(index) && <span className="nav-label">{index === 1 ? 'VENDAS' : index === 5 ? 'GALPÃO' : 'GESTÃO'}</span>}
-        <button className={route === key ? 'active' : ''} onClick={() => navigate(key)} title={label}><span><Icon name={itemIcon}/></span>{!collapsed && <>{label}<em>{count}</em></>}</button>
-      </div>)}
+      {navGroups.map(group => <SidebarGroup key={group.label} group={group} route={route} collapsed={collapsed} onNavigate={navigate} />)}
     </nav>
     <button className="user-card" onClick={async () => { await logout(); location.hash = 'login'; location.reload() }}><span>C</span>{!collapsed && <><b>Cissa<small>ADMIN</small></b><i>⌄</i></>}</button>
   </aside></>
@@ -263,7 +320,7 @@ function AppShell({ route, go, children }: { route: Route; go: (r: Route) => voi
     return () => { vivo = false }
   }, [])
   useEffect(() => { document.title = escritorio ? `ARC • ${escritorio}` : 'ARC ERP' }, [escritorio])
-  return <div className={`app ${collapsed ? 'rail' : ''}`}><Sidebar tema={tema} alternarTema={alternarTema} escritorio={escritorio} route={route} go={go} collapsed={collapsed} setCollapsed={setCollapsed} mobileOpen={mobileOpen} closeMobile={()=>setMobileOpen(false)} /><div className="app-body"><header className="mobile-topbar"><button onClick={()=>setMobileOpen(true)} aria-label="Abrir menu"><Icon name="menu"/></button><Logo escritorio={escritorio}/><button className="mobile-avatar" aria-label="Abrir perfil" onClick={()=>go('team')}>C</button></header><main className="content">{children}</main></div></div>
+  return <div className={`app ${collapsed ? 'rail' : ''}`}><Sidebar tema={tema} alternarTema={alternarTema} escritorio={escritorio} route={route} go={go} collapsed={collapsed} setCollapsed={setCollapsed} mobileOpen={mobileOpen} closeMobile={()=>setMobileOpen(false)} /><div className="app-body"><header className="mobile-topbar"><button onClick={()=>setMobileOpen(true)} aria-label="Abrir menu"><Icon name="menu"/></button><Logo escritorio={escritorio}/><button className="mobile-avatar" aria-label="Abrir perfil" onClick={()=>go('profile')}>C</button></header><main className="content">{children}</main></div></div>
 }
 
 function PageHead({ eyebrow, title, subtitle, actions }: { eyebrow: string; title: string; subtitle?: string; actions?: ReactNode }) {
@@ -581,6 +638,7 @@ function QuoteDetail({ quoteId }: { quoteId: number }) {
   const [feedback, setFeedback] = useState('')
   const [prazoRenovacao, setPrazoRenovacao] = useState('1')
   const [unidadeRenovacao, setUnidadeRenovacao] = useState<'dias' | 'meses'>('meses')
+  const [vendaConvertida, setVendaConvertida] = useState<Venda | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -663,6 +721,13 @@ function QuoteDetail({ quoteId }: { quoteId: number }) {
     finally { setBusy(false) }
   }
 
+  async function converterVenda() {
+    setBusy(true); setError('')
+    try { setVendaConvertida(await converterEmVenda(quoteId)); setFeedback('Orçamento convertido em venda.') }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao converter em venda.') }
+    finally { setBusy(false) }
+  }
+
   // Sem `finally`: em caso de sucesso a tela é trocada, e destravar o botão antes disso
   // deixaria a exclusão clicável de novo sobre um orçamento que já não existe.
   async function excluirOrcamento() {
@@ -691,7 +756,11 @@ function QuoteDetail({ quoteId }: { quoteId: number }) {
         <article className="card"><div className="card-title"><h2>Histórico</h2><span className="mono">{history.length} REGISTROS</span></div><div className="timeline">{sortedHistory.length ? sortedHistory.map(entry => <div key={entry.id}><i /><div><b>{entry.acao}</b><p>{entry.detalhes}</p><small>{entry.usuario_nome || 'Cliente / sistema'} · {portalDate(entry.created_at)}</small></div></div>) : <p className="empty-state">Nenhum evento registrado.</p>}</div></article>
       </div>
       <aside className="quote-detail-aside">
-        <article className="card total-card"><p className="mono">VALOR TOTAL</p><strong>{money(total)}</strong><dl><div><dt>Cliente</dt><dd>{quote.cliente_nome || 'Não informado'}</dd></div><div><dt>Vendedor</dt><dd>{quote.vendedor_nome || 'Não informado'}</dd></div><div><dt>Tipo</dt><dd>{quote.tipo_orcamento}</dd></div><div><dt>Criado em</dt><dd>{portalDate(quote.created_at)}</dd></div><div><dt>Status</dt><dd><Badge>{quote.status}</Badge></dd></div></dl></article>
+        <article className="card total-card"><p className="mono">VALOR TOTAL</p><strong>{money(total)}</strong><dl><div><dt>Cliente</dt><dd>{quote.cliente_nome || 'Não informado'}</dd></div><div><dt>Vendedor</dt><dd>{quote.vendedor_nome || 'Não informado'}</dd></div><div><dt>Tipo</dt><dd>{quote.tipo_orcamento}</dd></div><div><dt>Criado em</dt><dd>{portalDate(quote.created_at)}</dd></div><div><dt>Status</dt><dd><Badge>{quote.status}</Badge></dd></div></dl>
+          {quote.status === 'Aprovado' && (vendaConvertida
+            ? <p className="subtitle" role="status">Convertido em venda VDA-{String(vendaConvertida.id).padStart(4, '0')}.</p>
+            : <Button onClick={() => void converterVenda()} loading={busy}>Converter em venda</Button>)}
+        </article>
         <article className="card documents"><div className="card-title"><h2>Anexos</h2><span className="mono">{attachments.length}</span></div>{attachments.length ? attachments.map(attachment => <div className="quote-attachment" key={attachment.id}><a href={quoteDownloadUrl(attachment.url)} download>{attachment.nome_original}</a><small>{portalBytes(attachment.tamanho)} · {attachment.visivel_cliente ? 'Visível ao cliente' : 'Interno'}</small><Toggle checked={attachment.visivel_cliente} disabled={busy} label="Visível ao cliente" onChange={() => void toggleAttachment(attachment)}/></div>) : <p className="empty-state">Nenhum anexo cadastrado.</p>}{quote.anexo_url && <a className="text-action" href={quoteDownloadUrl(quote.anexo_url)} download>Baixar PDF da proposta</a>}</article>
         {quote.decisao_cliente && <article className="card decision quote-decision"><p className="mono">DECISÃO DO CLIENTE</p><strong>{quote.decisao_cliente === 'aprovado' ? 'Aprovou a proposta' : 'Pediu ajuste'}</strong><span>{quote.decisao_cliente_nome || 'Nome não informado'} · {portalDate(quote.decisao_cliente_em || null)}</span>{quote.decisao_cliente === 'recusado' && <p><b>Motivo:</b> {quote.decisao_cliente_motivo || 'Não informado'}</p>}</article>}
         <article className="card portal-detail-card"><p className="mono">PORTAL DO CLIENTE</p><p>Gerar um link novo invalida o anterior.</p>{link ? <><input readOnly value={link.url} aria-label="URL completa do portal"/><button className="text-action" onClick={() => void copyLink()}>Copiar URL</button><small>Enviado para {link.enviado_para} · expira em {portalDate(link.expira_em)}</small><Button variant="secondary" onClick={() => void revokePortalLink()} loading={busy}>Revogar link</Button></> : <><Button onClick={() => void sendPortalLink()} disabled={Boolean(motivoSemPortal(quote))} loading={busy}>Enviar link ao cliente</Button>{motivoSemPortal(quote) && <small className="portal-bloqueio">{motivoSemPortal(quote)}</small>}</>}</article>
@@ -1367,6 +1436,399 @@ function Suppliers() {
     catch (err) { setError(err instanceof Error ? err.message : 'Falha ao excluir fornecedor.') }
   }
   return <><PageHead eyebrow="GALPÃO · PARCEIROS" title="Fornecedores" subtitle={`${items.length} fornecedores ativos carregados do backend`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar fornecedor, CNPJ ou contato..."/><Button onClick={() => setOpen(true)}>+ Fornecedor</Button></>}/>{error && <p className="form-error" role="alert">{error}</p>}<section className="kpi-grid compact-kpis"><Kpi label="FORNECEDORES ATIVOS" value={String(items.filter(item => item.ativo !== false).length)} note="sincronizados"/><Kpi label="RESULTADOS" value={String(filtered.length)} note="filtro atual"/><Kpi label="COM E-MAIL" value={String(items.filter(item => item.email).length)} note="contato digital"/><Kpi dark label="STATUS" value={loading ? '...' : 'OK'} note="sincronização concluída"/></section><article className="card list-card"><div className="card-title"><h2>Base de fornecedores</h2><Badge>{filtered.length} resultados</Badge></div>{loading ? <Skeleton rows={5} label="Carregando fornecedores" /> : <DataTable headers={['FORNECEDOR','CONTATO','DOCUMENTO','TELEFONE','STATUS','AÇÕES']} rows={filtered.map(item => [<b>{item.nome_fantasia}</b>, item.contato || item.email || 'Sem contato', item.cnpj || 'Não informado', item.telefone || 'Não informado', <Badge tone={item.ativo === false ? 'warning' : 'success'}>{item.ativo === false ? 'Inativo' : item.status || 'Ativo'}</Badge>, <button className="text-action" onClick={() => removeSupplier(item)}>Excluir</button>])}/>}</article>{open && <Modal title="Novo fornecedor" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitSupplier}><label>Razão social<input name="nome_fantasia" autoFocus required placeholder="Duratex"/></label><label>CNPJ<input name="cnpj" placeholder="00.000.000/0001-00"/></label><label>Contato<input name="contato" placeholder="Marina Lopes"/></label><label>E-mail<input name="email" type="email" placeholder="contato@fornecedor.com.br"/></label><label>Telefone<input name="telefone" placeholder="(11) 3442-8801"/></label><label>Endereço<input name="endereco" placeholder="Rua, número, cidade/UF"/></label><label>Observações<textarea name="observacoes" placeholder="Condições comerciais, prazo e homologação"/></label><footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Salvar fornecedor'}</Button></footer></form></Modal>}</>
+}
+
+function ServicesCatalog() {
+  const [items, setItems] = useState<Servico[]>([])
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [tempoUnidade, setTempoUnidade] = useState('horas')
+
+  useEffect(() => {
+    let mounted = true
+    listServicos().then(data => { if (mounted) setItems(data) })
+      .catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar serviços.') })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [])
+
+  const filtered = items.filter(item => `${item.nome} ${item.descricao || ''}`.toLowerCase().includes(query.toLowerCase()))
+
+  async function submitServico(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setSaving(true); setError('')
+    const form = new FormData(event.currentTarget)
+    const input: ServicoInput = {
+      nome: String(form.get('nome') || ''),
+      descricao: String(form.get('descricao') || '') || null,
+      preco_padrao: Math.round(Number(form.get('preco_padrao') || 0) * 100),
+      tempo_medio_valor: Number(form.get('tempo_medio_valor') || 1),
+      tempo_medio_unidade: tempoUnidade as ServicoInput['tempo_medio_unidade'],
+      ativo: true,
+    }
+    try { const created = await createServico(input); setItems(current => [created, ...current]); setOpen(false) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao salvar serviço.') }
+    finally { setSaving(false) }
+  }
+  async function removeServico(item: Servico) {
+    if (!confirm(`Excluir o serviço "${item.nome}"? Esta ação não pode ser desfeita.`)) return
+    try { await deleteServico(item.id); setItems(current => current.filter(i => i.id !== item.id)) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao excluir serviço.') }
+  }
+
+  return <><PageHead eyebrow="GALPÃO · SERVIÇOS" title="Catálogo de serviços" subtitle={`${items.length} serviços cadastrados`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar serviço..."/><Button onClick={() => { setTempoUnidade('horas'); setOpen(true) }}>+ Serviço</Button></>}/>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <article className="card list-card"><div className="card-title"><h2>Serviços</h2><Badge>{filtered.length} resultados</Badge></div>
+    {loading ? <Skeleton rows={5} label="Carregando serviços" /> : filtered.length ? <DataTable headers={['SERVIÇO','PREÇO PADRÃO','TEMPO MÉDIO','STATUS','AÇÕES']} rows={filtered.map(item => [
+      <b>{item.nome}<small>{item.descricao || 'Sem descrição'}</small></b>,
+      new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.preco_padrao / 100),
+      `${item.tempo_medio_valor} ${item.tempo_medio_unidade}`,
+      <Badge tone={item.ativo ? 'success' : 'warning'}>{item.ativo ? 'Ativo' : 'Inativo'}</Badge>,
+      <button className="text-action" onClick={() => removeServico(item)}>Excluir</button>,
+    ])}/> : <EmptyState title="Nenhum serviço cadastrado" description="Cadastre serviços como instalação e acabamento para usar no construtor de orçamento." action={<Button onClick={() => setOpen(true)}>+ Serviço</Button>} />}
+    </article>
+    {open && <Modal title="Novo serviço" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitServico}>
+      <label>Nome<input name="nome" autoFocus required placeholder="Instalação de bancada"/></label>
+      <label>Descrição<textarea name="descricao" placeholder="Instalação de bancada de granito no local"/></label>
+      <label>Preço padrão (R$)<input name="preco_padrao" type="number" min="0" step="0.01" required placeholder="500,00"/></label>
+      <label>Tempo médio de execução<input name="tempo_medio_valor" type="number" min="1" required placeholder="3"/></label>
+      <label>Unidade<Combobox name="tempo_medio_unidade" ariaLabel="Unidade do tempo médio" options={[{ value: 'horas', label: 'horas' }, { value: 'dias', label: 'dias' }]} value={tempoUnidade} onChange={setTempoUnidade} /></label>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Salvar serviço'}</Button></footer>
+    </form></Modal>}
+  </>
+}
+
+function MateriaPrimaSection() {
+  const [items, setItems] = useState<MateriaPrima[]>([])
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [unidadeNova, setUnidadeNova] = useState('m2')
+
+  useEffect(() => {
+    let mounted = true
+    listMateriaPrima().then(data => { if (mounted) setItems(data) })
+      .catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar matéria-prima.') })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [])
+
+  async function submitMateriaPrima(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setSaving(true); setError('')
+    const form = new FormData(event.currentTarget)
+    const custo = String(form.get('preco_custo') || '')
+    const input: MateriaPrimaInput = {
+      nome: String(form.get('nome') || ''), tipo_material: String(form.get('tipo_material') || '') || null,
+      fornecedor_id: null, unidade_medida: unidadeNova as MateriaPrimaInput['unidade_medida'],
+      quantidade_estoque: Number(form.get('quantidade_estoque') || 0),
+      preco_custo: custo ? Math.round(Number(custo) * 100) : null,
+      comprimento: null, largura: null, espessura: null,
+      observacoes: String(form.get('observacoes') || '') || null, ativo: true,
+    }
+    try { const created = await createMateriaPrima(input); setItems(current => [created, ...current]); setOpen(false) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao salvar matéria-prima.') }
+    finally { setSaving(false) }
+  }
+  async function removeMateriaPrima(item: MateriaPrima) {
+    if (!confirm(`Excluir "${item.nome}"? Esta ação não pode ser desfeita.`)) return
+    try { await deleteMateriaPrima(item.id); setItems(current => current.filter(i => i.id !== item.id)) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao excluir matéria-prima.') }
+  }
+
+  return <article className="card list-card" style={{ marginTop: 14 }}>
+    <div className="card-title"><h2>Matéria-prima</h2><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Badge>{items.length} itens</Badge><Button onClick={() => { setUnidadeNova('m2'); setOpen(true) }}>+ Matéria-prima</Button></span></div>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    {loading ? <Skeleton rows={4} label="Carregando matéria-prima" /> : items.length ? <DataTable headers={['MATERIAL','TIPO','ESTOQUE','CUSTO','AÇÕES']} rows={items.map(item => [
+      <b>{item.nome}</b>, item.tipo_material || 'Não informado',
+      `${item.quantidade_estoque} ${item.unidade_medida}`,
+      item.preco_custo ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.preco_custo / 100) : 'Não informado',
+      <button className="text-action" onClick={() => removeMateriaPrima(item)}>Excluir</button>,
+    ])}/> : <EmptyState title="Nenhuma matéria-prima cadastrada" description="Cadastre chapas de granito/mármore antes de virarem produto acabado." />}
+    {open && <Modal title="Nova matéria-prima" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitMateriaPrima}>
+      <label>Nome<input name="nome" autoFocus required placeholder="Granito Preto São Gabriel"/></label>
+      <label>Tipo de material<input name="tipo_material" placeholder="Granito"/></label>
+      <label>Unidade de medida<Combobox ariaLabel="Unidade de medida" options={[{ value: 'm2', label: 'm²' }, { value: 'un', label: 'un' }, { value: 'kg', label: 'kg' }]} value={unidadeNova} onChange={setUnidadeNova} /></label>
+      <label>Quantidade em estoque<input name="quantidade_estoque" type="number" min="0" step="0.01" required placeholder="12.5"/></label>
+      <label>Custo (R$)<input name="preco_custo" type="number" min="0" step="0.01" placeholder="350,00"/></label>
+      <label>Observações<textarea name="observacoes"/></label>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Salvar'}</Button></footer>
+    </form></Modal>}
+  </article>
+}
+
+function Equipment() {
+  const [items, setItems] = useState<Equipamento[]>([])
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [estadoNovo, setEstadoNovo] = useState('operante')
+  const estadoOptions: ComboOption[] = [{ value: 'operante', label: 'Operante' }, { value: 'manutencao', label: 'Manutenção' }, { value: 'inativo', label: 'Inativo' }]
+
+  useEffect(() => {
+    let mounted = true
+    listEquipamentos().then(data => { if (mounted) setItems(data) })
+      .catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar equipamentos.') })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [])
+
+  const filtered = items.filter(item => `${item.nome} ${item.tipo || ''} ${item.numero_serie || ''}`.toLowerCase().includes(query.toLowerCase()))
+
+  async function submitEquipamento(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setSaving(true); setError('')
+    const form = new FormData(event.currentTarget)
+    const input: EquipamentoInput = {
+      nome: String(form.get('nome') || ''), tipo: String(form.get('tipo') || '') || null,
+      estado: estadoNovo as EquipamentoInput['estado'], numero_serie: String(form.get('numero_serie') || '') || null,
+      data_aquisicao: null, observacoes: String(form.get('observacoes') || '') || null, ativo: true,
+    }
+    try { const created = await createEquipamento(input); setItems(current => [created, ...current]); setOpen(false) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao salvar equipamento.') }
+    finally { setSaving(false) }
+  }
+  async function mudarEstado(item: Equipamento, estado: string) {
+    try { const updated = await updateEquipamento(item.id, { estado: estado as EquipamentoInput['estado'] }); setItems(current => current.map(i => i.id === updated.id ? updated : i)) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao atualizar equipamento.') }
+  }
+  async function removeEquipamento(item: Equipamento) {
+    if (!confirm(`Excluir o equipamento "${item.nome}"? Esta ação não pode ser desfeita.`)) return
+    try { await deleteEquipamento(item.id); setItems(current => current.filter(i => i.id !== item.id)) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao excluir equipamento.') }
+  }
+
+  return <><PageHead eyebrow="GALPÃO · MÁQUINAS" title="Equipamentos" subtitle={`${items.length} equipamentos cadastrados`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar equipamento..."/><Button onClick={() => { setEstadoNovo('operante'); setOpen(true) }}>+ Equipamento</Button></>}/>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <article className="card list-card"><div className="card-title"><h2>Máquinas e ferramentas</h2><Badge>{filtered.length} resultados</Badge></div>
+    {loading ? <Skeleton rows={5} label="Carregando equipamentos" /> : filtered.length ? <DataTable headers={['EQUIPAMENTO','TIPO','Nº DE SÉRIE','ESTADO','AÇÕES']} rows={filtered.map(item => [
+      <b>{item.nome}</b>, item.tipo || 'Não informado', item.numero_serie || 'Não informado',
+      <Combobox compact ariaLabel={`Estado de ${item.nome}`} options={estadoOptions} value={item.estado} onChange={value => mudarEstado(item, value)} />,
+      <button className="text-action" onClick={() => removeEquipamento(item)}>Excluir</button>,
+    ])}/> : <EmptyState title="Nenhum equipamento cadastrado" description="Cadastre cortadeiras, policortes e demais máquinas do galpão." action={<Button onClick={() => setOpen(true)}>+ Equipamento</Button>} />}
+    </article>
+    {open && <Modal title="Novo equipamento" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitEquipamento}>
+      <label>Nome<input name="nome" autoFocus required placeholder="Policorte"/></label>
+      <label>Tipo<input name="tipo" placeholder="Corte"/></label>
+      <label>Número de série<input name="numero_serie" placeholder="PC-001"/></label>
+      <label>Estado<Combobox ariaLabel="Estado do equipamento" options={estadoOptions} value={estadoNovo} onChange={setEstadoNovo} /></label>
+      <label>Observações<textarea name="observacoes" placeholder="Condição, localização no galpão..."/></label>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Salvar equipamento'}</Button></footer>
+    </form></Modal>}
+    <MateriaPrimaSection/>
+  </>
+}
+
+const motivoPerdaLabel: Record<string, string> = { quebra_manuseio: 'Quebra no manuseio', quebra_transporte: 'Quebra no transporte', defeito_fabricacao: 'Defeito de fabricação', corte_errado: 'Corte errado', armazenamento_inadequado: 'Armazenamento inadequado', outro: 'Outro' }
+
+function Losses() {
+  const [items, setItems] = useState<PerdaAvaria[]>([])
+  const [produtos, setProdutos] = useState<Product[]>([])
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [produtoId, setProdutoId] = useState('')
+  const [motivo, setMotivo] = useState('quebra_manuseio')
+  const motivoOptions: ComboOption[] = Object.entries(motivoPerdaLabel).map(([value, label]) => ({ value, label }))
+
+  useEffect(() => {
+    let mounted = true
+    Promise.all([listPerdas(), listInventoryProducts()])
+      .then(([perdas, prods]) => { if (mounted) { setItems(perdas); setProdutos(prods) } })
+      .catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar perdas e avarias.') })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [])
+
+  const produtoOptions: ComboOption[] = produtos.map(p => ({ value: String(p.id), label: p.nome, meta: `${p.quantidade_estoque} em estoque` }))
+
+  async function submitPerda(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setSaving(true); setError('')
+    const form = new FormData(event.currentTarget)
+    try {
+      if (!produtoId) throw new Error('Selecione o produto afetado.')
+      const quantidade = Number(form.get('quantidade') || 1)
+      const created = await createPerda({
+        produto_id: Number(produtoId), quantidade,
+        motivo: motivo as PerdaAvariaInput['motivo'], justificativa: String(form.get('justificativa') || ''),
+      })
+      setItems(current => [created, ...current]); setOpen(false)
+      setProdutos(current => current.map(p => p.id === created.produto_id ? { ...p, quantidade_estoque: p.quantidade_estoque - quantidade } : p))
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao registrar perda.') }
+    finally { setSaving(false) }
+  }
+
+  return <><PageHead eyebrow="GALPÃO · ESTOQUE" title="Perdas e Avarias" subtitle={`${items.length} registros`} actions={<Button onClick={() => { setProdutoId(''); setMotivo('quebra_manuseio'); setError(''); setOpen(true) }}>+ Registrar perda</Button>}/>
+    {error && !open && <p className="form-error" role="alert">{error}</p>}
+    <article className="card list-card"><div className="card-title"><h2>Registros</h2><Badge>{items.length} resultados</Badge></div>
+    {loading ? <Skeleton rows={5} label="Carregando perdas e avarias" /> : items.length ? <DataTable headers={['#DATA','PRODUTO','QUANTIDADE','MOTIVO','JUSTIFICATIVA','REGISTRADO POR']} rows={items.map(item => [
+      new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(item.data_ocorrencia)),
+      item.produto_nome || `Produto #${item.produto_id}`, String(item.quantidade),
+      <Badge tone="danger">{motivoPerdaLabel[item.motivo] || item.motivo}</Badge>,
+      item.justificativa, item.usuario_nome || 'Sistema',
+    ])}/> : <EmptyState title="Nenhuma perda registrada" description="Registre quebras e avarias de estoque para manter o saldo correto." action={<Button onClick={() => setOpen(true)}>+ Registrar perda</Button>} />}
+    </article>
+    {open && <Modal title="Registrar perda ou avaria" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitPerda}>
+      <label>Produto afetado<Combobox ariaLabel="Produto afetado" searchPlaceholder="Buscar produto…" options={produtoOptions} value={produtoId} onChange={setProdutoId} /></label>
+      <label>Quantidade<input name="quantidade" type="number" min="1" required defaultValue={1}/></label>
+      <label>Motivo<Combobox ariaLabel="Motivo" options={motivoOptions} value={motivo} onChange={setMotivo} /></label>
+      <label>Justificativa<textarea name="justificativa" required minLength={3} placeholder="O que aconteceu..."/></label>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving ? 'Registrando…' : 'Registrar perda'}</Button></footer>
+    </form></Modal>}
+  </>
+}
+
+function QuotesList() {
+  const [items, setItems] = useState<Quote[]>([])
+  const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+    listQuotes().then(data => { if (mounted) setItems(data) })
+      .catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar orçamentos.') })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [])
+
+  const filtered = items.filter(item => `${item.cliente_nome || ''} ${item.tipo_orcamento} ${item.status} ${item.id}`.toLowerCase().includes(query.toLowerCase()))
+
+  return <><PageHead eyebrow="ORÇAMENTOS · TODOS OS REGISTROS" title="Listagem de orçamentos" subtitle={`${items.length} orçamentos, todos os status`} actions={<input className="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar cliente, tipo ou status..."/>}/>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <article className="card list-card"><div className="card-title"><h2>Orçamentos</h2><Badge>{filtered.length} resultados</Badge></div>
+    {loading ? <Skeleton rows={6} label="Carregando orçamentos" /> : filtered.length ? <DataTable headers={['ORÇAMENTO','CLIENTE','TIPO','STATUS','#CRIADO EM','VALOR']} rows={filtered.map(item => [
+      <div className="person-link" role="button" tabIndex={0} onClick={() => { location.hash = `orcamento/${item.id}` }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); location.hash = `orcamento/${item.id}` } }}><b>ORC-{String(item.id).padStart(4, '0')}</b></div>,
+      item.cliente_nome || 'Sem cliente', item.tipo_orcamento,
+      <Badge tone={(columnByBackendStatus[item.status] || 'Gerando').toLowerCase()}>{item.status}</Badge>,
+      new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(item.created_at)),
+      new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((item.valor_total || 0) / 100),
+    ])}/> : <EmptyState title="Nenhum orçamento encontrado" description="Orçamentos criados no construtor aparecem aqui." />}
+    </article>
+  </>
+}
+
+function SalesHistory() {
+  const [items, setItems] = useState<Venda[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+    listVendas().then(data => { if (mounted) setItems(data) })
+      .catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar histórico de vendas.') })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [])
+
+  const total = items.reduce((sum, v) => sum + v.valor_total, 0)
+
+  return <><PageHead eyebrow="VENDAS · HISTÓRICO" title="Histórico de vendas" subtitle={`${items.length} vendas · ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total / 100)} no total`}/>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <article className="card list-card"><div className="card-title"><h2>Vendas</h2><Badge>{items.length} resultados</Badge></div>
+    {loading ? <Skeleton rows={5} label="Carregando vendas" /> : items.length ? <DataTable headers={['VENDA','ORÇAMENTO','CLIENTE','VENDEDOR','#DATA','VALOR']} rows={items.map(item => [
+      `VDA-${String(item.id).padStart(4, '0')}`,
+      <div className="person-link" role="button" tabIndex={0} onClick={() => { location.hash = `orcamento/${item.orcamento_id}` }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); location.hash = `orcamento/${item.orcamento_id}` } }}>ORC-{String(item.orcamento_id).padStart(4, '0')}</div>,
+      item.cliente_nome || 'Sem cliente', item.vendedor_nome || 'Sem vendedor',
+      new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(item.data_venda)),
+      new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.valor_total / 100),
+    ])}/> : <EmptyState title="Nenhuma venda registrada" description="Aprove um orçamento e converta em venda na tela de detalhe para aparecer aqui." />}
+    </article>
+  </>
+}
+
+function Profile() {
+  const [me, setMe] = useState<TeamMember | null>(null)
+  const [nome, setNome] = useState('')
+  const [contato, setContato] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [feedback, setFeedback] = useState('')
+  const [mfaSetup, setMfaSetup] = useState<{ secret: string; qr_code_url: string } | null>(null)
+  const [mfaCode, setMfaCode] = useState('')
+  const [mfaBusy, setMfaBusy] = useState(false)
+  const [mfaError, setMfaError] = useState('')
+  const [disableMfaOpen, setDisableMfaOpen] = useState(false)
+  const [disableMfaPassword, setDisableMfaPassword] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+    getSessionUser().then(data => { if (mounted) { setMe(data); setNome(data.nome); setContato(data.contato || '') } })
+      .catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar seu perfil.') })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [])
+
+  async function salvarPerfil(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!me) return; setSaving(true); setError('')
+    try { const updated = await updateTeamMember(me.id, { nome, contato: contato || null }); setMe(updated); setFeedback('Perfil atualizado.') }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao salvar perfil.') }
+    finally { setSaving(false) }
+  }
+
+  async function startMfaSetup() {
+    setMfaError(''); setMfaBusy(true)
+    try { setMfaSetup(await enableMfa()) }
+    catch (err) { setMfaError(err instanceof Error ? err.message : 'Falha ao iniciar configuração do MFA.') }
+    finally { setMfaBusy(false) }
+  }
+  async function confirmMfaSetup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setMfaError(''); setMfaBusy(true)
+    try { await verifyMfa(mfaCode); setMe(current => current ? { ...current, mfa_enabled: true } : current); setMfaSetup(null); setMfaCode(''); setFeedback('MFA ativado com sucesso.') }
+    catch (err) { setMfaError(err instanceof Error ? err.message : 'Código inválido.') }
+    finally { setMfaBusy(false) }
+  }
+  async function confirmDisableMfa(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setMfaError(''); setMfaBusy(true)
+    try { await disableMfa(disableMfaPassword); setMe(current => current ? { ...current, mfa_enabled: false } : current); setDisableMfaOpen(false); setDisableMfaPassword(''); setFeedback('MFA desativado.') }
+    catch (err) { setMfaError(err instanceof Error ? err.message : 'Falha ao desativar MFA.') }
+    finally { setMfaBusy(false) }
+  }
+
+  const roleLabel: Record<string, string> = { admin: 'Admin', vendedor: 'Vendedor', estoquista: 'Estoquista' }
+
+  return <><PageHead eyebrow="CONTA · MEU PERFIL" title="Meu Perfil" subtitle={me ? `${roleLabel[me.role] || me.role} · ${me.email}` : ''}/>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    {loading ? <Skeleton rows={3} label="Carregando perfil" /> : me && <>
+      <article className="card" style={{ padding: 20 }}>
+        <div className="card-title"><h2>Dados pessoais</h2></div>
+        <form className="modal-form" onSubmit={salvarPerfil}>
+          <label>Nome<input value={nome} onChange={e => setNome(e.target.value)} required/></label>
+          <label>E-mail<input value={me.email} disabled/></label>
+          <label>Telefone<input value={contato} onChange={e => setContato(e.target.value)} placeholder="(11) 99999-9999"/></label>
+          <footer><Button type="submit" loading={saving}>{saving ? 'Salvando…' : 'Salvar'}</Button></footer>
+        </form>
+      </article>
+      <article className="card" style={{ padding: 20, marginTop: 14 }}>
+        <div className="card-title"><h2>Autenticação em duas etapas</h2></div>
+        {me.mfa_enabled ? (disableMfaOpen ? <form onSubmit={confirmDisableMfa} className="modal-form">
+            <p>Confirme sua senha atual para desativar o MFA.</p>
+            <label>Senha<input type="password" value={disableMfaPassword} onChange={e => setDisableMfaPassword(e.target.value)} autoFocus required/></label>
+            {mfaError && <p className="form-error" role="alert">{mfaError}</p>}
+            <footer><Button type="button" variant="secondary" onClick={() => { setDisableMfaOpen(false); setDisableMfaPassword(''); setMfaError('') }}>Cancelar</Button><Button type="submit" disabled={mfaBusy}>{mfaBusy ? 'Desativando…' : 'Confirmar e desativar'}</Button></footer>
+          </form>
+        : <><p className="subtitle">MFA está ativo na sua conta.</p>{mfaError && <p className="form-error" role="alert">{mfaError}</p>}<Button variant="secondary" onClick={() => setDisableMfaOpen(true)}>Desativar MFA</Button></>)
+        : mfaSetup ? <form onSubmit={confirmMfaSetup} className="modal-form">
+            <p>No seu aplicativo autenticador, adicione uma conta manualmente e informe a chave abaixo:</p>
+            <label>Chave manual<input readOnly value={mfaSetup.secret} onFocus={e => e.currentTarget.select()}/></label>
+            <label>Código do aplicativo<input value={mfaCode} onChange={e => setMfaCode(e.target.value)} placeholder="428913" autoFocus required/></label>
+            {mfaError && <p className="form-error" role="alert">{mfaError}</p>}
+            <footer><Button type="button" variant="secondary" onClick={() => { setMfaSetup(null); setMfaCode(''); setMfaError('') }}>Cancelar</Button><Button type="submit" disabled={mfaBusy}>{mfaBusy ? 'Verificando…' : 'Confirmar e ativar'}</Button></footer>
+          </form>
+        : <><p className="subtitle">Adicione uma camada extra de segurança à sua conta.</p>{mfaError && <p className="form-error" role="alert">{mfaError}</p>}<Button variant="secondary" onClick={startMfaSetup} disabled={mfaBusy}>{mfaBusy ? 'Gerando…' : 'Ativar MFA'}</Button></>}
+      </article>
+    </>}
+    {feedback && <Feedback message={feedback} close={() => setFeedback('')}/>}
+  </>
 }
 
 const deliveryEvents: Record<number, [string,string,string][]> = { 3:[['Entrega','Casa Ibiúna','09:00'],['Reunião','Incorporadora Ventura','14:30']], 8:[['Medição','Escritório Faria Lima','10:00']], 12:[['Faturamento','Apto Vila Madalena','08:30']], 17:[['Retirada','MDF · Duratex','16:00']], 24:[['Entrega','Loja Pinheiros','11:00']], 29:[['Montagem','Hotel Santa Cecília','07:30']] }
@@ -2077,7 +2539,7 @@ export default function App() {
     if (rota.nome === 'orcamento') return rota.id === undefined ? <Pipeline/> : <QuoteDetail quoteId={rota.id}/>
     if (rota.nome === 'builder') return <Builder quoteId={rota.id}/>
     if (rota.nome === 'clients' && rota.id !== undefined) return <ClientDetail clientId={rota.id}/>
-    return ({ dashboard: <Dashboard/>, clients: <Clients/>, pipeline: <Pipeline/>, builder: <Builder/>, projects: <Projects/>, catalog: <Catalog/>, inventory: <Inventory/>, suppliers: <Suppliers/>, schedule: <Schedule/>, finance: <Finance/>, team: <Team/>, integrations: <Integrations/>, logs: <Logs/> } as Partial<Record<Route, ReactNode>>)[rota.nome]
+    return ({ dashboard: <Dashboard/>, clients: <Clients/>, pipeline: <Pipeline/>, builder: <Builder/>, quotesList: <QuotesList/>, salesHistory: <SalesHistory/>, projects: <Projects/>, catalog: <Catalog/>, servicesCatalog: <ServicesCatalog/>, inventory: <Inventory/>, suppliers: <Suppliers/>, losses: <Losses/>, equipment: <Equipment/>, schedule: <Schedule/>, finance: <Finance/>, team: <Team/>, integrations: <Integrations/>, logs: <Logs/>, profile: <Profile/> } as Partial<Record<Route, ReactNode>>)[rota.nome]
   }, [rota.nome, rota.id])
   if(portalToken) return <Portal token={portalToken}/>
   if(location.pathname==='/reset-password') return <ResetPassword/>
