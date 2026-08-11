@@ -276,3 +276,43 @@ p.empty-state{display:block;padding:22px 16px;color:var(--ink2);font-size:15px;t
 .profit-card{margin-top:16px}
 .profile-layout{display:grid;grid-template-columns:minmax(0,1.5fr) 360px;gap:16px}.profile-layout>section,.profile-layout>aside{display:grid;gap:16px;align-content:start}.profile-hero{display:flex;align-items:center;gap:18px;padding:22px}.profile-hero h2{font-size:25px}.profile-hero p:not(.eyebrow){margin:4px 0 10px;color:var(--ink2);font-size:13px}.profile-avatar{position:relative;display:grid;place-items:center;width:78px;height:78px;flex:0 0 78px;border-radius:22px;background:var(--brand);color:var(--brand-ink);font:600 25px 'Bricolage Grotesque';overflow:visible}.profile-avatar img{width:100%;height:100%;object-fit:cover;border-radius:22px}.profile-avatar label{position:absolute;right:-6px;bottom:-6px;display:grid;place-items:center;width:27px;height:27px;border:3px solid var(--surface);border-radius:50%;background:var(--ink);color:var(--fill-emphasis-ink);font-size:18px;line-height:1;cursor:pointer}.profile-avatar input{display:none}.profile-status{display:inline-flex;align-items:center;gap:6px;color:var(--success);font:var(--mono-label)}.profile-status i{width:7px;height:7px;border-radius:50%;background:var(--success)}.profile-form{padding:20px}.profile-form .card-title{margin-bottom:18px}.profile-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}.profile-fields label{font-size:12px;font-weight:500}.profile-fields input,.profile-fields textarea{display:block;width:100%;margin-top:6px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:11px 13px;color:var(--ink);outline:0;resize:vertical}.profile-fields textarea{font:13px/19px Outfit,sans-serif}.profile-fields .full-field{grid-column:1/-1}.profile-form footer{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}.profile-form footer small{color:var(--ink3);font-size:10px}.profile-info,.profile-security,.profile-tip{padding:20px}.profile-info h2,.profile-security h2{margin-bottom:16px}.profile-info dl{display:grid;grid-template-columns:1fr auto;gap:13px;margin:0}.profile-info dt{color:var(--ink3);font-size:11px}.profile-info dd{margin:0;text-align:right;font-size:12px;max-width:190px;overflow:hidden;text-overflow:ellipsis}.success-text{color:var(--success)!important;font-weight:600}.security-action{display:flex;align-items:center;gap:10px;padding:13px 0;border-top:1px solid var(--line)}.security-action>span{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:var(--brand-soft);color:var(--brand);font-weight:600}.security-action>div{flex:1;min-width:0}.security-action b,.security-action small{display:block}.security-action b{font-size:12px}.security-action small{margin-top:3px;color:var(--ink3);font-size:10px;line-height:14px}.profile-tip{background:var(--fill-emphasis);color:var(--fill-emphasis-ink);border-color:var(--fill-emphasis)}.profile-tip b{font:600 16px 'Bricolage Grotesque'}.profile-tip p{margin:7px 0 0;color:#c8c0b4;font-size:12px;line-height:17px}@media(max-width:900px){.profile-layout{grid-template-columns:1fr}.profile-layout>aside{grid-template-columns:1fr 1fr}.profile-tip{grid-column:1/-1}}@media(max-width:600px){.profile-fields{grid-template-columns:1fr}.profile-fields .full-field{grid-column:auto}.profile-form footer{align-items:stretch;flex-direction:column}.profile-form footer .button{width:100%}.profile-layout>aside{display:grid;grid-template-columns:1fr}.profile-tip{grid-column:auto}}
 .sidebar nav button{font-size:11px}.sidebar nav button.active,.nav-top.active{background:var(--brand-soft);color:var(--brand);font-weight:600}.sidebar nav button.active span,.nav-top.active span{color:var(--brand)}.nav-group-head .nav-label{font-size:10px}.nav-group.open>.nav-group-head .nav-label{color:var(--brand)}.nav-group.open>.nav-group-head .nav-chevron{color:var(--brand)}
+
+/* ARC Stone — orçamento de marmoraria e catálogos configuráveis */
+.campo-modalidade{display:flex;flex-direction:column;gap:6px}
+.campo-modalidade .segmented{width:100%}
+.campo-modalidade .segmented button{flex:1}
+.campo-modalidade small{color:var(--ink3);line-height:1.35}
+.item-selecao{flex:0 0 auto;margin-right:2px}
+.item-remover{color:var(--danger);font-size:20px;font-weight:600;line-height:1}
+.celula-na{color:var(--ink3);font-style:normal}
+.barra-selecao{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.barra-selecao b{font-size:13px}
+.cascata-pagamento{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:0 16px 12px}
+.checkout .checkout-total{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0;padding:12px 16px;border-top:1px solid var(--line)}
+.checkout .checkout-total strong{font-size:22px}
+.conversao-venda{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.conversao-venda .cascata-pagamento{padding:0;grid-template-columns:1fr}
+.componentes-servico{display:flex;flex-direction:column;gap:8px;grid-column:1/-1}
+.componente-linha{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:9px}
+.componente-check{display:flex;align-items:center;gap:8px;margin:0}
+.componente-medidas{display:flex;align-items:center;gap:8px}
+.componente-medidas input{width:100px;height:34px}
+.componente-medidas em{font-style:normal;font-weight:600;min-width:80px;text-align:right}
+.componentes-total{display:flex;align-items:baseline;justify-content:space-between;margin:4px 0 0;padding-top:10px;border-top:1px solid var(--line)}
+.componentes-total strong{font-size:18px}
+.catalogo-ordem{display:inline-flex;gap:4px}
+.catalogo-ordem button{width:26px;height:26px;border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--ink);cursor:pointer}
+.catalogo-ordem button:disabled{opacity:.35;cursor:default}
+.modal-form fieldset{border:0;padding:0;margin:0;display:contents}
+.modal-form legend{grid-column:1/-1;font:var(--mono-label);letter-spacing:.14em;color:var(--ink3);padding-top:6px}
+.campo-toggle{display:flex;flex-direction:column;gap:4px}
+.campo-toggle small{color:var(--ink3)}
+@media(max-width:900px){
+  /* Digitar medida com scroll lateral no tablet do balcao e inviavel: vira cartao. */
+  .item-head{display:none}
+  .item-row{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;padding:12px}
+  .item-row>span{text-align:left}
+  .item-row>span::before{content:attr(data-rotulo);display:block;font:var(--mono-label);color:var(--ink3)}
+  .componente-linha{flex-direction:column;align-items:stretch}
+  .componente-medidas input{width:100%}
+}

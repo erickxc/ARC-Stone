@@ -12,21 +12,59 @@ export interface Product {
   ativo: boolean
 }
 
+/** Unidade de medida da peca — define como o preco unitario multiplica no total. */
+export type UnidadeMedida = 'm2' | 'linear' | 'un'
+/** O QUE se vende. Obra/Projeto aceitam servico; Peca so produto; Externo so item de terceiro. */
+export type TipoOrcamento = 'Obra' | 'Peça' | 'Projeto' | 'Externo'
+/** COMO a venda acontece — ortogonal ao tipo. */
+export type Modalidade = 'venda_direta' | 'orcamento_formal'
+
+export type TipoPessoa = 'fisica' | 'juridica'
+
 export interface Client {
   id: number
   usuario_id: number
+  /** Derivado no backend de nome+sobrenome (PF) ou razao_social (PJ). Nao e campo de entrada. */
   nome_fantasia: string
+  tipo_pessoa: TipoPessoa
+  nome: string | null
+  sobrenome: string | null
+  razao_social: string | null
   cpf_cnpj: string | null
   nome_responsavel: string | null
   email: string | null
   contato: string | null
+  telefone_secundario: string | null
+  cep: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
+  cidade: string | null
+  estado: string | null
   endereco_entrega: string | null
   endereco_faturamento: string | null
+  carteira: boolean
+  indicado_por: string | null
+  profissional_tipo: string | null
   status: string | null
   created_at: string
+  criado_por_nome?: string | null
+  editado_por_nome?: string | null
+  editado_em?: string | null
 }
 
-export type ClientInput = Omit<Client, 'id' | 'usuario_id' | 'created_at'>
+export type ClientInput = Omit<
+  Client,
+  'id' | 'usuario_id' | 'created_at' | 'nome_fantasia' | 'criado_por_nome' | 'editado_por_nome' | 'editado_em'
+>
+
+export interface CepLookup {
+  cep: string
+  logradouro: string | null
+  bairro: string | null
+  cidade: string | null
+  estado: string | null
+}
 
 export interface Supplier {
   id: number
@@ -68,11 +106,21 @@ export interface TeamMemberUpdate {
   contato?: string | null
 }
 
-export interface PaymentCondition {
+/** Forma comum dos catalogos configuraveis em Configuracoes do orcamento. */
+export interface ItemCatalogo {
   id: number
   nome: string
-  ativo: boolean | null
+  ativo: boolean
+  ordem: number
+  /** Semeado pelo sistema: pode ser desativado e reordenado, nunca excluido. */
+  built_in: boolean
 }
+
+export type PaymentCondition = ItemCatalogo
+export type Local = ItemCatalogo
+export type MotivoPerda = ItemCatalogo & { slug: string }
+export interface TipoPagamento extends ItemCatalogo { exige_forma: boolean }
+export interface FormaPagamento extends ItemCatalogo { tipo_pagamento_id: number }
 
 export interface OrcamentoConfig {
   id: number
@@ -108,7 +156,15 @@ export interface QuoteItem {
   servico_id?: number | null
   quantidade: number
   preco_unitario_aplicado: number
+  servico_componente_id?: number | null
+  local_id?: number | null
   local_instalacao?: string | null
+  /** Decide a formula do total: m2 usa area, linear usa comprimento, un usa quantidade. */
+  unidade_medida?: UnidadeMedida
+  comprimento_m?: number | null
+  largura_m?: number | null
+  acrescimo_centavos?: number
+  desconto_centavos?: number
   is_externo?: boolean
   nome_externo?: string | null
   descricao_externa?: string | null
@@ -120,15 +176,24 @@ export interface QuoteItem {
   projeto_item_id?: number | null
   nome?: string | null
   foto_url?: string | null
+  // Calculados no backend — somente leitura.
+  codigo_item?: number | null
+  area_m2?: number | null
+  grupo_id?: string | null
+  local_nome?: string | null
+  tipo_item?: 'servico' | 'produto' | 'externo' | null
+  total_centavos?: number | null
 }
 
 export interface Quote {
   id: number
   cliente_id: number
   vendedor_id: number
-  tipo_orcamento: string
+  tipo_orcamento: TipoOrcamento
+  modalidade: Modalidade
   status: string
   created_at: string
+  desconto_global_centavos?: number
   data_entrega: string | null
   cliente_nome: string | null
   vendedor_nome: string | null
@@ -146,23 +211,29 @@ export interface QuoteDetail extends Quote {
   condicoes_pagamento_selecionadas?: string | null
   arquiteto_nome?: string | null
   arquiteto_contato?: string | null
-  prazo_locacao_valor?: number | null
-  prazo_locacao_unidade?: string | null
-  data_fim_locacao?: string | null
   projeto_id?: number | null
+}
+
+export interface VendaPagamentoInput {
+  tipo_pagamento_id: number
+  /** Obrigatorio quando o tipo tem exige_forma (Cartao). */
+  forma_pagamento_id?: number | null
+  condicao_pagamento_id?: number | null
 }
 
 export interface QuoteCreateInput {
   cliente_id: number
-  tipo_orcamento: 'Venda' | 'Locacao' | 'Producao'
+  tipo_orcamento: TipoOrcamento
+  modalidade: Modalidade
   vendedor_id?: number | null
   condicoes_pagamento_selecionadas?: string | null
+  desconto_global_centavos?: number
   projeto_id?: number | null
   arquiteto_nome?: string | null
   arquiteto_contato?: string | null
-  prazo_locacao_valor?: number | null
-  prazo_locacao_unidade?: string | null
   itens: QuoteItem[]
+  /** Obrigatorio em venda direta: fecha a venda no mesmo request. */
+  pagamento?: VendaPagamentoInput | null
 }
 
 export interface PortalItem {
@@ -353,9 +424,24 @@ export interface Servico {
   tempo_medio_unidade: 'horas' | 'dias'
   ativo: boolean
   created_at: string
+  /** Quando ha componentes, preco_padrao e informativo: o preco real e a soma deles. */
+  componentes?: ServicoComponente[]
 }
 
-export type ServicoInput = Omit<Servico, 'id' | 'created_at'>
+export type ServicoInput = Omit<Servico, 'id' | 'created_at' | 'componentes'>
+
+export interface ServicoComponente {
+  id: number
+  servico_id: number
+  nome: string
+  obrigatorio: boolean
+  unidade_medida: UnidadeMedida
+  preco_unitario: number | null
+  ativo: boolean
+  ordem: number
+}
+
+export type ServicoComponenteInput = Omit<ServicoComponente, 'id' | 'servico_id' | 'ordem'>
 
 export interface Equipamento {
   id: number
@@ -587,12 +673,6 @@ export function deleteQuote(id: number) {
 }
 
 /** Estende `data_fim_locacao`. Só vale para Locacao/Producao já aprovada (a rota recusa o resto). */
-export function renovarLocacao(id: number, prazoValor: number, prazoUnidade: 'dias' | 'meses') {
-  return request<QuoteDetail>(`/orcamentos/${id}/renovar`, {
-    method: 'POST',
-    body: JSON.stringify({ prazo_valor: prazoValor, prazo_unidade: prazoUnidade }),
-  })
-}
 
 export function getOrcamentoConfig() {
   return request<OrcamentoConfig>('/orcamentos/config')
@@ -603,20 +683,82 @@ export function resetOrcamentoConfig() {
   return request<OrcamentoConfig>('/orcamentos/config/reset', { method: 'POST' })
 }
 
-export function listPaymentConditions() {
-  return request<PaymentCondition[]>('/orcamentos/condicoes-pagamento')
+// --- Catalogos configuraveis (Configuracoes do orcamento) ---
+//
+// Todos seguem o mesmo contrato REST; criarAcoesCatalogo monta o conjunto de chamadas
+// que o componente generico CatalogoConfiguravel consome.
+
+export interface AcoesCatalogo<T extends ItemCatalogo> {
+  listar: (apenasAtivos?: boolean) => Promise<T[]>
+  criar: (nome: string) => Promise<T>
+  atualizar: (id: number, patch: { nome?: string; ativo?: boolean }) => Promise<T>
+  reordenar: (idsEmOrdem: number[]) => Promise<T[]>
+  excluir: (id: number) => Promise<void>
 }
 
-export function createPaymentCondition(nome: string) {
-  return request<PaymentCondition>('/orcamentos/condicoes-pagamento', { method: 'POST', body: JSON.stringify({ nome }) })
+function criarAcoesCatalogo<T extends ItemCatalogo>(caminho: string): AcoesCatalogo<T> {
+  const base = `/catalogos/${caminho}`
+  return {
+    listar: (apenasAtivos = false) => request<T[]>(`${base}${apenasAtivos ? '?apenas_ativos=true' : ''}`),
+    criar: nome => request<T>(base, { method: 'POST', body: JSON.stringify({ nome }) }),
+    atualizar: (id, patch) => request<T>(`${base}/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+    // Envia a lista inteira: o backend recusa parcial, que deixaria os ausentes com ordem obsoleta.
+    reordenar: ids => request<T[]>(`${base}/reordenar`, { method: 'PATCH', body: JSON.stringify({ ids_em_ordem: ids }) }),
+    excluir: id => request<void>(`${base}/${id}`, { method: 'DELETE' }),
+  }
 }
 
-export function updatePaymentCondition(id: number, input: { nome?: string; ativo?: boolean }) {
-  return request<PaymentCondition>(`/orcamentos/condicoes-pagamento/${id}`, { method: 'PATCH', body: JSON.stringify(input) })
+export const catalogoCondicoesPagamento = criarAcoesCatalogo<PaymentCondition>('condicoes-pagamento')
+export const catalogoTiposPagamento = criarAcoesCatalogo<TipoPagamento>('tipos-pagamento')
+export const catalogoLocais = criarAcoesCatalogo<Local>('locais')
+export const catalogoMotivosPerda = criarAcoesCatalogo<MotivoPerda>('motivos-perda')
+
+/** Formas nao usam o catalogo generico: o POST exige o tipo pai e o GET filtra por ele. */
+export const catalogoFormasPagamento = {
+  listar: (tipoPagamentoId?: number, apenasAtivos = false) => {
+    const params = new URLSearchParams()
+    if (tipoPagamentoId !== undefined) params.set('tipo_pagamento_id', String(tipoPagamentoId))
+    if (apenasAtivos) params.set('apenas_ativos', 'true')
+    const query = params.toString()
+    return request<FormaPagamento[]>(`/catalogos/formas-pagamento${query ? '?' + query : ''}`)
+  },
+  criar: (nome: string, tipoPagamentoId: number) =>
+    request<FormaPagamento>('/catalogos/formas-pagamento', {
+      method: 'POST', body: JSON.stringify({ nome, tipo_pagamento_id: tipoPagamentoId }),
+    }),
+  atualizar: (id: number, patch: { nome?: string; ativo?: boolean }) =>
+    request<FormaPagamento>(`/catalogos/formas-pagamento/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  excluir: (id: number) => request<void>(`/catalogos/formas-pagamento/${id}`, { method: 'DELETE' }),
 }
 
-export function deletePaymentCondition(id: number) {
-  return request<void>(`/orcamentos/condicoes-pagamento/${id}`, { method: 'DELETE' })
+export function listPaymentConditions(apenasAtivos = false) {
+  return catalogoCondicoesPagamento.listar(apenasAtivos)
+}
+
+// --- Componentes de servico (servico composto) ---
+
+export function listServicoComponentes(servicoId: number) {
+  return request<ServicoComponente[]>(`/servicos/${servicoId}/componentes`)
+}
+
+export function createServicoComponente(servicoId: number, input: ServicoComponenteInput) {
+  return request<ServicoComponente>(`/servicos/${servicoId}/componentes`, { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function updateServicoComponente(servicoId: number, id: number, patch: Partial<ServicoComponenteInput>) {
+  return request<ServicoComponente>(`/servicos/${servicoId}/componentes/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
+}
+
+export function deleteServicoComponente(servicoId: number, id: number) {
+  return request<void>(`/servicos/${servicoId}/componentes/${id}`, { method: 'DELETE' })
+}
+
+// --- Cliente: consulta de CEP ---
+//
+// Passa pelo backend porque o CSP (connect-src 'self') impede o navegador de chamar o
+// ViaCEP direto. Falha devolve campos vazios — nunca trava o cadastro.
+export function consultarCep(cep: string) {
+  return request<CepLookup>(`/clientes/cep/${cep.replace(/\D/g, '')}`)
 }
 
 export function createCatalogProduct(input: { nome: string; tipo: string; material?: string; preco_venda: number }) {
@@ -736,8 +878,8 @@ export function listVendas() {
   return request<Venda[]>('/orcamentos/vendas/historico')
 }
 
-export function converterEmVenda(orcamentoId: number) {
-  return request<Venda>(`/orcamentos/${orcamentoId}/converter-venda`, { method: 'POST' })
+export function converterEmVenda(id: number, pagamento: VendaPagamentoInput) {
+  return request<Venda>(`/orcamentos/${id}/converter-venda`, { method: 'POST', body: JSON.stringify(pagamento) })
 }
 
 export function listProjetos(filtros?: { origem?: string; origem_ref?: string }) {
