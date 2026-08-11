@@ -12,7 +12,7 @@ def _login(client, user):
 def _criar_orcamento_com_item(client, cliente_id, produto_id, quantidade=2, preco=5000):
     resp = client.post("/orcamentos/", json={
         "cliente_id": cliente_id,
-        "tipo_orcamento": "Venda",
+        "tipo_orcamento": "Peça",
         "condicoes_pagamento_selecionadas": "[\"Pix\"]",
         "itens": [{"produto_id": produto_id, "quantidade": quantidade, "preco_unitario_aplicado": preco}],
     })

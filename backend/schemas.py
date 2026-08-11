@@ -1,7 +1,21 @@
 from pydantic import BaseModel, EmailStr, field_validator, Field, model_validator
 from typing import List, Optional, Literal
 from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
 import re
+
+
+# Unidade de medida de uma peça de marmoraria. Define como o preço unitário é
+# multiplicado no total da linha (ver calcular_total_linha).
+UNIDADES_MEDIDA = ("m2", "linear", "un")
+UnidadeMedida = Literal["m2", "linear", "un"]
+
+# O QUE se vende. Obra e Projeto aceitam produto e serviço; Peça só produto; Externo só
+# produto de terceiro. Substitui Venda/Locacao/Producao herdados do ERP de interiores —
+# marmoraria não aluga, então locação foi descartada junto com a renovação.
+TipoOrcamento = Literal["Obra", "Peça", "Projeto", "Externo"]
+# COMO a venda acontece — ortogonal ao tipo.
+Modalidade = Literal["venda_direta", "orcamento_formal"]
 
 
 def validar_complexidade_senha(v: str) -> str:
@@ -205,12 +219,49 @@ class CepOut(BaseModel):
     cidade: Optional[str] = None
     estado: Optional[str] = None
 
+def calcular_total_linha(
+    unidade_medida: str,
+    quantidade: int,
+    preco_unitario: int,
+    area_m2: Optional[float],
+    comprimento_m: Optional[float],
+    acrescimo_centavos: int = 0,
+    desconto_centavos: int = 0,
+) -> int:
+    """Total de uma linha do orçamento, em centavos.
+
+    O que `preco_unitario` significa depende da unidade da peça, e é isso que difere uma
+    marmoraria de um catálogo comum:
+      - m2      → R$/m², multiplicado pela área (bancada, pedra)
+      - linear  → R$/metro, multiplicado pelo comprimento (saia, rodabase, soleira)
+      - un      → R$/unidade, multiplicado pela quantidade (cuba, peça avulsa, item externo)
+
+    Arredonda uma única vez, no fim: arredondar a área antes propaga erro de centavo para
+    o total do orçamento e gera divergência entre a tela e o PDF.
+    """
+    if unidade_medida == "m2":
+        base = Decimal(str(area_m2 or 0)) * Decimal(preco_unitario)
+    elif unidade_medida == "linear":
+        base = Decimal(str(comprimento_m or 0)) * Decimal(preco_unitario)
+    else:
+        base = Decimal(quantidade) * Decimal(preco_unitario)
+    total = base.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return int(total) + (acrescimo_centavos or 0) - (desconto_centavos or 0)
+
+
 class OrcamentoItemCreate(BaseModel):
     produto_id: Optional[int] = None
     servico_id: Optional[int] = None
+    servico_componente_id: Optional[int] = None
     quantidade: int
     preco_unitario_aplicado: int
-    local_instalacao: Optional[str] = None
+    unidade_medida: UnidadeMedida = "un"
+    local_id: Optional[int] = None
+    local_instalacao: Optional[str] = None  # legado; itens novos usam local_id
+    comprimento_m: Optional[float] = Field(None, ge=0)
+    largura_m: Optional[float] = Field(None, ge=0)
+    acrescimo_centavos: int = Field(0, ge=0)
+    desconto_centavos: int = Field(0, ge=0)
     is_externo: bool = False
     nome_externo: Optional[str] = None
     descricao_externa: Optional[str] = None
@@ -220,6 +271,9 @@ class OrcamentoItemCreate(BaseModel):
     prazo_entrega_valor: Optional[int] = None
     prazo_entrega_unidade: Optional[str] = None
     projeto_item_id: Optional[int] = None
+    # codigo_item, area_m2 e grupo_id NÃO entram aqui: são gerados no backend. O PUT de
+    # orçamento é substituição total, então aceitar do cliente permitiria sobrescrever
+    # valor calculado com lixo.
 
     @model_validator(mode="after")
     def validar_tipo_unico(self):
@@ -232,28 +286,65 @@ class OrcamentoItemCreate(BaseModel):
             raise ValueError("Cada item deve referenciar exatamente um entre produto, serviço ou item externo.")
         return self
 
+    @model_validator(mode="after")
+    def validar_medidas_por_unidade(self):
+        if self.unidade_medida == "m2" and not (self.comprimento_m and self.largura_m):
+            raise ValueError("Item medido em m² exige comprimento e largura.")
+        if self.unidade_medida == "linear" and not self.comprimento_m:
+            raise ValueError("Item medido em metro linear exige comprimento.")
+        return self
+
+
 class OrcamentoItemOut(OrcamentoItemCreate):
     id: int
     orcamento_id: int
+    codigo_item: Optional[int] = None
+    area_m2: Optional[float] = None
+    grupo_id: Optional[str] = None
     nome: Optional[str] = None
     foto_url: Optional[str] = None
+    local_nome: Optional[str] = None  # evita que o frontend perca o dado se o local for desativado
+    # Derivado do trio produto/servico/externo — a tabela do orçamento exibe como coluna.
+    tipo_item: Optional[Literal["servico", "produto", "externo"]] = None
+    total_centavos: Optional[int] = None
     class Config:
         from_attributes = True
 
+class VendaPagamentoIn(BaseModel):
+    """Pagamento escolhido no fechamento. A obrigatoriedade da Forma depende de
+    `TipoPagamento.exige_forma`, que só é conhecida consultando o banco — validado no router."""
+    tipo_pagamento_id: int
+    forma_pagamento_id: Optional[int] = None
+    condicao_pagamento_id: Optional[int] = None
+
+
 class OrcamentoCreate(BaseModel):
     cliente_id: int
-    tipo_orcamento: str  # Venda, Locacao, Producao
+    tipo_orcamento: TipoOrcamento
+    modalidade: Modalidade = "orcamento_formal"
     vendedor_id: Optional[int] = None  # Admin pode selecionar; vendedor ignora
-    
+
     # Opcionais
     arquiteto_nome: Optional[str] = None
     arquiteto_contato: Optional[str] = None
     data_entrega: Optional[datetime] = None
-    prazo_locacao_valor: Optional[int] = None
-    prazo_locacao_unidade: Optional[str] = None
     condicoes_pagamento_selecionadas: Optional[str] = None
+    desconto_global_centavos: int = Field(0, ge=0)
     itens: List[OrcamentoItemCreate]
     projeto_id: Optional[int] = None
+    # Venda direta fecha a venda no mesmo request; orçamento formal só coleta pagamento
+    # depois da aprovação do cliente, na conversão em venda.
+    pagamento: Optional[VendaPagamentoIn] = None
+
+    @model_validator(mode="after")
+    def validar_regras_por_tipo(self):
+        if self.modalidade == "venda_direta" and not self.pagamento:
+            raise ValueError("Venda direta exige os dados de pagamento.")
+        if self.tipo_orcamento in ("Peça", "Externo") and any(i.servico_id for i in self.itens):
+            raise ValueError(f"Orçamento do tipo '{self.tipo_orcamento}' não aceita itens de serviço.")
+        if self.tipo_orcamento == "Externo" and any(not i.is_externo for i in self.itens):
+            raise ValueError("Orçamento do tipo 'Externo' só aceita itens externos.")
+        return self
 
 # Schema básico para listagem no Kanban (com dados expandidos)
 class OrcamentoOut(BaseModel):
@@ -261,14 +352,13 @@ class OrcamentoOut(BaseModel):
     cliente_id: int
     vendedor_id: int
     tipo_orcamento: str
+    modalidade: str = "orcamento_formal"
     status: str
     anexo_url: Optional[str] = None
     created_at: datetime
     data_aprovacao: Optional[datetime] = None
     data_entrega: Optional[datetime] = None
-    prazo_locacao_valor: Optional[int] = None
-    prazo_locacao_unidade: Optional[str] = None
-    data_fim_locacao: Optional[datetime] = None
+    desconto_global_centavos: int = 0
     arquiteto_nome: Optional[str] = None
     arquiteto_contato: Optional[str] = None
     condicoes_pagamento_selecionadas: Optional[str] = None
@@ -295,9 +385,11 @@ class OrcamentoDetailOut(BaseModel):
     cliente_id: int
     vendedor_id: int
     tipo_orcamento: str
+    modalidade: str = "orcamento_formal"
     status: str
     anexo_url: Optional[str] = None
     created_at: datetime
+    desconto_global_centavos: int = 0
     itens: List[OrcamentoItemOut]
     # Dados expandidos do Cliente
     cliente_nome: Optional[str] = None
@@ -314,9 +406,6 @@ class OrcamentoDetailOut(BaseModel):
     valor_total: Optional[int] = None
     data_aprovacao: Optional[datetime] = None
     data_entrega: Optional[datetime] = None
-    prazo_locacao_valor: Optional[int] = None
-    prazo_locacao_unidade: Optional[str] = None
-    data_fim_locacao: Optional[datetime] = None
     arquiteto_nome: Optional[str] = None
     arquiteto_contato: Optional[str] = None
     cnpj_faturamento: Optional[str] = None
@@ -740,9 +829,37 @@ class ServicoUpdate(BaseModel):
     tempo_medio_unidade: Optional[Literal["horas", "dias"]] = None
     ativo: Optional[bool] = None
 
+class ServicoComponenteBase(BaseModel):
+    nome: str = Field(..., max_length=120, pattern=r"^[^<>]*$")
+    obrigatorio: bool = False
+    unidade_medida: UnidadeMedida = "m2"
+    preco_unitario: Optional[int] = Field(None, ge=0)  # centavos
+    ativo: bool = True
+
+class ServicoComponenteCreate(ServicoComponenteBase):
+    pass
+
+class ServicoComponenteUpdate(BaseModel):
+    nome: Optional[str] = Field(None, max_length=120, pattern=r"^[^<>]*$")
+    obrigatorio: Optional[bool] = None
+    unidade_medida: Optional[UnidadeMedida] = None
+    preco_unitario: Optional[int] = Field(None, ge=0)
+    ativo: Optional[bool] = None
+
+class ServicoComponenteOut(ServicoComponenteBase):
+    id: int
+    servico_id: int
+    ordem: int
+    class Config:
+        from_attributes = True
+
+
 class ServicoOut(ServicoBase):
     id: int
     created_at: datetime
+    # Quando há componentes, preco_padrao é informativo: o preço real do serviço no
+    # orçamento é a soma dos componentes efetivamente incluídos.
+    componentes: List[ServicoComponenteOut] = Field(default_factory=list)
     class Config:
         from_attributes = True
 
@@ -754,11 +871,17 @@ class VendaOut(BaseModel):
     orcamento_id: int
     vendedor_id: int
     valor_total: int
+    tipo_pagamento_id: Optional[int] = None
+    forma_pagamento_id: Optional[int] = None
+    condicao_pagamento_id: Optional[int] = None
     data_venda: datetime
     created_at: datetime
     # Campos expandidos
     cliente_nome: Optional[str] = None
     vendedor_nome: Optional[str] = None
+    tipo_pagamento_nome: Optional[str] = None
+    forma_pagamento_nome: Optional[str] = None
+    condicao_pagamento_nome: Optional[str] = None
     class Config:
         from_attributes = True
 

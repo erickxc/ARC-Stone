@@ -79,7 +79,7 @@ def test_item_de_orcamento_com_servico_herda_prazo_do_servico(client, make_user,
     _login(client, vendedor)
 
     criado = client.post("/orcamentos/", json={
-        "cliente_id": cliente.id, "tipo_orcamento": "Venda",
+        "cliente_id": cliente.id, "tipo_orcamento": "Obra",
         "itens": [{"servico_id": servico_id, "quantidade": 1, "preco_unitario_aplicado": 50000}],
     })
     assert criado.status_code == 201, criado.text
@@ -96,7 +96,7 @@ def test_item_de_orcamento_sem_tipo_definido_rejeitado(client, make_user, make_c
     _login(client, vendedor)
 
     resp = client.post("/orcamentos/", json={
-        "cliente_id": cliente.id, "tipo_orcamento": "Venda",
+        "cliente_id": cliente.id, "tipo_orcamento": "Peça",
         "itens": [{"quantidade": 1, "preco_unitario_aplicado": 100}],
     })
     assert resp.status_code == 422

@@ -32,7 +32,7 @@ def _proposta_fake():
     )
     return SimpleNamespace(
         id=42,
-        tipo_orcamento="Venda",
+        tipo_orcamento="Peça",
         status="Orçamento gerado",
         cliente=SimpleNamespace(nome_fantasia="Cliente Teste"),
         itens=[item],

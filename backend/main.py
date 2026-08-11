@@ -254,6 +254,36 @@ def on_startup():
         conn.execute(text("UPDATE clientes SET razao_social = nome_fantasia WHERE razao_social IS NULL"))
         # Autoria retroativa: sem histórico de quem criou, assume o vendedor dono.
         conn.execute(text("UPDATE clientes SET criado_por_id = usuario_id WHERE criado_por_id IS NULL"))
+        # ARC Stone: medidas e ajustes por linha do orçamento
+        for coluna, tipo in [
+            ("local_id", "INTEGER REFERENCES locais(id)"),
+            ("codigo_item", "INTEGER"),
+            ("comprimento_m", "NUMERIC(10,2)"), ("largura_m", "NUMERIC(10,2)"), ("area_m2", "NUMERIC(10,2)"),
+            ("unidade_medida", "VARCHAR NOT NULL DEFAULT 'un'"),
+            ("acrescimo_centavos", "INTEGER NOT NULL DEFAULT 0"),
+            ("desconto_centavos", "INTEGER NOT NULL DEFAULT 0"),
+            ("servico_componente_id", "INTEGER REFERENCES servico_componentes(id)"),
+            ("grupo_id", "VARCHAR"),
+        ]:
+            conn.execute(text(f"ALTER TABLE orcamento_itens ADD COLUMN IF NOT EXISTS {coluna} {tipo}"))
+        # Itens legados não têm código: numera por orçamento, na ordem de inserção.
+        conn.execute(text(
+            "UPDATE orcamento_itens oi SET codigo_item = seq.rn FROM ("
+            "  SELECT id, ROW_NUMBER() OVER (PARTITION BY orcamento_id ORDER BY id) AS rn"
+            "  FROM orcamento_itens WHERE codigo_item IS NULL"
+            ") seq WHERE oi.id = seq.id AND oi.codigo_item IS NULL"
+        ))
+        # ARC Stone: modalidade da venda e desconto de fechamento
+        conn.execute(text("ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS modalidade VARCHAR NOT NULL DEFAULT 'orcamento_formal'"))
+        conn.execute(text("ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS desconto_global_centavos INTEGER NOT NULL DEFAULT 0"))
+        # ARC Stone: pagamento congelado na venda
+        conn.execute(text("ALTER TABLE vendas ADD COLUMN IF NOT EXISTS tipo_pagamento_id INTEGER REFERENCES tipos_pagamento(id)"))
+        conn.execute(text("ALTER TABLE vendas ADD COLUMN IF NOT EXISTS forma_pagamento_id INTEGER REFERENCES formas_pagamento(id)"))
+        conn.execute(text("ALTER TABLE vendas ADD COLUMN IF NOT EXISTS condicao_pagamento_id INTEGER REFERENCES condicoes_pagamento(id)"))
+        # Tipos herdados do ERP de interiores não existem na marmoraria. Ambiente ainda em
+        # desenvolvimento: converte em vez de manter valores órfãos fora do novo Literal.
+        conn.execute(text("UPDATE orcamentos SET tipo_orcamento = 'Peça' WHERE tipo_orcamento IN ('Venda', 'Locacao', 'Locação')"))
+        conn.execute(text("UPDATE orcamentos SET tipo_orcamento = 'Obra' WHERE tipo_orcamento IN ('Producao', 'Produção')"))
 
     db = database.SessionLocal()
     try:

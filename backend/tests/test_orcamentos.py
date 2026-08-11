@@ -7,12 +7,19 @@ def _login(client, user):
     return client
 
 
+def _pagamento(client):
+    """Payload minimo de pagamento: usa um tipo que nao exige forma (ex: Pix/Dinheiro)."""
+    tipos = client.get("/catalogos/tipos-pagamento").json()
+    simples = next(t for t in tipos if not t["exige_forma"])
+    return {"tipo_pagamento_id": simples["id"]}
+
+
 def test_criar_orcamento_vendedor_dono_do_cliente(client, make_user, make_client):
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     _login(client, vendedor)
 
-    resp = client.post("/orcamentos/", json={"cliente_id": cliente.id, "tipo_orcamento": "Venda", "itens": []})
+    resp = client.post("/orcamentos/", json={"cliente_id": cliente.id, "tipo_orcamento": "Peça", "itens": []})
     assert resp.status_code == 201, resp.text
     body = resp.json()
     assert body["vendedor_id"] == vendedor.id
@@ -26,7 +33,7 @@ def test_criar_orcamento_para_cliente_de_outro_vendedor_negado(client, make_user
     cliente_do_dono = make_client(dono)
     _login(client, outro)
 
-    resp = client.post("/orcamentos/", json={"cliente_id": cliente_do_dono.id, "tipo_orcamento": "Venda", "itens": []})
+    resp = client.post("/orcamentos/", json={"cliente_id": cliente_do_dono.id, "tipo_orcamento": "Peça", "itens": []})
     assert resp.status_code == 403
 
 
@@ -36,7 +43,7 @@ def test_admin_pode_criar_orcamento_para_cliente_de_qualquer_vendedor(client, ma
     cliente = make_client(vendedor)
     _login(client, admin)
 
-    resp = client.post("/orcamentos/", json={"cliente_id": cliente.id, "tipo_orcamento": "Venda", "itens": []})
+    resp = client.post("/orcamentos/", json={"cliente_id": cliente.id, "tipo_orcamento": "Peça", "itens": []})
     assert resp.status_code == 201
     # Admin sem vendedor_id explícito se auto-atribui, não herda o dono do cliente
     assert resp.json()["vendedor_id"] == admin.id
@@ -49,7 +56,7 @@ def test_listagem_de_orcamentos_e_escopada_por_vendedor(client, make_user, make_
     cliente_a = make_client(vendedor_a)
 
     _login(client, vendedor_a)
-    criado = client.post("/orcamentos/", json={"cliente_id": cliente_a.id, "tipo_orcamento": "Venda", "itens": []})
+    criado = client.post("/orcamentos/", json={"cliente_id": cliente_a.id, "tipo_orcamento": "Peça", "itens": []})
     assert criado.status_code == 201
     orcamento_id = criado.json()["id"]
 
@@ -71,7 +78,7 @@ def test_apenas_o_vendedor_dono_ou_admin_muda_status(client, make_user, make_cli
     cliente_a = make_client(vendedor_a)
 
     _login(client, vendedor_a)
-    criado = client.post("/orcamentos/", json={"cliente_id": cliente_a.id, "tipo_orcamento": "Venda", "itens": []})
+    criado = client.post("/orcamentos/", json={"cliente_id": cliente_a.id, "tipo_orcamento": "Peça", "itens": []})
     orcamento_id = criado.json()["id"]
 
     _login(client, vendedor_b)
@@ -84,17 +91,20 @@ def test_apenas_o_vendedor_dono_ou_admin_muda_status(client, make_user, make_cli
     assert permitido.json()["status"] == "Planejando"
 
 
-def test_aprovar_sem_condicao_de_pagamento_bloqueia_com_pendencia(client, make_user, make_client):
+def test_aprovar_sem_condicao_de_pagamento_e_permitido(client, make_user, make_client):
+    """No fluxo formal o pagamento so e escolhido na conversao em venda — que por definicao
+    acontece depois de 'Aprovado'. Exigir pagamento antes tornava a proposta impossivel de
+    concluir, entao a pendencia foi removida."""
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     _login(client, vendedor)
 
-    criado = client.post("/orcamentos/", json={"cliente_id": cliente.id, "tipo_orcamento": "Venda", "itens": []})
+    criado = client.post("/orcamentos/", json={"cliente_id": cliente.id, "tipo_orcamento": "Peça", "itens": []})
     orcamento_id = criado.json()["id"]
 
     resp = client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Aprovado"})
-    assert resp.status_code == 400
-    assert "pendência" in resp.json()["detail"].lower() or "pagamento" in resp.json()["detail"].lower()
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "Aprovado"
 
 
 def test_status_invalido_rejeitado(client, make_user, make_client):
@@ -102,7 +112,7 @@ def test_status_invalido_rejeitado(client, make_user, make_client):
     cliente = make_client(vendedor)
     _login(client, vendedor)
 
-    criado = client.post("/orcamentos/", json={"cliente_id": cliente.id, "tipo_orcamento": "Venda", "itens": []})
+    criado = client.post("/orcamentos/", json={"cliente_id": cliente.id, "tipo_orcamento": "Peça", "itens": []})
     orcamento_id = criado.json()["id"]
 
     resp = client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "StatusQueNaoExiste"})
@@ -117,7 +127,7 @@ def test_aprovar_sem_estoque_suficiente_bloqueia(client, make_user, make_client,
     _login(client, vendedor)
 
     criado = client.post("/orcamentos/", json={
-        "cliente_id": cliente.id, "tipo_orcamento": "Venda",
+        "cliente_id": cliente.id, "tipo_orcamento": "Peça",
         "condicoes_pagamento_selecionadas": "à vista",
         "itens": [{"produto_id": produto.id, "quantidade": 5, "preco_unitario_aplicado": 1000}],
     })
@@ -136,7 +146,7 @@ def test_aprovar_com_estoque_suficiente_retem_a_quantidade_certa(client, make_us
     _login(client, vendedor)
 
     criado = client.post("/orcamentos/", json={
-        "cliente_id": cliente.id, "tipo_orcamento": "Venda",
+        "cliente_id": cliente.id, "tipo_orcamento": "Peça",
         "condicoes_pagamento_selecionadas": "à vista",
         "itens": [{"produto_id": produto.id, "quantidade": 3, "preco_unitario_aplicado": 1000}],
     })
@@ -149,7 +159,7 @@ def test_aprovar_com_estoque_suficiente_retem_a_quantidade_certa(client, make_us
     assert produto.quantidade_retida == 3
 
 
-def _criar_orcamento(client, cliente, tipo="Venda"):
+def _criar_orcamento(client, cliente, tipo="Peça"):
     resp = client.post("/orcamentos/", json={"cliente_id": cliente.id, "tipo_orcamento": tipo, "itens": []})
     assert resp.status_code == 201, resp.text
     return resp.json()["id"]
@@ -192,40 +202,6 @@ def test_admin_exclui_orcamento_de_outro_vendedor(client, make_user, make_client
     assert client.delete(f"/orcamentos/{orcamento_id}").status_code == 204
 
 
-def test_renovar_orcamento_de_venda_recusado(client, make_user, make_client):
-    vendedor = make_user(role="vendedor")
-    cliente = make_client(vendedor)
-    _login(client, vendedor)
-    orcamento_id = _criar_orcamento(client, cliente, tipo="Venda")
-
-    resp = client.post(f"/orcamentos/{orcamento_id}/renovar", json={"prazo_valor": 1, "prazo_unidade": "meses"})
-    assert resp.status_code == 400
-    assert "locacao" in resp.json()["detail"].lower() or "locação" in resp.json()["detail"].lower()
-
-
-def test_renovar_locacao_sem_data_fim_recusado(client, make_user, make_client):
-    """Locacao ainda nao aprovada nao tem data_fim_locacao: renovar nao pode inventar uma."""
-    vendedor = make_user(role="vendedor")
-    cliente = make_client(vendedor)
-    _login(client, vendedor)
-    orcamento_id = _criar_orcamento(client, cliente, tipo="Locacao")
-
-    resp = client.post(f"/orcamentos/{orcamento_id}/renovar", json={"prazo_valor": 1, "prazo_unidade": "meses"})
-    assert resp.status_code == 400
-
-
-def test_renovar_orcamento_de_outro_vendedor_negado(client, make_user, make_client):
-    dono = make_user(role="vendedor")
-    outro = make_user(role="vendedor")
-    cliente = make_client(dono)
-    _login(client, dono)
-    orcamento_id = _criar_orcamento(client, cliente, tipo="Locacao")
-
-    _login(client, outro)
-    resp = client.post(f"/orcamentos/{orcamento_id}/renovar", json={"prazo_valor": 1, "prazo_unidade": "meses"})
-    assert resp.status_code == 403
-
-
 def test_condicao_pagamento_vendedor_nao_gerencia(client, make_user):
     vendedor = make_user(role="vendedor")
     _login(client, vendedor)
@@ -264,7 +240,7 @@ def _aprovar_orcamento(client, cliente, make_product):
     comum dos testes de conversão em venda (ARC Stone)."""
     produto = make_product(quantidade_estoque=10, quantidade_retida=0)
     criado = client.post("/orcamentos/", json={
-        "cliente_id": cliente.id, "tipo_orcamento": "Venda",
+        "cliente_id": cliente.id, "tipo_orcamento": "Peça",
         "condicoes_pagamento_selecionadas": "à vista",
         "itens": [{"produto_id": produto.id, "quantidade": 2, "preco_unitario_aplicado": 1500}],
     })
@@ -281,7 +257,7 @@ def test_converter_venda_exige_status_aprovado(client, make_user, make_client):
     _login(client, vendedor)
     orcamento_id = _criar_orcamento(client, cliente)
 
-    resp = client.post(f"/orcamentos/{orcamento_id}/converter-venda")
+    resp = client.post(f"/orcamentos/{orcamento_id}/converter-venda", json=_pagamento(client))
     assert resp.status_code == 400
     assert "aprovado" in resp.json()["detail"].lower()
 
@@ -292,7 +268,7 @@ def test_converter_venda_com_orcamento_aprovado(client, make_user, make_client, 
     _login(client, vendedor)
     orcamento_id = _aprovar_orcamento(client, cliente, make_product)
 
-    resp = client.post(f"/orcamentos/{orcamento_id}/converter-venda")
+    resp = client.post(f"/orcamentos/{orcamento_id}/converter-venda", json=_pagamento(client))
     assert resp.status_code == 201, resp.text
     body = resp.json()
     assert body["orcamento_id"] == orcamento_id
@@ -302,16 +278,22 @@ def test_converter_venda_com_orcamento_aprovado(client, make_user, make_client, 
     assert any(v["orcamento_id"] == orcamento_id for v in historico)
 
 
-def test_converter_venda_duas_vezes_bloqueado(client, make_user, make_client, make_product):
+def test_converter_venda_duas_vezes_e_idempotente(client, make_user, make_client, make_product):
+    """Retry apos timeout nao pode virar erro nem duplicar a venda: a segunda chamada
+    devolve exatamente a mesma Venda."""
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     _login(client, vendedor)
     orcamento_id = _aprovar_orcamento(client, cliente, make_product)
 
-    assert client.post(f"/orcamentos/{orcamento_id}/converter-venda").status_code == 201
-    repetida = client.post(f"/orcamentos/{orcamento_id}/converter-venda")
-    assert repetida.status_code == 400
-    assert "já foi convertido" in repetida.json()["detail"].lower()
+    primeira = client.post(f"/orcamentos/{orcamento_id}/converter-venda", json=_pagamento(client))
+    assert primeira.status_code == 201
+    repetida = client.post(f"/orcamentos/{orcamento_id}/converter-venda", json=_pagamento(client))
+    assert repetida.status_code == 201
+    assert repetida.json()["id"] == primeira.json()["id"]
+
+    vendas = [v for v in client.get("/orcamentos/vendas/historico").json() if v["orcamento_id"] == orcamento_id]
+    assert len(vendas) == 1
 
 
 def test_converter_venda_de_outro_vendedor_negado(client, make_user, make_client, make_product):
@@ -322,5 +304,5 @@ def test_converter_venda_de_outro_vendedor_negado(client, make_user, make_client
     orcamento_id = _aprovar_orcamento(client, cliente, make_product)
 
     _login(client, outro)
-    resp = client.post(f"/orcamentos/{orcamento_id}/converter-venda")
+    resp = client.post(f"/orcamentos/{orcamento_id}/converter-venda", json=_pagamento(client))
     assert resp.status_code == 403

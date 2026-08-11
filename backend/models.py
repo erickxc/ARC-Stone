@@ -140,11 +140,16 @@ class Orcamento(Base):
     id = Column(Integer, primary_key=True, index=True)
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
     vendedor_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
-    tipo_orcamento = Column(String, nullable=False) # Venda, Locacao, Producao
+    tipo_orcamento = Column(String, nullable=False)  # Obra, Peça, Projeto, Externo — o QUE se vende
+    # COMO a venda acontece, ortogonal ao tipo: 'venda_direta' (cliente presente, paga na
+    # hora) ou 'orcamento_formal' (proposta que vai ao portal para aprovação do cliente).
+    modalidade = Column(String, nullable=False, default="orcamento_formal", server_default="orcamento_formal")
     status = Column(String, nullable=False, default="Gerando orçamento") # Gerando orçamento, Planejando, Orçamento gerado, Ajuste solicitado, Orçamento negado, Aprovado, Entregue, Devolvido, Faturado
     anexo_url = Column(String, nullable=True) # PDF gerado
     data_aprovacao = Column(DateTime(timezone=True), nullable=True)
     condicoes_pagamento_selecionadas = Column(String, nullable=True) # JSON ou CSV de condicoes
+    # Desconto de fechamento, aplicado sobre a soma das linhas ("faço por 12 mil").
+    desconto_global_centavos = Column(Integer, nullable=False, default=0, server_default="0")
     
     
     # Arquiteto
@@ -186,7 +191,22 @@ class OrcamentoItem(Base):
     produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=True) # Nulo se for item externo
     quantidade = Column(Integer, nullable=False)
     preco_unitario_aplicado = Column(Integer, nullable=False) # Congelado no momento da emissão
+    # Legado: substituído por local_id (catálogo Local). Mantido nullable porque o PDF e o
+    # portal já leem esse texto em orçamentos antigos — a exibição faz fallback.
     local_instalacao = Column(String, nullable=True)
+    local_id = Column(Integer, ForeignKey("locais.id"), nullable=True)
+    # Sequencial dentro do orçamento (01, 02...), gerado no backend. Nullable por causa
+    # dos itens criados antes desta coluna existir.
+    codigo_item = Column(Integer, nullable=True)
+    # Medidas em metros. area_m2 é SEMPRE calculada no backend (comprimento × largura);
+    # o frontend só mostra prévia enquanto o usuário digita.
+    comprimento_m = Column(Numeric(10, 2), nullable=True)
+    largura_m = Column(Numeric(10, 2), nullable=True)
+    area_m2 = Column(Numeric(10, 2), nullable=True)
+    # Unidade congelada na inserção, junto com o preço: decide a fórmula do total da linha.
+    unidade_medida = Column(String, nullable=False, default="un", server_default="un")
+    acrescimo_centavos = Column(Integer, nullable=False, default=0, server_default="0")
+    desconto_centavos = Column(Integer, nullable=False, default=0, server_default="0")
     
     # Suporte a itens de Fornecedores Externos (não estocados)
     is_externo = Column(Boolean, default=False)
@@ -206,10 +226,18 @@ class OrcamentoItem(Base):
     # Item de serviço (catálogo de serviços), alternativa a produto_id — exatamente um dos
     # dois (ou is_externo) deve estar preenchido, validado em schemas.OrcamentoItemCreate.
     servico_id = Column(Integer, ForeignKey("servicos.id"), nullable=True)
+    # Componente específico do serviço, quando o serviço é composto. Cada componente
+    # incluído vira uma LINHA própria — sem hierarquia pai/filho, porque o PDF e o portal
+    # são planos e um agrupamento só no frontend viraria mentira no primeiro reload.
+    servico_componente_id = Column(Integer, ForeignKey("servico_componentes.id"), nullable=True)
+    # Compartilhado pelas linhas geradas de um mesmo serviço composto, para agrupar visualmente.
+    grupo_id = Column(String, nullable=True, index=True)
 
     orcamento = relationship("Orcamento", back_populates="itens")
     produto = relationship("Produto")
     servico = relationship("Servico")
+    servico_componente = relationship("ServicoComponente")
+    local = relationship("Local")
 
 class OrcamentoAnexo(Base):
     __tablename__ = "orcamento_anexos"
@@ -399,6 +427,35 @@ class Servico(Base):
     ativo = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    componentes = relationship(
+        "ServicoComponente", back_populates="servico",
+        cascade="all, delete-orphan", order_by="ServicoComponente.ordem",
+    )
+
+
+class ServicoComponente(Base):
+    """Peça que compõe um serviço (ex: "Bancada Banheiro" = Bancada + Saia + Front + Ilharga).
+
+    Cada componente tem unidade própria porque a marmoraria mede diferente em cada peça:
+    bancada em m², saia/rodabase em metro linear, cuba em unidade. Essa unidade é copiada
+    para o item do orçamento e decide a fórmula do total da linha.
+
+    Quando o serviço tem componentes, `Servico.preco_padrao` vira informativo: o preço real
+    é a soma dos componentes efetivamente incluídos naquele orçamento.
+    """
+    __tablename__ = "servico_componentes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    servico_id = Column(Integer, ForeignKey("servicos.id"), nullable=False, index=True)
+    nome = Column(String, nullable=False)
+    obrigatorio = Column(Boolean, default=False, nullable=False)
+    unidade_medida = Column(String, nullable=False, default="m2")  # 'm2' | 'linear' | 'un'
+    preco_unitario = Column(Integer, nullable=True)  # centavos
+    ativo = Column(Boolean, default=True, nullable=False)
+    ordem = Column(Integer, nullable=False, default=0)
+
+    servico = relationship("Servico", back_populates="componentes")
+
 class Venda(Base):
     """Entidade própria, distinta de Orcamento. Criada explicitamente ao converter um
     orçamento aprovado (ver routers/orcamentos.py) — não é derivada de status."""
@@ -408,11 +465,19 @@ class Venda(Base):
     orcamento_id = Column(Integer, ForeignKey("orcamentos.id"), unique=True, nullable=False)
     vendedor_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     valor_total = Column(Integer, nullable=False)  # centavos, congelado na conversão
+    # Pagamento mora aqui, não no Orçamento: só é definitivo quando existe venda — nas duas
+    # modalidades. No Orçamento seriam 3 colunas nulas durante todo o ciclo da proposta.
+    tipo_pagamento_id = Column(Integer, ForeignKey("tipos_pagamento.id"), nullable=True)
+    forma_pagamento_id = Column(Integer, ForeignKey("formas_pagamento.id"), nullable=True)
+    condicao_pagamento_id = Column(Integer, ForeignKey("condicoes_pagamento.id"), nullable=True)
     data_venda = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     orcamento = relationship("Orcamento")
     vendedor = relationship("Usuario")
+    tipo_pagamento = relationship("TipoPagamento")
+    forma_pagamento = relationship("FormaPagamento")
+    condicao_pagamento = relationship("CondicaoPagamento")
 
 class PerdaAvaria(Base):
     """Registro de perda/avaria de estoque. Ao ser criada, debita quantidade_estoque do

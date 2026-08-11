@@ -30,7 +30,7 @@ def _criar_orcamento(
     orcamento = models.Orcamento(
         cliente_id=cliente.id,
         vendedor_id=vendedor.id,
-        tipo_orcamento="Venda",
+        tipo_orcamento="Peça",
         status=status,
     )
     db_session.add(orcamento)
@@ -72,7 +72,7 @@ def test_portal_proposta_valida_com_token(client, db_session, make_user, make_cl
     corpo = resposta.json()
     assert corpo["orcamento_id"] == orcamento.id
     assert corpo["cliente_nome"] == "Cliente Portal"
-    assert corpo["tipo_orcamento"] == "Venda"
+    assert corpo["tipo_orcamento"] == "Peça"
     assert corpo["itens"][0]["nome"] == "Produto Portal"
     assert corpo["valor_total"] == 30000
 

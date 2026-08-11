@@ -44,14 +44,31 @@ def _enrich_orcamento(orc, detail: bool = False):
 
     valor_total = 0
     for item in getattr(orc, 'itens', []):
-        valor_total += item.quantidade * item.preco_unitario_aplicado
+        # O total da linha depende da unidade da peça (m², metro linear ou unidade) —
+        # nunca é só quantidade × preço numa marmoraria.
+        item.total_centavos = _total_item(item)
+        valor_total += item.total_centavos
         produto = getattr(item, 'produto', None)
         servico = getattr(item, 'servico', None)
+        componente = getattr(item, 'servico_componente', None)
         if produto:
             item.nome = produto.nome
             item.foto_url = produto.foto_url
+            item.tipo_item = 'produto'
         elif servico:
-            item.nome = servico.nome
+            # Serviço composto vira uma linha por componente: o nome precisa dizer qual.
+            item.nome = f"{servico.nome} · {componente.nome}" if componente else servico.nome
+            item.tipo_item = 'servico'
+        elif getattr(item, 'is_externo', False):
+            item.nome = getattr(item, 'nome_externo', None)
+            item.tipo_item = 'externo'
+        # Nome do local vai junto para o frontend não perder o dado quando o local for
+        # desativado no catálogo (o Combobox só recebe os ativos).
+        local = getattr(item, 'local', None)
+        item.local_nome = local.nome if local else getattr(item, 'local_instalacao', None)
+
+    # Desconto de fechamento incide sobre a soma das linhas.
+    valor_total -= getattr(orc, 'desconto_global_centavos', 0) or 0
 
     orc.cliente_nome = cliente.nome_fantasia if cliente else None
     orc.cliente_status = getattr(cliente, 'status', None) if cliente else None
@@ -70,8 +87,9 @@ def _enrich_orcamento(orc, detail: bool = False):
     pendencias = []
     if orc.cliente_status == 'pendente':
         pendencias.append("Finalizar cadastro do cliente")
-    if not getattr(orc, 'condicao_pagamento', None):
-        pendencias.append("Definir o método de pagamento")
+    # A pendência de método de pagamento saiu daqui: no orçamento formal o pagamento só é
+    # coletado na conversão em venda, depois da aprovação do cliente. Exigi-lo antes de
+    # "Aprovado" impediria o fluxo de proposta inteiro.
     orc.pendencias = pendencias
 
     return orc
@@ -92,6 +110,38 @@ def _hidratar_prazo_servico(item_data: dict, db: Session) -> dict:
             item_data['prazo_entrega_valor'] = servico.tempo_medio_valor
             item_data['prazo_entrega_unidade'] = servico.tempo_medio_unidade
     return item_data
+
+
+def _processar_itens_orcamento(itens_in, db: Session) -> list[dict]:
+    """Converte o payload de itens no que vai ao banco: hidrata prazo de serviço, numera
+    sequencialmente e calcula a área.
+
+    Área e código são calculados AQUI e nunca aceitos do cliente: o PUT de orçamento é
+    substituição total, então confiar no payload permitiria gravar área inconsistente com
+    as medidas.
+    """
+    processados = []
+    for indice, item in enumerate(itens_in, start=1):
+        dados = _hidratar_prazo_servico(item.model_dump(), db)
+        dados['codigo_item'] = indice
+        comprimento = dados.get('comprimento_m')
+        largura = dados.get('largura_m')
+        dados['area_m2'] = round(comprimento * largura, 2) if (comprimento and largura) else None
+        processados.append(dados)
+    return processados
+
+
+def _total_item(item) -> int:
+    """Total da linha já persistida, em centavos (ver schemas.calcular_total_linha)."""
+    return schemas.calcular_total_linha(
+        unidade_medida=getattr(item, 'unidade_medida', None) or 'un',
+        quantidade=item.quantidade,
+        preco_unitario=item.preco_unitario_aplicado,
+        area_m2=float(item.area_m2) if item.area_m2 is not None else None,
+        comprimento_m=float(item.comprimento_m) if item.comprimento_m is not None else None,
+        acrescimo_centavos=getattr(item, 'acrescimo_centavos', 0) or 0,
+        desconto_centavos=getattr(item, 'desconto_centavos', 0) or 0,
+    )
 
 
 def _ensure_fornecedor(nome_fornecedor: str, db: Session):
@@ -169,8 +219,6 @@ def _build_pdf_data(orc, db=None):
         'vendedor_nome': vendedor.nome if vendedor else '',
         'vendedor_email': vendedor.email if vendedor else '',
         'vendedor_contato': vendedor.contato if vendedor else '',
-        'prazo_locacao_valor': orc.prazo_locacao_valor,
-        'prazo_locacao_unidade': orc.prazo_locacao_unidade,
         'arquiteto_nome': getattr(orc, 'arquiteto_nome', ''),
         'arquiteto_contato': getattr(orc, 'arquiteto_contato', ''),
         'condicoes_pagamento_selecionadas': getattr(orc, 'condicoes_pagamento_selecionadas', None),
@@ -220,9 +268,9 @@ def criar_orcamento(orcamento: schemas.OrcamentoCreate, db: Session = Depends(ge
         cliente_id=orcamento.cliente_id,
         vendedor_id=vendedor_id,
         tipo_orcamento=orcamento.tipo_orcamento,
+        modalidade=orcamento.modalidade,
         status="Gerando orçamento",
-        prazo_locacao_valor=orcamento.prazo_locacao_valor,
-        prazo_locacao_unidade=orcamento.prazo_locacao_unidade,
+        desconto_global_centavos=orcamento.desconto_global_centavos,
         arquiteto_nome=orcamento.arquiteto_nome,
         arquiteto_contato=orcamento.arquiteto_contato,
         condicoes_pagamento_selecionadas=orcamento.condicoes_pagamento_selecionadas,
@@ -235,12 +283,21 @@ def criar_orcamento(orcamento: schemas.OrcamentoCreate, db: Session = Depends(ge
     for item in orcamento.itens:
         if item.is_externo and item.fornecedor_externo:
             _ensure_fornecedor(item.fornecedor_externo, db)
-        novo_item = models.OrcamentoItem(
-            **_hidratar_prazo_servico(item.model_dump(), db),
-            orcamento_id=novo_orcamento.id
-        )
-        db.add(novo_item)
-        
+    for dados_item in _processar_itens_orcamento(orcamento.itens, db):
+        db.add(models.OrcamentoItem(**dados_item, orcamento_id=novo_orcamento.id))
+
+    # 5. Venda direta fecha na mesma transação: o cliente está presente e já pagou, então
+    # não faz sentido passar pelo funil de proposta nem pela aprovação do portal. Um commit
+    # só cobre orçamento + itens + venda — sem isso, uma falha no meio deixaria a venda
+    # registrada sem orçamento (ou o contrário).
+    if orcamento.modalidade == "venda_direta":
+        _validar_pagamento(orcamento.pagamento, db)
+        novo_orcamento.status = "Aprovado"
+        novo_orcamento.data_aprovacao = datetime.now(timezone.utc)
+        db.flush()
+        db.refresh(novo_orcamento)
+        _criar_venda(novo_orcamento, orcamento.pagamento, db, current_user)
+
     db.commit()
     db.refresh(novo_orcamento)
     
@@ -326,23 +383,13 @@ def editar_orcamento(orcamento_id: int, orcamento_in: schemas.OrcamentoCreate, d
     
     orcamento.cliente_id = orcamento_in.cliente_id
     orcamento.tipo_orcamento = orcamento_in.tipo_orcamento
-    orcamento.prazo_locacao_valor = orcamento_in.prazo_locacao_valor
-    orcamento.prazo_locacao_unidade = orcamento_in.prazo_locacao_unidade
+    orcamento.modalidade = orcamento_in.modalidade
+    orcamento.desconto_global_centavos = orcamento_in.desconto_global_centavos
     orcamento.arquiteto_nome = orcamento_in.arquiteto_nome
     orcamento.arquiteto_contato = orcamento_in.arquiteto_contato
     orcamento.condicoes_pagamento_selecionadas = orcamento_in.condicoes_pagamento_selecionadas
     orcamento.projeto_id = orcamento_in.projeto_id
 
-    if orcamento.status in ["Aprovado", "Entregue", "Devolvido", "Faturado"] and orcamento.tipo_orcamento in ["Locacao", "Producao"]:
-        base_date = orcamento.data_entrega if orcamento.tipo_orcamento == "Locacao" else orcamento.data_aprovacao
-        if base_date and orcamento.prazo_locacao_valor:
-            if orcamento.prazo_locacao_unidade == "dias":
-                orcamento.data_fim_locacao = base_date + timedelta(days=orcamento.prazo_locacao_valor)
-            elif orcamento.prazo_locacao_unidade == "meses":
-                orcamento.data_fim_locacao = base_date + timedelta(days=orcamento.prazo_locacao_valor * 30)
-        elif base_date:
-            orcamento.data_fim_locacao = None
-            
     if current_user.role == 'admin' and orcamento_in.vendedor_id:
         vendedor = db.query(models.Usuario).filter(models.Usuario.id == orcamento_in.vendedor_id, models.Usuario.ativo == True).first()
         if vendedor:
@@ -355,11 +402,8 @@ def editar_orcamento(orcamento_id: int, orcamento_in: schemas.OrcamentoCreate, d
     for item in orcamento_in.itens:
         if item.is_externo and item.fornecedor_externo:
             _ensure_fornecedor(item.fornecedor_externo, db)
-        novo_item = models.OrcamentoItem(
-            **_hidratar_prazo_servico(item.model_dump(), db),
-            orcamento_id=orcamento.id
-        )
-        db.add(novo_item)
+    for dados_item in _processar_itens_orcamento(orcamento_in.itens, db):
+        db.add(models.OrcamentoItem(**dados_item, orcamento_id=orcamento.id))
         
     db.commit()
     db.refresh(orcamento)
@@ -469,13 +513,15 @@ def listar_vendas(db: Session = Depends(get_db), current_user: models.Usuario = 
     query = db.query(models.Venda).options(
         joinedload(models.Venda.orcamento).joinedload(models.Orcamento.cliente),
         joinedload(models.Venda.vendedor),
+        joinedload(models.Venda.tipo_pagamento),
+        joinedload(models.Venda.forma_pagamento),
+        joinedload(models.Venda.condicao_pagamento),
     )
     if current_user.role != 'admin':
         query = query.filter(models.Venda.vendedor_id == current_user.id)
     vendas = query.order_by(models.Venda.data_venda.desc()).all()
     for venda in vendas:
-        venda.cliente_nome = venda.orcamento.cliente.nome_fantasia if venda.orcamento and venda.orcamento.cliente else None
-        venda.vendedor_nome = venda.vendedor.nome if venda.vendedor else None
+        _expandir_venda(venda, venda.orcamento)
     return vendas
 
 
@@ -796,9 +842,10 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
         cliente = db.query(models.Cliente).filter(models.Cliente.id == orcamento.cliente_id).first()
         if cliente and getattr(cliente, 'status', 'ativo') == 'pendente':
             pendencias.append("Finalizar cadastro do cliente")
-        if not orcamento.condicoes_pagamento_selecionadas or orcamento.condicoes_pagamento_selecionadas == "[]":
-            pendencias.append("Definir o método de pagamento")
-            
+        # Método de pagamento NÃO é mais exigido aqui: no orçamento formal ele só é
+        # escolhido na conversão em venda, que por definição acontece depois de "Aprovado".
+        # Exigi-lo antes tornava o fluxo de proposta impossível de concluir.
+
         if pendencias:
             msgs = " e ".join(pendencias)
             raise HTTPException(status_code=400, detail=f"Não é possível aprovar. Pendências: {msgs}.")
@@ -852,24 +899,13 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
 
     if novo_status == "Aprovado" and status_anterior != "Aprovado":
         orcamento.data_aprovacao = datetime.now(timezone.utc)
-        if orcamento.tipo_orcamento == "Producao" and orcamento.prazo_locacao_valor:
-            if orcamento.prazo_locacao_unidade == "dias":
-                orcamento.data_fim_locacao = orcamento.data_aprovacao + timedelta(days=orcamento.prazo_locacao_valor)
-            elif orcamento.prazo_locacao_unidade == "meses":
-                orcamento.data_fim_locacao = orcamento.data_aprovacao + timedelta(days=orcamento.prazo_locacao_valor * 30)
     elif novo_status not in ["Aprovado", "Entregue", "Devolvido", "Faturado"]:
         orcamento.data_aprovacao = None
         orcamento.data_entrega = None
-        orcamento.data_fim_locacao = None
         orcamento.cnpj_faturamento = None
 
     if novo_status == "Entregue" and status_anterior != "Entregue":
         orcamento.data_entrega = datetime.now(timezone.utc)
-        if orcamento.tipo_orcamento == "Locacao" and orcamento.prazo_locacao_valor:
-            if orcamento.prazo_locacao_unidade == "dias":
-                orcamento.data_fim_locacao = orcamento.data_entrega + timedelta(days=orcamento.prazo_locacao_valor)
-            elif orcamento.prazo_locacao_unidade == "meses":
-                orcamento.data_fim_locacao = orcamento.data_entrega + timedelta(days=orcamento.prazo_locacao_valor * 30)
 
     # Lógica de Estoque — batch queries para evitar N+1
     retained_statuses = ["Aprovado", "Entregue"]
@@ -938,48 +974,76 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
     return _enrich_orcamento(orcamento, detail=True)
 
 
-class RenovarLocacaoRequest(schemas.BaseModel):
-    prazo_valor: int
-    prazo_unidade: str # "dias" ou "meses"
+def _validar_pagamento(pagamento: schemas.VendaPagamentoIn, db: Session) -> None:
+    """A obrigatoriedade da Forma depende de TipoPagamento.exige_forma, que só é conhecida
+    consultando o banco — por isso a regra vive aqui e não no schema Pydantic."""
+    tipo = db.query(models.TipoPagamento).filter(models.TipoPagamento.id == pagamento.tipo_pagamento_id).first()
+    if not tipo:
+        raise HTTPException(status_code=404, detail="Tipo de pagamento não encontrado.")
 
-@router.post("/{orcamento_id}/renovar", response_model=schemas.OrcamentoDetailOut)
-def renovar_locacao(orcamento_id: int, renovacao: RenovarLocacaoRequest, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
-    """ Estende a data de fim da locação/produção baseada nos novos dias ou meses """
-    orcamento = db.query(models.Orcamento).options(
-        joinedload(models.Orcamento.cliente),
-        joinedload(models.Orcamento.vendedor),
-        selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.produto)
-    ).filter(models.Orcamento.id == orcamento_id).first()
-    
-    if not orcamento:
-        raise HTTPException(status_code=404, detail="Orçamento não encontrado.")
-        
-    if current_user.role != 'admin' and orcamento.vendedor_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Acesso negado.")
-        
-    if orcamento.tipo_orcamento not in ["Locacao", "Producao"]:
-        raise HTTPException(status_code=400, detail="Este orçamento não é de locação ou produção.")
-        
-    if not orcamento.data_fim_locacao:
-        raise HTTPException(status_code=400, detail="O orçamento não possui data de fim estabelecida (ainda não aprovado).")
-        
-    from datetime import timedelta
-    
-    if renovacao.prazo_unidade == "dias":
-        orcamento.data_fim_locacao = orcamento.data_fim_locacao + timedelta(days=renovacao.prazo_valor)
-    elif renovacao.prazo_unidade == "meses":
-        orcamento.data_fim_locacao = orcamento.data_fim_locacao + timedelta(days=renovacao.prazo_valor * 30)
-        
-    db.commit()
-    db.refresh(orcamento)
-    
-    return _enrich_orcamento_detail(orcamento, db)
+    if tipo.exige_forma:
+        if not pagamento.forma_pagamento_id:
+            raise HTTPException(status_code=400, detail=f"Pagamento em {tipo.nome} exige informar a forma.")
+        forma = db.query(models.FormaPagamento).filter(
+            models.FormaPagamento.id == pagamento.forma_pagamento_id
+        ).first()
+        if not forma:
+            raise HTTPException(status_code=404, detail="Forma de pagamento não encontrada.")
+        if forma.tipo_pagamento_id != tipo.id:
+            raise HTTPException(status_code=400, detail=f"A forma escolhida não pertence a {tipo.nome}.")
+    if pagamento.condicao_pagamento_id:
+        existe = db.query(models.CondicaoPagamento).filter(
+            models.CondicaoPagamento.id == pagamento.condicao_pagamento_id
+        ).first()
+        if not existe:
+            raise HTTPException(status_code=404, detail="Condição de pagamento não encontrada.")
+
+
+def _expandir_venda(venda: models.Venda, orcamento: models.Orcamento) -> models.Venda:
+    venda.cliente_nome = orcamento.cliente.nome_fantasia if orcamento.cliente else None
+    venda.vendedor_nome = orcamento.vendedor.nome if orcamento.vendedor else None
+    venda.tipo_pagamento_nome = venda.tipo_pagamento.nome if venda.tipo_pagamento else None
+    venda.forma_pagamento_nome = venda.forma_pagamento.nome if venda.forma_pagamento else None
+    venda.condicao_pagamento_nome = venda.condicao_pagamento.nome if venda.condicao_pagamento else None
+    return venda
+
+
+def _criar_venda(orcamento: models.Orcamento, pagamento: schemas.VendaPagamentoIn, db: Session, current_user) -> models.Venda:
+    """Cria a Venda com o pagamento congelado. NÃO faz commit — quem chama decide o
+    escopo da transação (venda direta precisa de atomicidade com a criação do orçamento)."""
+    venda = models.Venda(
+        orcamento_id=orcamento.id,
+        vendedor_id=orcamento.vendedor_id,
+        valor_total=_enrich_orcamento(orcamento).valor_total,
+        tipo_pagamento_id=pagamento.tipo_pagamento_id,
+        forma_pagamento_id=pagamento.forma_pagamento_id,
+        condicao_pagamento_id=pagamento.condicao_pagamento_id,
+    )
+    db.add(venda)
+    db.flush()
+    db.add(models.AuditLog(
+        usuario_id=current_user.id,
+        vendedor_id=orcamento.vendedor_id,
+        acao="CONVERTEU_EM_VENDA",
+        detalhes=f"Converteu o orçamento #{orcamento.id} em venda (ID {venda.id})",
+        entidade="Venda",
+        entidade_id=venda.id,
+    ))
+    return venda
 
 
 @router.post("/{orcamento_id}/converter-venda", response_model=schemas.VendaOut, status_code=status.HTTP_201_CREATED)
-def converter_em_venda(orcamento_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
-    """Conversão explícita de um orçamento Aprovado em Venda. Não é automática: um orçamento
-    aprovado pode nunca virar venda (ex: cliente desiste antes da entrega)."""
+def converter_em_venda(
+    orcamento_id: int,
+    pagamento: schemas.VendaPagamentoIn,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(auth.get_current_user),
+):
+    """Conversão explícita de um orçamento Aprovado em Venda, com o pagamento escolhido agora.
+
+    Não é automática: um orçamento aprovado pode nunca virar venda (ex: cliente desiste antes
+    da entrega). É aqui que o pagamento do fluxo formal é coletado — no Builder ele nem aparece.
+    """
     orcamento = _get_orcamento_autorizado(orcamento_id, db, current_user)
 
     if orcamento.status != "Aprovado":
@@ -987,31 +1051,14 @@ def converter_em_venda(orcamento_id: int, db: Session = Depends(get_db), current
 
     venda_existente = db.query(models.Venda).filter(models.Venda.orcamento_id == orcamento_id).first()
     if venda_existente:
-        raise HTTPException(status_code=400, detail="Este orçamento já foi convertido em venda.")
+        # Idempotente: um retry depois de timeout não deve virar erro para o vendedor.
+        return _expandir_venda(venda_existente, orcamento)
 
-    valor_total = sum(item.quantidade * item.preco_unitario_aplicado for item in orcamento.itens)
-    nova_venda = models.Venda(
-        orcamento_id=orcamento.id,
-        vendedor_id=orcamento.vendedor_id,
-        valor_total=valor_total,
-    )
-    db.add(nova_venda)
+    _validar_pagamento(pagamento, db)
+    venda = _criar_venda(orcamento, pagamento, db, current_user)
     db.commit()
-    db.refresh(nova_venda)
-
-    db.add(models.AuditLog(
-        usuario_id=current_user.id,
-        vendedor_id=orcamento.vendedor_id,
-        acao="CONVERTEU_EM_VENDA",
-        detalhes=f"Converteu o orçamento #{orcamento.id} em venda (ID {nova_venda.id})",
-        entidade="Venda",
-        entidade_id=nova_venda.id,
-    ))
-    db.commit()
-
-    nova_venda.cliente_nome = orcamento.cliente.nome_fantasia if orcamento.cliente else None
-    nova_venda.vendedor_nome = orcamento.vendedor.nome if orcamento.vendedor else None
-    return nova_venda
+    db.refresh(venda)
+    return _expandir_venda(venda, orcamento)
 
 
 @router.post("/{orcamento_id}/regenerate-pdf")

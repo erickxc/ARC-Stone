@@ -32,7 +32,7 @@ def test_build_client_section_nao_quebra_com_tag_nao_fechada():
         "cliente_cpf_cnpj": "111.111.111-11",
         "cliente_responsavel": "Fulano <script>alert(1)</script>",
         "cliente_endereco": "Rua Teste, 1",
-        "tipo_orcamento": "Venda",
+        "tipo_orcamento": "Peça",
     }
     # Não deve levantar exceção — se o texto não fosse escapado, o parser do ReportLab quebraria aqui.
     elements = build_client_section(orcamento_data, styles)
