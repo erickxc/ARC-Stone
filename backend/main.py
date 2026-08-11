@@ -23,6 +23,10 @@ from routers import projetos as projetos_router
 from routers import integracoes as integracoes_router
 from routers import financeiro as financeiro_router
 from routers import portal as portal_router
+from routers import servicos as servicos_router
+from routers import equipamentos as equipamentos_router
+from routers import materia_prima as materia_prima_router
+from routers import perdas as perdas_router
 from fastapi.middleware.cors import CORSMiddleware
 import auth as auth_module
 import shutil
@@ -99,6 +103,10 @@ app.include_router(projetos_router.router)
 app.include_router(integracoes_router.router)
 app.include_router(financeiro_router.router)
 app.include_router(portal_router.router)
+app.include_router(servicos_router.router)
+app.include_router(equipamentos_router.router)
+app.include_router(materia_prima_router.router)
+app.include_router(perdas_router.router)
 
 
 @app.get("/static/uploads/{filename:path}")
@@ -215,6 +223,8 @@ def on_startup():
             "ALTER TABLE lancamentos_financeiros ADD CONSTRAINT lancamentos_financeiros_orcamento_id_fkey "
             "FOREIGN KEY (orcamento_id) REFERENCES orcamentos(id) ON DELETE SET NULL"
         ))
+        # ARC Stone: item de orçamento pode referenciar um serviço do catálogo (além/no lugar de produto)
+        conn.execute(text("ALTER TABLE orcamento_itens ADD COLUMN IF NOT EXISTS servico_id INTEGER REFERENCES servicos(id)"))
 
     db = database.SessionLocal()
     try:

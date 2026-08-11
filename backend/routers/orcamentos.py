@@ -46,9 +46,12 @@ def _enrich_orcamento(orc, detail: bool = False):
     for item in getattr(orc, 'itens', []):
         valor_total += item.quantidade * item.preco_unitario_aplicado
         produto = getattr(item, 'produto', None)
+        servico = getattr(item, 'servico', None)
         if produto:
             item.nome = produto.nome
             item.foto_url = produto.foto_url
+        elif servico:
+            item.nome = servico.nome
 
     orc.cliente_nome = cliente.nome_fantasia if cliente else None
     orc.cliente_status = getattr(cliente, 'status', None) if cliente else None
@@ -77,6 +80,18 @@ def _enrich_orcamento(orc, detail: bool = False):
 def _enrich_orcamento_detail(orc, db=None):
     """Atalho para retrocompatibilidade — chama _enrich_orcamento com detail=True."""
     return _enrich_orcamento(orc, detail=True)
+
+
+def _hidratar_prazo_servico(item_data: dict, db: Session) -> dict:
+    """Se o item referencia um serviço e não veio com prazo explícito, pré-preenche
+    prazo_entrega_valor/unidade com o tempo médio de execução do serviço (editável depois,
+    igual já acontece com o preço)."""
+    if item_data.get('servico_id') and not item_data.get('prazo_entrega_valor'):
+        servico = db.query(models.Servico).filter(models.Servico.id == item_data['servico_id']).first()
+        if servico:
+            item_data['prazo_entrega_valor'] = servico.tempo_medio_valor
+            item_data['prazo_entrega_unidade'] = servico.tempo_medio_unidade
+    return item_data
 
 
 def _ensure_fornecedor(nome_fornecedor: str, db: Session):
@@ -129,11 +144,14 @@ def _build_pdf_data(orc, db=None):
             'prazo_entrega_valor': item.prazo_entrega_valor,
             'prazo_entrega_unidade': item.prazo_entrega_unidade,
         }
-        # Lê do produto pré-carregado
+        # Lê do produto/serviço pré-carregado
         produto = getattr(item, 'produto', None)
+        servico = getattr(item, 'servico', None)
         if produto:
             item_dict['nome'] = produto.nome
             item_dict['foto_url'] = produto.foto_url
+        elif servico:
+            item_dict['nome'] = servico.nome
         elif item.produto_id:
             item_dict['nome'] = f'Produto #{item.produto_id}'
         
@@ -218,7 +236,7 @@ def criar_orcamento(orcamento: schemas.OrcamentoCreate, db: Session = Depends(ge
         if item.is_externo and item.fornecedor_externo:
             _ensure_fornecedor(item.fornecedor_externo, db)
         novo_item = models.OrcamentoItem(
-            **item.model_dump(),
+            **_hidratar_prazo_servico(item.model_dump(), db),
             orcamento_id=novo_orcamento.id
         )
         db.add(novo_item)
@@ -338,7 +356,7 @@ def editar_orcamento(orcamento_id: int, orcamento_in: schemas.OrcamentoCreate, d
         if item.is_externo and item.fornecedor_externo:
             _ensure_fornecedor(item.fornecedor_externo, db)
         novo_item = models.OrcamentoItem(
-            **item.model_dump(),
+            **_hidratar_prazo_servico(item.model_dump(), db),
             orcamento_id=orcamento.id
         )
         db.add(novo_item)
@@ -439,6 +457,26 @@ def excluir_condicao_pagamento(condicao_id: int, db: Session = Depends(get_db), 
     db.commit()
     return None
 
+
+# --- Vendas (entidade própria, distinta de Orçamento) ---
+# Rota literal precisa vir ANTES de /{orcamento_id} — Starlette casa rotas na ordem de
+# registro, não por especificidade, então "/vendas/historico" perderia para
+# "/{orcamento_id}/historico" se ficasse depois.
+
+@router.get("/vendas/historico", response_model=list[schemas.VendaOut])
+def listar_vendas(db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    """Histórico de vendas — entidade própria (Venda), distinta da listagem de Orçamentos."""
+    query = db.query(models.Venda).options(
+        joinedload(models.Venda.orcamento).joinedload(models.Orcamento.cliente),
+        joinedload(models.Venda.vendedor),
+    )
+    if current_user.role != 'admin':
+        query = query.filter(models.Venda.vendedor_id == current_user.id)
+    vendas = query.order_by(models.Venda.data_venda.desc()).all()
+    for venda in vendas:
+        venda.cliente_nome = venda.orcamento.cliente.nome_fantasia if venda.orcamento and venda.orcamento.cliente else None
+        venda.vendedor_nome = venda.vendedor.nome if venda.vendedor else None
+    return vendas
 
 
 @router.get("/{orcamento_id}", response_model=schemas.OrcamentoDetailOut)
@@ -936,6 +974,44 @@ def renovar_locacao(orcamento_id: int, renovacao: RenovarLocacaoRequest, db: Ses
     db.refresh(orcamento)
     
     return _enrich_orcamento_detail(orcamento, db)
+
+
+@router.post("/{orcamento_id}/converter-venda", response_model=schemas.VendaOut, status_code=status.HTTP_201_CREATED)
+def converter_em_venda(orcamento_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    """Conversão explícita de um orçamento Aprovado em Venda. Não é automática: um orçamento
+    aprovado pode nunca virar venda (ex: cliente desiste antes da entrega)."""
+    orcamento = _get_orcamento_autorizado(orcamento_id, db, current_user)
+
+    if orcamento.status != "Aprovado":
+        raise HTTPException(status_code=400, detail="Só é possível converter em venda um orçamento com status 'Aprovado'.")
+
+    venda_existente = db.query(models.Venda).filter(models.Venda.orcamento_id == orcamento_id).first()
+    if venda_existente:
+        raise HTTPException(status_code=400, detail="Este orçamento já foi convertido em venda.")
+
+    valor_total = sum(item.quantidade * item.preco_unitario_aplicado for item in orcamento.itens)
+    nova_venda = models.Venda(
+        orcamento_id=orcamento.id,
+        vendedor_id=orcamento.vendedor_id,
+        valor_total=valor_total,
+    )
+    db.add(nova_venda)
+    db.commit()
+    db.refresh(nova_venda)
+
+    db.add(models.AuditLog(
+        usuario_id=current_user.id,
+        vendedor_id=orcamento.vendedor_id,
+        acao="CONVERTEU_EM_VENDA",
+        detalhes=f"Converteu o orçamento #{orcamento.id} em venda (ID {nova_venda.id})",
+        entidade="Venda",
+        entidade_id=nova_venda.id,
+    ))
+    db.commit()
+
+    nova_venda.cliente_nome = orcamento.cliente.nome_fantasia if orcamento.cliente else None
+    nova_venda.vendedor_nome = orcamento.vendedor.nome if orcamento.vendedor else None
+    return nova_venda
 
 
 @router.post("/{orcamento_id}/regenerate-pdf")

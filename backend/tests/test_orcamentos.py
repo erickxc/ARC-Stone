@@ -257,3 +257,70 @@ def test_resetar_config_exige_admin(client, make_user):
     vendedor = make_user(role="vendedor")
     _login(client, vendedor)
     assert client.post("/orcamentos/config/reset").status_code == 403
+
+
+def _aprovar_orcamento(client, cliente, make_product):
+    """Cria um orçamento com estoque suficiente, aprova e retorna o id — pré-condição
+    comum dos testes de conversão em venda (ARC Stone)."""
+    produto = make_product(quantidade_estoque=10, quantidade_retida=0)
+    criado = client.post("/orcamentos/", json={
+        "cliente_id": cliente.id, "tipo_orcamento": "Venda",
+        "condicoes_pagamento_selecionadas": "à vista",
+        "itens": [{"produto_id": produto.id, "quantidade": 2, "preco_unitario_aplicado": 1500}],
+    })
+    assert criado.status_code == 201, criado.text
+    orcamento_id = criado.json()["id"]
+    aprovado = client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Aprovado"})
+    assert aprovado.status_code == 200, aprovado.text
+    return orcamento_id
+
+
+def test_converter_venda_exige_status_aprovado(client, make_user, make_client):
+    vendedor = make_user(role="vendedor")
+    cliente = make_client(vendedor)
+    _login(client, vendedor)
+    orcamento_id = _criar_orcamento(client, cliente)
+
+    resp = client.post(f"/orcamentos/{orcamento_id}/converter-venda")
+    assert resp.status_code == 400
+    assert "aprovado" in resp.json()["detail"].lower()
+
+
+def test_converter_venda_com_orcamento_aprovado(client, make_user, make_client, make_product):
+    vendedor = make_user(role="vendedor")
+    cliente = make_client(vendedor)
+    _login(client, vendedor)
+    orcamento_id = _aprovar_orcamento(client, cliente, make_product)
+
+    resp = client.post(f"/orcamentos/{orcamento_id}/converter-venda")
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["orcamento_id"] == orcamento_id
+    assert body["valor_total"] == 3000  # 2 * 1500
+
+    historico = client.get("/orcamentos/vendas/historico").json()
+    assert any(v["orcamento_id"] == orcamento_id for v in historico)
+
+
+def test_converter_venda_duas_vezes_bloqueado(client, make_user, make_client, make_product):
+    vendedor = make_user(role="vendedor")
+    cliente = make_client(vendedor)
+    _login(client, vendedor)
+    orcamento_id = _aprovar_orcamento(client, cliente, make_product)
+
+    assert client.post(f"/orcamentos/{orcamento_id}/converter-venda").status_code == 201
+    repetida = client.post(f"/orcamentos/{orcamento_id}/converter-venda")
+    assert repetida.status_code == 400
+    assert "já foi convertido" in repetida.json()["detail"].lower()
+
+
+def test_converter_venda_de_outro_vendedor_negado(client, make_user, make_client, make_product):
+    dono = make_user(role="vendedor")
+    outro = make_user(role="vendedor")
+    cliente = make_client(dono)
+    _login(client, dono)
+    orcamento_id = _aprovar_orcamento(client, cliente, make_product)
+
+    _login(client, outro)
+    resp = client.post(f"/orcamentos/{orcamento_id}/converter-venda")
+    assert resp.status_code == 403

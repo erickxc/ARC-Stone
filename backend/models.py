@@ -1,5 +1,5 @@
 # pyrefly: ignore [missing-import]
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, Numeric
 # pyrefly: ignore [missing-import]
 from sqlalchemy.orm import relationship
 # pyrefly: ignore [missing-import]
@@ -175,8 +175,13 @@ class OrcamentoItem(Base):
     # Item do projeto importado que originou esta linha (proveniência), quando houver
     projeto_item_id = Column(Integer, ForeignKey("projeto_itens.id"), nullable=True)
 
+    # Item de serviço (catálogo de serviços), alternativa a produto_id — exatamente um dos
+    # dois (ou is_externo) deve estar preenchido, validado em schemas.OrcamentoItemCreate.
+    servico_id = Column(Integer, ForeignKey("servicos.id"), nullable=True)
+
     orcamento = relationship("Orcamento", back_populates="itens")
     produto = relationship("Produto")
+    servico = relationship("Servico")
 
 class OrcamentoAnexo(Base):
     __tablename__ = "orcamento_anexos"
@@ -299,6 +304,86 @@ class LancamentoFinanceiro(Base):
 
     orcamento = relationship("Orcamento")
     usuario = relationship("Usuario")
+
+class Servico(Base):
+    """Catálogo de serviços (ex: instalação de bancada), separado do catálogo de Produto."""
+    __tablename__ = "servicos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String, index=True, nullable=False)
+    descricao = Column(String, nullable=True)
+    preco_padrao = Column(Integer, nullable=False)  # em centavos
+    tempo_medio_valor = Column(Integer, nullable=False)
+    tempo_medio_unidade = Column(String, nullable=False)  # "horas" ou "dias"
+    ativo = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class Venda(Base):
+    """Entidade própria, distinta de Orcamento. Criada explicitamente ao converter um
+    orçamento aprovado (ver routers/orcamentos.py) — não é derivada de status."""
+    __tablename__ = "vendas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    orcamento_id = Column(Integer, ForeignKey("orcamentos.id"), unique=True, nullable=False)
+    vendedor_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    valor_total = Column(Integer, nullable=False)  # centavos, congelado na conversão
+    data_venda = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    orcamento = relationship("Orcamento")
+    vendedor = relationship("Usuario")
+
+class PerdaAvaria(Base):
+    """Registro de perda/avaria de estoque. Ao ser criada, debita quantidade_estoque do
+    Produto afetado via a mesma rotina de estoque.py usada para movimentações manuais."""
+    __tablename__ = "perdas_avarias"
+
+    id = Column(Integer, primary_key=True, index=True)
+    produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    quantidade = Column(Integer, nullable=False)
+    motivo = Column(String, nullable=False)  # ver schemas.MOTIVOS_PERDA_AVARIA
+    justificativa = Column(String, nullable=False)
+    data_ocorrencia = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    produto = relationship("Produto")
+    usuario = relationship("Usuario")
+
+class Equipamento(Base):
+    """Cadastro de máquinas/ferramentas da marmoraria (cortadeira, policorte, etc.)."""
+    __tablename__ = "equipamentos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String, index=True, nullable=False)
+    tipo = Column(String, nullable=True)
+    estado = Column(String, default="operante", nullable=False)  # operante, manutencao, inativo
+    numero_serie = Column(String, nullable=True)
+    data_aquisicao = Column(DateTime(timezone=True), nullable=True)
+    observacoes = Column(String, nullable=True)
+    ativo = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class MateriaPrima(Base):
+    """Inventário de matéria-prima (ex: chapas de granito/mármore antes de virarem produto
+    acabado) — entidade própria, separada do catálogo de Produto."""
+    __tablename__ = "materias_primas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String, index=True, nullable=False)
+    tipo_material = Column(String, nullable=True)
+    fornecedor_id = Column(Integer, ForeignKey("fornecedores.id"), nullable=True)
+    unidade_medida = Column(String, nullable=False, default="m2")  # m2, un, kg
+    quantidade_estoque = Column(Numeric(10, 2), default=0, nullable=False)
+    preco_custo = Column(Integer, nullable=True)  # em centavos
+    comprimento = Column(Float, nullable=True)
+    largura = Column(Float, nullable=True)
+    espessura = Column(Float, nullable=True)
+    observacoes = Column(String, nullable=True)
+    ativo = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    fornecedor = relationship("Fornecedor")
 
 class ApiKey(Base):
     """Chave de API para autenticação máquina-a-máquina (ex: extensão do SketchUp fazendo push de projetos)."""

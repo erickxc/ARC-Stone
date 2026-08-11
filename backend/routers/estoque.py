@@ -7,6 +7,39 @@ import models, schemas, auth
 
 router = APIRouter(prefix="/estoque", tags=["Estoque"])
 
+
+def registrar_movimentacao(
+    db: Session,
+    produto_id: int,
+    quantidade: int,
+    tipo: str,
+    usuario_id: int,
+    justificativa: str,
+) -> models.Produto:
+    """Debita/credita quantidade_estoque de um Produto e grava a MovimentacaoEstoque
+    correspondente. Não comita — quem chama decide a transação (permite acoplar audit log
+    e outros registros, como PerdaAvaria, na mesma unidade de trabalho)."""
+    produto = db.query(models.Produto).filter(models.Produto.id == produto_id).with_for_update().first()
+    if not produto:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    if tipo == 'SAIDA' and produto.quantidade_estoque < quantidade:
+        raise HTTPException(status_code=400, detail="Estoque insuficiente para esta baixa.")
+
+    if tipo == 'ENTRADA':
+        produto.quantidade_estoque += quantidade
+    else:
+        produto.quantidade_estoque -= quantidade
+
+    db.add(models.MovimentacaoEstoque(
+        produto_id=produto.id,
+        usuario_id=usuario_id,
+        tipo=tipo,
+        quantidade=quantidade,
+        justificativa=justificativa,
+    ))
+    return produto
+
 @router.post("/produtos", response_model=schemas.ProdutoOut, status_code=status.HTTP_201_CREATED)
 def criar_produto(
     request: Request,
@@ -128,28 +161,7 @@ def movimentar_estoque(
         tipo = 'ENTRADA'
 
     try:
-        produto = db.query(models.Produto).filter(models.Produto.id == produto_id).with_for_update().first()
-        if not produto:
-            raise HTTPException(status_code=404, detail="Produto não encontrado")
-
-        if tipo == 'SAIDA' and produto.quantidade_estoque < mov.quantidade:
-            raise HTTPException(status_code=400, detail="Estoque insuficiente para a loja realizar esta baixa.")
-
-        # Modifica a quantidade. O SQLAlchemy lida com a colisão baseada na versão da linha.
-        if tipo == 'ENTRADA':
-            produto.quantidade_estoque += mov.quantidade
-        else:
-            produto.quantidade_estoque -= mov.quantidade
-
-        # Grava a trilha de auditoria
-        nova_mov = models.MovimentacaoEstoque(
-            produto_id=produto.id,
-            usuario_id=current_user.id,
-            tipo=tipo,
-            quantidade=mov.quantidade,
-            justificativa=mov.justificativa
-        )
-        db.add(nova_mov)
+        produto = registrar_movimentacao(db, produto_id, mov.quantidade, tipo, current_user.id, mov.justificativa)
         db.commit()
         db.refresh(produto)
         

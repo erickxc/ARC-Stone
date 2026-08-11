@@ -156,6 +156,7 @@ class ClienteOut(ClienteCreate):
 
 class OrcamentoItemCreate(BaseModel):
     produto_id: Optional[int] = None
+    servico_id: Optional[int] = None
     quantidade: int
     preco_unitario_aplicado: int
     local_instalacao: Optional[str] = None
@@ -168,6 +169,17 @@ class OrcamentoItemCreate(BaseModel):
     prazo_entrega_valor: Optional[int] = None
     prazo_entrega_unidade: Optional[str] = None
     projeto_item_id: Optional[int] = None
+
+    @model_validator(mode="after")
+    def validar_tipo_unico(self):
+        tipos_preenchidos = sum([
+            bool(self.produto_id),
+            bool(self.servico_id),
+            bool(self.is_externo),
+        ])
+        if tipos_preenchidos != 1:
+            raise ValueError("Cada item deve referenciar exatamente um entre produto, serviço ou item externo.")
+        return self
 
 class OrcamentoItemOut(OrcamentoItemCreate):
     id: int
@@ -564,4 +576,151 @@ class FluxoMensalItem(BaseModel):
     mes: str  # "2026-08"
     entradas: int
     saidas: int
+
+
+# --- Serviços (catálogo, separado de Produto) ---
+
+class ServicoBase(BaseModel):
+    nome: str = Field(..., max_length=150, pattern=r"^[^<>]*$")
+    descricao: Optional[str] = Field(None, max_length=2000)
+    preco_padrao: int = Field(..., ge=0)  # em centavos
+    tempo_medio_valor: int = Field(..., gt=0)
+    tempo_medio_unidade: Literal["horas", "dias"]
+    ativo: Optional[bool] = True
+
+class ServicoCreate(ServicoBase):
+    pass
+
+class ServicoUpdate(BaseModel):
+    nome: Optional[str] = None
+    descricao: Optional[str] = None
+    preco_padrao: Optional[int] = Field(None, ge=0)
+    tempo_medio_valor: Optional[int] = Field(None, gt=0)
+    tempo_medio_unidade: Optional[Literal["horas", "dias"]] = None
+    ativo: Optional[bool] = None
+
+class ServicoOut(ServicoBase):
+    id: int
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+
+# --- Venda (entidade própria, criada ao converter um Orçamento aprovado) ---
+
+class VendaOut(BaseModel):
+    id: int
+    orcamento_id: int
+    vendedor_id: int
+    valor_total: int
+    data_venda: datetime
+    created_at: datetime
+    # Campos expandidos
+    cliente_nome: Optional[str] = None
+    vendedor_nome: Optional[str] = None
+    class Config:
+        from_attributes = True
+
+
+# --- Perdas e Avarias ---
+
+MOTIVOS_PERDA_AVARIA = [
+    "quebra_manuseio",
+    "quebra_transporte",
+    "defeito_fabricacao",
+    "corte_errado",
+    "armazenamento_inadequado",
+    "outro",
+]
+
+class PerdaAvariaCreate(BaseModel):
+    produto_id: int
+    quantidade: int = Field(..., gt=0)
+    motivo: Literal[
+        "quebra_manuseio",
+        "quebra_transporte",
+        "defeito_fabricacao",
+        "corte_errado",
+        "armazenamento_inadequado",
+        "outro",
+    ]
+    justificativa: str = Field(..., min_length=3, max_length=1000)
+
+class PerdaAvariaOut(PerdaAvariaCreate):
+    id: int
+    usuario_id: int
+    data_ocorrencia: datetime
+    created_at: datetime
+    produto_nome: Optional[str] = None
+    usuario_nome: Optional[str] = None
+    class Config:
+        from_attributes = True
+
+
+# --- Equipamentos ---
+
+class EquipamentoBase(BaseModel):
+    nome: str = Field(..., max_length=150, pattern=r"^[^<>]*$")
+    tipo: Optional[str] = Field(None, max_length=100)
+    estado: Literal["operante", "manutencao", "inativo"] = "operante"
+    numero_serie: Optional[str] = Field(None, max_length=100)
+    data_aquisicao: Optional[datetime] = None
+    observacoes: Optional[str] = Field(None, max_length=2000)
+    ativo: Optional[bool] = True
+
+class EquipamentoCreate(EquipamentoBase):
+    pass
+
+class EquipamentoUpdate(BaseModel):
+    nome: Optional[str] = None
+    tipo: Optional[str] = None
+    estado: Optional[Literal["operante", "manutencao", "inativo"]] = None
+    numero_serie: Optional[str] = None
+    data_aquisicao: Optional[datetime] = None
+    observacoes: Optional[str] = None
+    ativo: Optional[bool] = None
+
+class EquipamentoOut(EquipamentoBase):
+    id: int
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+
+# --- Matéria-prima (inventário separado do catálogo de Produto acabado) ---
+
+class MateriaPrimaBase(BaseModel):
+    nome: str = Field(..., max_length=150, pattern=r"^[^<>]*$")
+    tipo_material: Optional[str] = Field(None, max_length=100)
+    fornecedor_id: Optional[int] = None
+    unidade_medida: Literal["m2", "un", "kg"] = "m2"
+    quantidade_estoque: float = Field(0, ge=0)
+    preco_custo: Optional[int] = Field(None, ge=0)  # em centavos
+    comprimento: Optional[float] = None
+    largura: Optional[float] = None
+    espessura: Optional[float] = None
+    observacoes: Optional[str] = Field(None, max_length=2000)
+    ativo: Optional[bool] = True
+
+class MateriaPrimaCreate(MateriaPrimaBase):
+    pass
+
+class MateriaPrimaUpdate(BaseModel):
+    nome: Optional[str] = None
+    tipo_material: Optional[str] = None
+    fornecedor_id: Optional[int] = None
+    unidade_medida: Optional[Literal["m2", "un", "kg"]] = None
+    quantidade_estoque: Optional[float] = Field(None, ge=0)
+    preco_custo: Optional[int] = Field(None, ge=0)
+    comprimento: Optional[float] = None
+    largura: Optional[float] = None
+    espessura: Optional[float] = None
+    observacoes: Optional[str] = None
+    ativo: Optional[bool] = None
+
+class MateriaPrimaOut(MateriaPrimaBase):
+    id: int
+    created_at: datetime
+    class Config:
+        from_attributes = True
 
