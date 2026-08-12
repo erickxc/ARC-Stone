@@ -36,12 +36,6 @@ def test_total_por_unidade_usa_quantidade():
                                 area_m2=None, comprimento_m=None) == 36000
 
 
-def test_acrescimo_e_desconto_entram_depois_da_base():
-    assert calcular_total_linha("un", quantidade=2, preco_unitario=10000,
-                                area_m2=None, comprimento_m=None,
-                                acrescimo_centavos=5000, desconto_centavos=3000) == 22000
-
-
 def test_arredonda_uma_vez_no_fim():
     # 1,33 m² × R$ 100,015/m² daria fração de centavo; arredonda meio-para-cima no total.
     assert calcular_total_linha("m2", quantidade=1, preco_unitario=10001,

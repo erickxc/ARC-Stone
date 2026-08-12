@@ -20,11 +20,13 @@ router = APIRouter(prefix="/portal", tags=["Portal do Cliente"])
 
 STATUS_PUBLICO = {
     "Gerando orçamento": "Em elaboração",
-    "Planejando": "Em elaboração",
-    "Orçamento gerado": "Aguardando sua aprovação",
+    "Gerando projeto": "Em elaboração",
+    "Projeto enviado": "Aguardando sua aprovação",
     "Ajuste solicitado": "Ajuste solicitado por você",
     "Aprovado": "Aprovada — produção liberada",
-    "Entregue": "Entregue",
+    "Em produção": "Em produção",
+    "Entrega": "Entregue",
+    "Concluído": "Concluída",
     "Faturado": "Concluída",
     "Devolvido": "Encerrada",
     "Orçamento negado": "Encerrada",
@@ -123,8 +125,6 @@ def _publicar_proposta(proposta: models.Orcamento, organizacao_nome: str | None 
                     preco_unitario=preco_unitario,
                     area_m2=float(getattr(item, 'area_m2', None)) if getattr(item, 'area_m2', None) is not None else None,
                     comprimento_m=float(getattr(item, 'comprimento_m', None)) if getattr(item, 'comprimento_m', None) is not None else None,
-                    acrescimo_centavos=getattr(item, 'acrescimo_centavos', 0) or 0,
-                    desconto_centavos=getattr(item, 'desconto_centavos', 0) or 0,
                 ),
                 local_instalacao=item.local_instalacao,
                 prazo_entrega_valor=item.prazo_entrega_valor,
@@ -195,7 +195,7 @@ def registrar_decisao(
     db: Session = Depends(get_db),
 ):
     proposta = _travar_proposta(db, proposta.id)
-    if proposta.status not in ("Orçamento gerado", "Ajuste solicitado"):
+    if proposta.status not in ("Projeto enviado", "Ajuste solicitado"):
         raise HTTPException(status_code=409, detail="Esta proposta não está aberta para decisão.")
     if proposta.decisao_cliente:
         raise HTTPException(status_code=409, detail="Uma decisão já foi registrada para esta proposta.")

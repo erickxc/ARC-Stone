@@ -27,7 +27,7 @@ def test_etapas_padrao_semeadas(client, make_user):
     _login(client, make_user(role="admin"))
     etapas = client.get("/catalogos/etapas-producao").json()
     nomes = [e["nome"] for e in etapas]
-    assert nomes[:4] == ["Medição", "Corte", "Acabamento", "Instalação"]
+    assert nomes[:4] == ["Projeto", "Em Análise", "Aguardando material", "Corte"]
     assert etapas[-1]["is_final"] is True
     assert all(e["built_in"] for e in etapas)
 
@@ -43,7 +43,7 @@ def test_venda_abre_ordem_de_producao(client, make_user, make_client, make_produ
     ordens = client.get("/producao/ordens").json()
     assert ordens, "venda deveria ter aberto uma ordem de produção"
     ordem = ordens[0]
-    assert ordem["etapa_nome"] == "Medição"
+    assert ordem["etapa_nome"] == "Projeto"
     assert ordem["concluida_em"] is None
     assert ordem["cliente_nome"] == cliente.nome_fantasia
     assert ordem["valor_total"] == 50000
@@ -66,7 +66,7 @@ def test_mover_entre_etapas_registra_historico(client, make_user, make_client, m
     assert resp.json()["etapa_nome"] == "Corte"
 
     detalhe = client.get(f"/producao/ordens/{ordem_id}").json()
-    assert [h["etapa_nome"] for h in detalhe["historico"]] == ["Medição", "Corte"]
+    assert [h["etapa_nome"] for h in detalhe["historico"]] == ["Projeto", "Corte"]
     assert detalhe["historico"][-1]["observacao"] == "Chapa separada"
 
 

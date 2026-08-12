@@ -147,7 +147,7 @@ class Orcamento(Base):
     # COMO a venda acontece, ortogonal ao tipo: 'venda_direta' (cliente presente, paga na
     # hora) ou 'orcamento_formal' (proposta que vai ao portal para aprovação do cliente).
     modalidade = Column(String, nullable=False, default="orcamento_formal", server_default="orcamento_formal")
-    status = Column(String, nullable=False, default="Gerando orçamento") # Gerando orçamento, Planejando, Orçamento gerado, Ajuste solicitado, Orçamento negado, Aprovado, Entregue, Devolvido, Faturado
+    status = Column(String, nullable=False, default="Gerando orçamento") # Gerando orçamento, Gerando projeto, Projeto enviado, Ajuste solicitado, Orçamento negado, Aprovado, Em produção, Entrega, Concluído, Devolvido, Faturado
     anexo_url = Column(String, nullable=True) # PDF gerado
     data_aprovacao = Column(DateTime(timezone=True), nullable=True)
     condicoes_pagamento_selecionadas = Column(String, nullable=True) # JSON ou CSV de condicoes
@@ -208,9 +208,7 @@ class OrcamentoItem(Base):
     area_m2 = Column(Numeric(10, 2), nullable=True)
     # Unidade congelada na inserção, junto com o preço: decide a fórmula do total da linha.
     unidade_medida = Column(String, nullable=False, default="un", server_default="un")
-    acrescimo_centavos = Column(Integer, nullable=False, default=0, server_default="0")
-    desconto_centavos = Column(Integer, nullable=False, default=0, server_default="0")
-    
+
     # Suporte a itens de Fornecedores Externos (não estocados)
     is_externo = Column(Boolean, default=False)
     nome_externo = Column(String, nullable=True)
@@ -483,7 +481,7 @@ class Venda(Base):
     condicao_pagamento = relationship("CondicaoPagamento")
 
 class EtapaProducao(CatalogoSimplesMixin, Base):
-    """Etapa da esteira de produção (Medição, Corte, Acabamento, Instalação...).
+    """Etapa da esteira de produção (Projeto, Em Análise, Aguardando material, Corte...).
 
     É um catálogo configurável como os demais: a marmoraria ajusta as etapas ao próprio
     processo. `ordem` define a sequência da esteira, não só a exibição.

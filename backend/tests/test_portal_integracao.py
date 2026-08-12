@@ -11,7 +11,7 @@ def _criar_orcamento(
     make_product,
     *,
     email="cliente@example.com",
-    status="Orçamento gerado",
+    status="Projeto enviado",
     nome_cliente=None,
 ):
     vendedor = make_user()
@@ -235,7 +235,7 @@ def test_decisao_aprovacao_nao_altera_status_estoque_ou_financeiro(
     )
 
     assert salvo.decisao_cliente == "aprovado", "decisão do cliente não persistida"
-    assert salvo.status == "Orçamento gerado", "aprovação pública alterou o status interno"
+    assert salvo.status == "Projeto enviado", "aprovação pública alterou o status interno"
     assert lancamentos == 0, "aprovação pública criou lançamento financeiro"
     assert produto_salvo.quantidade_retida == quantidade_retida_antes, (
         "aprovação pública alterou reserva de estoque"

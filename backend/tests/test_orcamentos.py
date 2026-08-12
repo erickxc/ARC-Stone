@@ -82,13 +82,13 @@ def test_apenas_o_vendedor_dono_ou_admin_muda_status(client, make_user, make_cli
     orcamento_id = criado.json()["id"]
 
     _login(client, vendedor_b)
-    negado = client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Planejando"})
+    negado = client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Gerando projeto"})
     assert negado.status_code == 403
 
     _login(client, vendedor_a)
-    permitido = client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Planejando"})
+    permitido = client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Gerando projeto"})
     assert permitido.status_code == 200
-    assert permitido.json()["status"] == "Planejando"
+    assert permitido.json()["status"] == "Gerando projeto"
 
 
 def test_aprovar_sem_condicao_de_pagamento_e_permitido(client, make_user, make_client):

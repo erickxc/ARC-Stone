@@ -19,8 +19,8 @@ from anexo_utils import (
 
 router = APIRouter(prefix="/orcamentos", tags=["Orçamentos e Kanban"])
 
-# Status em que o orçamento já virou compromisso (estoque retido, título gerado).
-STATUS_FECHADOS = ["Aprovado", "Entregue", "Devolvido", "Faturado"]
+# Status em que o orçamento já virou compromisso (estoque retido, título gerado, edição travada).
+STATUS_FECHADOS = ["Aprovado", "Em produção", "Entrega", "Concluído", "Devolvido", "Faturado"]
 
 
 def _get_orcamento_autorizado(orcamento_id: int, db: Session, current_user: models.Usuario) -> models.Orcamento:
@@ -148,8 +148,6 @@ def _total_item(item) -> int:
         preco_unitario=item.preco_unitario_aplicado,
         area_m2=float(item.area_m2) if item.area_m2 is not None else None,
         comprimento_m=float(item.comprimento_m) if item.comprimento_m is not None else None,
-        acrescimo_centavos=getattr(item, 'acrescimo_centavos', 0) or 0,
-        desconto_centavos=getattr(item, 'desconto_centavos', 0) or 0,
     )
 
 
@@ -632,7 +630,7 @@ def gerar_link_portal(
 ):
     """Gera e envia o link mágico; cada envio revoga automaticamente o anterior."""
     orcamento = _get_orcamento_autorizado(orcamento_id, db, current_user)
-    if orcamento.status not in ("Orçamento gerado", "Ajuste solicitado"):
+    if orcamento.status not in ("Projeto enviado", "Ajuste solicitado"):
         raise HTTPException(status_code=400, detail="Gere o orçamento antes de enviar ao cliente.")
     if not orcamento.cliente or not orcamento.cliente.email or not orcamento.cliente.email.strip():
         raise HTTPException(
@@ -912,11 +910,14 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
     if current_user.role != 'admin' and orcamento.vendedor_id != current_user.id:
         raise HTTPException(status_code=403, detail="Acesso negado. Apenas o vendedor criador pode alterar o status.")
         
-    status_permitidos = ["Gerando orçamento", "Planejando", "Orçamento gerado", "Ajuste solicitado", "Orçamento negado", "Aprovado", "Entregue", "Devolvido", "Faturado"]
+    status_permitidos = [
+        "Gerando orçamento", "Gerando projeto", "Projeto enviado", "Ajuste solicitado", "Orçamento negado",
+        "Aprovado", "Em produção", "Entrega", "Concluído", "Devolvido", "Faturado",
+    ]
     if novo_status not in status_permitidos:
         raise HTTPException(status_code=400, detail=f"Status de funil inválido: {novo_status}")
-        
-    if novo_status in ["Aprovado", "Entregue", "Devolvido", "Faturado"]:
+
+    if novo_status in STATUS_FECHADOS:
         pendencias = []
         cliente = db.query(models.Cliente).filter(models.Cliente.id == orcamento.cliente_id).first()
         if cliente and getattr(cliente, 'status', 'ativo') == 'pendente':
@@ -940,10 +941,9 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
     # Financeiro: gera/cancela o título a receber automático ao entrar/sair do grupo de
     # status que representa negócio fechado. Lançamentos já pagos não são removidos —
     # ficam como histórico mesmo se o orçamento voltar de status depois.
-    financeiro_statuses = ["Aprovado", "Entregue", "Devolvido", "Faturado"]
-    if novo_status in financeiro_statuses and status_anterior not in financeiro_statuses:
+    if novo_status in STATUS_FECHADOS and status_anterior not in STATUS_FECHADOS:
         _gerar_lancamento_financeiro(orcamento, db, current_user.id)
-    elif status_anterior in financeiro_statuses and novo_status not in financeiro_statuses:
+    elif status_anterior in STATUS_FECHADOS and novo_status not in STATUS_FECHADOS:
         db.query(models.LancamentoFinanceiro).filter(
             models.LancamentoFinanceiro.orcamento_id == orcamento.id,
             models.LancamentoFinanceiro.automatico.is_(True),
@@ -952,16 +952,16 @@ def atualizar_status(orcamento_id: int, novo_status: str, cnpj_faturamento: str 
 
     if novo_status == "Aprovado" and status_anterior != "Aprovado":
         orcamento.data_aprovacao = datetime.now(timezone.utc)
-    elif novo_status not in ["Aprovado", "Entregue", "Devolvido", "Faturado"]:
+    elif novo_status not in STATUS_FECHADOS:
         orcamento.data_aprovacao = None
         orcamento.data_entrega = None
         orcamento.cnpj_faturamento = None
 
-    if novo_status == "Entregue" and status_anterior != "Entregue":
+    if novo_status == "Entrega" and status_anterior != "Entrega":
         orcamento.data_entrega = datetime.now(timezone.utc)
 
     # Lógica de Estoque — batch queries para evitar N+1
-    retained_statuses = ["Aprovado", "Entregue"]
+    retained_statuses = ["Aprovado", "Em produção", "Entrega", "Concluído"]
     consumed_statuses = ["Faturado"]
 
     # Coleta os IDs de produtos internos dos itens

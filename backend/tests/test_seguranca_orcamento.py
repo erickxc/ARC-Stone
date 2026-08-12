@@ -24,8 +24,7 @@ def test_valores_negativos_rejeitados(client, make_user, make_client, make_produ
     produto = make_product()
     _login(client, vendedor)
 
-    for patch in [{"quantidade": -5}, {"quantidade": 0}, {"preco_unitario_aplicado": -100},
-                  {"desconto_centavos": -100}, {"acrescimo_centavos": -100}]:
+    for patch in [{"quantidade": -5}, {"quantidade": 0}, {"preco_unitario_aplicado": -100}]:
         item = {"produto_id": produto.id, "quantidade": 1, "preco_unitario_aplicado": 10000,
                 "unidade_medida": "un", **patch}
         resp = client.post("/orcamentos/", json={
@@ -39,12 +38,6 @@ def test_desconto_nao_pode_exceder_o_valor(client, make_user, make_client, make_
     produto = make_product()
     _login(client, vendedor)
     item = {"produto_id": produto.id, "quantidade": 1, "preco_unitario_aplicado": 10000, "unidade_medida": "un"}
-
-    # Desconto de linha maior que a linha.
-    resp = client.post("/orcamentos/", json={
-        "cliente_id": cliente.id, "tipo_orcamento": "Peça",
-        "itens": [{**item, "desconto_centavos": 99999999}]})
-    assert resp.status_code == 422
 
     # Desconto de fechamento maior que a soma das linhas.
     resp = client.post("/orcamentos/", json={
@@ -180,7 +173,7 @@ def test_saida_nao_herda_validacao_de_entrada(client, make_user, make_client, db
     # Linha gravada antes das regras atuais existirem.
     db_session.add(models.OrcamentoItem(
         orcamento_id=orcamento.id, produto_id=None, is_externo=True, nome_externo="Legado",
-        quantidade=-3, preco_unitario_aplicado=-500, desconto_centavos=999999, unidade_medida="un"))
+        quantidade=-3, preco_unitario_aplicado=-500, unidade_medida="un"))
     db_session.commit()
 
     assert client.get("/orcamentos/").status_code == 200

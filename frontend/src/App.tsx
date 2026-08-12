@@ -265,9 +265,9 @@ const navGroups: NavGroup[] = [
     ['losses', 'Perdas e Avarias', '', 'losses'],
     ['equipment', 'Equipamentos', '', 'equipment'],
     ['inventory', 'Controle de estoque', '7', 'inventory'],
-    ['producao', 'Esteira de produção', '', 'producao'],
   ] },
   { label: 'Gestão', items: [
+    ['producao', 'Esteira de produção', '', 'producao'],
     ['schedule', 'Calendário de entregas', '', 'schedule'],
     ['clients', 'Carteira de clientes', '', 'clients'],
     ['finance', 'Painel financeiro', '', 'finance'],
@@ -356,7 +356,7 @@ function Kpi({ label, value, note, dark }: { label: string; value: string; note:
   return <article className={`card kpi ${dark ? 'dark' : ''}`}><p className="mono">{label}</p><strong>{value}</strong><small>{note}</small></article>
 }
 
-const statusValues: [Status, number, number][] = [['Gerando', 14, 22], ['Planejando', 26, 41], ['Enviado', 43, 68], ['Ajuste', 8, 30], ['Aprovado', 34, 53], ['Perdido', 11, 17]]
+const statusValues: [Status, number, number][] = [['Gerando', 14, 22], ['GerandoProjeto', 18, 30], ['ProjetoEnviado', 20, 35], ['Ajuste', 8, 30], ['Aprovado', 15, 25], ['EmProducao', 12, 20], ['Entrega', 6, 12], ['Concluido', 20, 40], ['Perdido', 11, 17]]
 const tipoOrcamentoOptions: ComboOption[] = [
   { value: 'Obra', label: 'Obra', meta: 'produtos e serviços' },
   { value: 'Projeto', label: 'Projeto', meta: 'produtos e serviços' },
@@ -368,8 +368,8 @@ const perfilOptions: ComboOption[] = [{ value: 'vendedor', label: 'Vendedor' }, 
 const statusOptions: ComboOption[] = statusValues.map(([status]) => ({ value: status, label: status }))
 
 
-const backendStatusByColumn: Record<Status, string> = { Gerando: 'Gerando orçamento', Planejando: 'Planejando', Enviado: 'Orçamento gerado', Ajuste: 'Ajuste solicitado', Aprovado: 'Aprovado', Perdido: 'Orçamento negado' }
-const columnByBackendStatus: Record<string, Status> = { 'Gerando orçamento': 'Gerando', 'Planejando': 'Planejando', 'Orçamento gerado': 'Enviado', 'Ajuste solicitado': 'Ajuste', 'Aprovado': 'Aprovado', 'Orçamento negado': 'Perdido', 'Entregue': 'Aprovado', 'Faturado': 'Aprovado', 'Devolvido': 'Perdido' }
+const backendStatusByColumn: Record<Status, string> = { Gerando: 'Gerando orçamento', GerandoProjeto: 'Gerando projeto', ProjetoEnviado: 'Projeto enviado', Ajuste: 'Ajuste solicitado', Aprovado: 'Aprovado', EmProducao: 'Em produção', Entrega: 'Entrega', Concluido: 'Concluído', Perdido: 'Orçamento negado' }
+const columnByBackendStatus: Record<string, Status> = { 'Gerando orçamento': 'Gerando', 'Gerando projeto': 'GerandoProjeto', 'Projeto enviado': 'ProjetoEnviado', 'Ajuste solicitado': 'Ajuste', 'Aprovado': 'Aprovado', 'Em produção': 'EmProducao', 'Entrega': 'Entrega', 'Concluído': 'Concluido', 'Orçamento negado': 'Perdido', 'Faturado': 'Concluido', 'Devolvido': 'Perdido' }
 function DailyGrossProfitChart({ vendas, lancamentos, loading }: { vendas: Venda[]; lancamentos: Lancamento[]; loading: boolean }) {
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
   const ontem = new Date(hoje); ontem.setDate(hoje.getDate() - 1)
@@ -385,7 +385,7 @@ function DailyGrossProfitChart({ vendas, lancamentos, loading }: { vendas: Venda
   const pontos = dias.map(dia => ({ dia, receita: receita(dia), lucro: receita(dia) - media }))
   const escala = Math.max(1, ...pontos.map(p => Math.max(Math.abs(p.receita), Math.abs(p.lucro), media)))
   const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' })
-  return <article className="card profit-card"><div className="card-title"><div><p className="eyebrow">FINANCEIRO · PROJEÇÃO DIÁRIA</p><h2>Lucro bruto diário</h2></div><span className="mono">MÉDIA DE DESPESAS · 30 DIAS</span></div><div className="profit-summary"><strong>{loading ? '...' : moeda.format(pontos[6].lucro)}</strong><span>estimativa de hoje</span><em>{loading ? '...' : `${moeda.format(media)} / dia em despesas médias`}</em></div><div className="profit-chart" aria-label="Gráfico de lucro bruto diário dos últimos sete dias">{pontos.map(p => <div className="profit-day" key={p.dia.toISOString()}><div className="profit-bars"><i style={{ height: `${Math.max(3, Math.round(Math.abs(p.receita) / escala * 100))}%` }} title={`Receitas: ${moeda.format(p.receita)}`} /><b className={p.lucro < 0 ? 'negative' : ''} style={{ height: `${Math.max(3, Math.round(Math.abs(p.lucro) / escala * 100))}%` }} title={`Lucro: ${moeda.format(p.lucro)}`} /></div><span>{new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(p.dia).replace('.', '')}</span><small>{p.dia.getDate()}</small></div>)}</div><footer className="profit-legend"><span><i className="revenue-key" />Receitas</span><span><i className="profit-key" />Lucro projetado</span><span><i className="expense-key" />Despesa média: {moeda.format(media)}/dia</span></footer></article>
+  return <article className="card profit-card"><div className="card-title"><div><p className="eyebrow">FINANCEIRO · PROJEÇÃO DIÁRIA</p><h2>Lucro bruto diário</h2></div><span className="mono">DIAS DO PERÍODO</span></div><div className="profit-summary"><strong>{loading ? '...' : moeda.format(pontos[pontos.length - 1].lucro)}</strong><span>resultado do último dia</span></div><div className="profit-chart profit-line-chart" aria-label="Gráfico de linha do lucro bruto diário"><svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img"><polyline points={pontos.map((p, index) => `${pontos.length === 1 ? 50 : index / (pontos.length - 1) * 100},${50 - (p.lucro / escala * 42)}`).join(' ')} /></svg><div className="profit-line-days">{pontos.map(p => <div className="profit-day" key={p.dia.toISOString()}><span>{new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(p.dia).replace('.', '')}</span><small>{p.dia.getDate()}</small></div>)}</div></div></article>
 }
 
 function DashboardWithOperations() {
@@ -395,18 +395,27 @@ function DashboardWithOperations() {
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [agendaOffset, setAgendaOffset] = useState(0)
+  const [materialIndex, setMaterialIndex] = useState(0)
   useEffect(() => { let mounted = true; Promise.all([listQuotes(), listInventoryProducts(), listCalendarEvents(), getSessionUser()]).then(([q, p, e, u]) => { if (!mounted) return; setQuotes(q); setProducts(p); setEvents(e); setUserName(String(u.nome || '').split(' ')[0]) }).catch(err => { if (mounted) setError(err instanceof Error ? err.message : 'Falha ao carregar o painel.') }).finally(() => { if (mounted) setLoading(false) }); return () => { mounted = false } }, [])
+  useEffect(() => { const timer = window.setInterval(() => setMaterialIndex(index => index + 1), 5000); return () => window.clearInterval(timer) }, [])
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+  const agendaBase = new Date(hoje); agendaBase.setDate(hoje.getDate() + agendaOffset)
   const proximos = events.filter(e => new Date(e.start) >= hoje).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()).slice(0, 5)
   const entregas = proximos.filter(e => e.tipo.toLowerCase().includes('entrega'))
   const instalacoes = proximos.filter(e => e.tipo.toLowerCase().includes('instal'))
   const criticos = products.filter(p => p.quantidade_estoque <= p.estoque_minimo)
-  const producao = quotes.filter(q => ['Planejando', 'OrÃ§amento gerado', 'Ajuste solicitado'].includes(q.status))
-  const aprovados = quotes.filter(q => ['Aprovado', 'Entregue', 'Faturado'].includes(q.status))
+  const producao = quotes.filter(q => ['Gerando projeto', 'Projeto enviado', 'Ajuste solicitado'].includes(q.status))
+  const aprovados = quotes.filter(q => ['Aprovado', 'Em produção', 'Entrega', 'Concluído', 'Faturado'].includes(q.status))
   const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' })
   const curto = (v: string) => new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(v)).replace('.', '')
-  const label = (s: string) => ({ 'Planejando': 'Em produção', 'OrÃ§amento gerado': 'Aguardando cliente', 'Ajuste solicitado': 'Ajuste pendente' }[s] || s)
-  return <><PageHead eyebrow="OPERAÇÃO · MARMORARIA" title={userName ? `Bom dia, ${userName}.` : 'Bom dia.'} subtitle="Acompanhe o que precisa sair da bancada, do galpão e da obra hoje." actions={<><Button variant="secondary" onClick={() => { location.hash = 'schedule'; location.reload() }}>Ver agenda</Button><Button onClick={() => { location.hash = 'builder'; location.reload() }}>Novo orçamento</Button></>} />{error && <p className="form-error" role="alert">{error}</p>}<section className="kpi-grid dashboard-kpis"><Kpi label="EM PRODUÇÃO" value={loading ? '...' : String(producao.length)} note={`${moeda.format(producao.reduce((t, q) => t + (q.valor_total || 0), 0) / 100)} em pedidos`} /><Kpi label="ENTREGAS / 7 DIAS" value={loading ? '...' : String(entregas.length)} note={`${instalacoes.length} instalação${instalacoes.length === 1 ? '' : 'ões'} programada${instalacoes.length === 1 ? '' : 's'}`} /><Kpi label="ESTOQUE CRÍTICO" value={loading ? '...' : String(criticos.length)} note={criticos.length ? 'reposição necessária' : 'tudo dentro do mínimo'} /><Kpi dark label="PEDIDOS APROVADOS" value={loading ? '...' : String(aprovados.length)} note="prontos para o próximo passo" /></section><section className="dashboard-grid marmoraria-dashboard"><article className="card span-two production-card"><div className="card-title"><div><p className="eyebrow">CHÃO DE FÁBRICA</p><h2>Pedidos que pedem atenção</h2></div><button className="text-action" onClick={() => { location.hash = 'pipeline'; location.reload() }}>Abrir produção →</button></div>{producao.slice(0, 5).map(q => <div className="production-row" key={q.id}><span className="production-dot" /><div><b>{q.cliente_nome || 'Cliente sem nome'}</b><small>{q.itens?.[0]?.nome || q.tipo_orcamento} · {q.itens?.length || 0} item(ns)</small></div><Badge tone="info">{label(q.status)}</Badge><strong>{moeda.format((q.valor_total || 0) / 100)}</strong></div>)}{!producao.length && <p className="empty-state">Nenhum pedido em produção no momento.</p>}</article><article className="card attention-card"><div className="card-title"><h2>Próximos compromissos</h2><span className="mono">7 DIAS</span></div>{proximos.length ? <ul className="events">{proximos.map(e => <li key={e.id}><i className={e.tipo.toLowerCase().includes('entrega') ? 'success' : 'warning'} /><span><b>{e.tipo}</b><small>{e.cliente_nome || e.title}</small></span><em>{curto(e.start)}</em></li>)}</ul> : <p className="empty-state">Agenda livre nos próximos dias.</p>}</article><article className="card stock-card"><div className="card-title"><div><p className="eyebrow">GALPÃO</p><h2>Estoque para repor</h2></div><button className="text-action" onClick={() => { location.hash = 'inventory'; location.reload() }}>Ver estoque →</button></div>{criticos.slice(0, 4).map(p => <div className="stock-row" key={p.id}><span className="material-chip">{(p.material || p.tipo || 'MP').slice(0, 2).toUpperCase()}</span><div><b>{p.nome}</b><small>{p.material || 'Matéria-prima'}</small></div><strong>{p.quantidade_estoque} <small>un.</small></strong></div>)}{!criticos.length && <p className="empty-state">Nenhum item abaixo do mínimo.</p>}</article><article className="card calendar"><div className="card-title"><div><p className="eyebrow">CAPACIDADE DA SEMANA</p><h2>Entregas e instalações</h2></div><span className="mono">{entregas.length + instalacoes.length} AGENDA(S)</span></div><div className="week marmoraria-week">{Array.from({ length: 7 }, (_, i) => { const d = new Date(hoje); d.setDate(hoje.getDate() + i); const day = events.filter(e => new Date(e.start).toDateString() === d.toDateString()); return <div className={i === 0 ? 'today' : ''} key={d.toISOString()}><span>{new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(d).replace('.', '').toUpperCase()} {d.getDate()}</span>{day.map(e => <b className={e.tipo.toLowerCase().includes('entrega') ? 'sage' : 'gold'} key={e.id}>{e.tipo} · {e.cliente_nome || e.title}</b>)}</div> })}</div></article></section></>
+  const label = (s: string) => ({ 'Gerando projeto': 'Montando projeto', 'Projeto enviado': 'Aguardando cliente', 'Ajuste solicitado': 'Ajuste pendente' }[s] || s)
+  const vendasCount = aprovados.length
+  const faturamento = aprovados.reduce((total, q) => total + (q.valor_total || 0), 0) / 100
+  const ticket = vendasCount ? faturamento / vendasCount : 0
+  const materiais = Array.from(new Set(products.map(p => p.material).filter(Boolean))) as string[]
+  const materialAtual = materiais[materialIndex % Math.max(1, materiais.length)] || 'Sem material'
+  return <><PageHead eyebrow="OPERAÇÃO · MARMORARIA" title={userName ? `Bom dia, ${userName}.` : 'Bom dia.'} subtitle="Acompanhe o que precisa sair da bancada, do galpão e da obra hoje." actions={<><Button variant="secondary" onClick={() => { location.hash = 'schedule'; location.reload() }}>Ver agenda</Button><Button onClick={() => { location.hash = 'builder'; location.reload() }}>Novo orçamento</Button></>} />{error && <p className="form-error" role="alert">{error}</p>}<section className="dashboard-filters" aria-label="Filtros do dashboard"><select aria-label="Ano"><option>2026</option></select><select aria-label="Mês"><option>Todos os meses</option></select><select aria-label="Semana"><option>Todas as semanas</option></select><select aria-label="Dia"><option>Todos os dias</option></select><select aria-label="Cliente"><option>Todos os clientes</option></select><select aria-label="Serviço"><option>Todos os serviços</option></select><select aria-label="Material"><option>Todos os materiais</option></select><select aria-label="Entrega"><option value="">Entrega: todos</option><option>Sim</option><option>Não</option></select></section><section className="kpi-grid dashboard-kpis"><Kpi label="LUCRO BRUTO" value={loading ? '...' : moeda.format(faturamento)} note="vendas aprovadas" /><Kpi label="QTD. VENDAS" value={loading ? '...' : String(vendasCount)} note="vendas no período · hoje: 0" /><Kpi label="TICKET MÉDIO" value={loading ? '...' : moeda.format(ticket)} note="por venda" /><Kpi dark label="ESTOQUE CRÍTICO" value={loading ? '...' : String(criticos.length)} note={criticos.length ? 'reposição necessária' : 'tudo dentro do mínimo'} /></section><section className="dashboard-grid marmoraria-dashboard"><article className="card span-two production-card"><div className="card-title"><div><p className="eyebrow">CHÃO DE FÁBRICA</p><h2>Pedidos que pedem atenção</h2></div><button className="text-action" onClick={() => { location.hash = 'pipeline'; location.reload() }}>Abrir produção →</button></div>{producao.slice(0, 5).map(q => <div className="production-row" key={q.id}><span className="production-dot" /><div><b>{q.cliente_nome || 'Cliente sem nome'}</b><small>{q.itens?.[0]?.nome || q.tipo_orcamento} · {q.itens?.length || 0} item(ns)</small></div><Badge tone="info">{label(q.status)}</Badge><strong>{moeda.format((q.valor_total || 0) / 100)}</strong></div>)}{!producao.length && <p className="empty-state">Nenhum pedido em produção no momento.</p>}</article><article className="card attention-card"><div className="card-title"><h2>Próximos compromissos</h2><span className="mono">7 DIAS</span></div>{proximos.length ? <ul className="events">{proximos.map(e => <li key={e.id}><i className={e.tipo.toLowerCase().includes('entrega') ? 'success' : 'warning'} /><span><b>{e.tipo}</b><small>{e.cliente_nome || e.title}</small></span><em>{curto(e.start)}</em></li>)}</ul> : <p className="empty-state">Agenda livre nos próximos dias.</p>}</article><article className="card stock-card"><div className="card-title"><div><p className="eyebrow">GALPÃO</p><h2>Estoque para repor</h2></div><button className="text-action" onClick={() => { location.hash = 'inventory'; location.reload() }}>Ver estoque →</button></div>{criticos.slice(0, 4).map(p => <div className="stock-row" key={p.id}><span className="material-chip">{(p.material || p.tipo || 'MP').slice(0, 2).toUpperCase()}</span><div><b>{p.nome}</b><small>{p.material || 'Matéria-prima'}</small></div><strong>{p.quantidade_estoque} <small>un.</small></strong></div>)}{!criticos.length && <p className="empty-state">Nenhum item abaixo do mínimo.</p>}</article><article className="card calendar"><div className="card-title"><div><p className="eyebrow">CAPACIDADE DA SEMANA</p><h2>Entregas e instalações</h2></div><div className="calendar-nav"><button aria-label="Dias anteriores" onClick={() => setAgendaOffset(value => value - 1)}>‹</button><span className="mono">{entregas.length + instalacoes.length} AGENDA(S)</span><button aria-label="Dias posteriores" onClick={() => setAgendaOffset(value => value + 1)}>›</button></div></div><div className="week marmoraria-week">{Array.from({ length: 7 }, (_, i) => { const d = new Date(agendaBase); d.setDate(agendaBase.getDate() + i); const day = events.filter(e => new Date(e.start).toDateString() === d.toDateString()); return <div className={i === 0 && agendaOffset === 0 ? 'today' : ''} key={d.toISOString()}><span>{new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(d).replace('.', '').toUpperCase()} {d.getDate()}</span>{day.map(e => <b className={e.tipo.toLowerCase().includes('entrega') ? 'sage' : 'gold'} key={e.id}>{e.tipo} · {e.cliente_nome || e.title}</b>)}</div> })}</div></article><article className="card material-carousel"><div className="card-title"><div><p className="eyebrow">FATURAMENTO BRUTO · MÊS</p><h2>{materialAtual}</h2></div><span className="material-trend up">▲ 0,0%</span></div><strong>{moeda.format(faturamento / Math.max(1, materiais.length))}</strong><small>comparado ao mês anterior · atualização automática</small></article></section></>
 }
 
 function Dashboard() {
@@ -536,7 +545,7 @@ function Pipeline() {
   function statusAtPoint(x: number, y: number) {
     const column = document.elementFromPoint(x, y)?.closest<HTMLElement>('.kanban-col')
     const className = column?.className.split(' ').find(name => name !== 'kanban-col')
-    return className ? ({ gerando: 'Gerando', planejando: 'Planejando', enviado: 'Enviado', ajuste: 'Ajuste', aprovado: 'Aprovado', perdido: 'Perdido' } as Record<string, Status>)[className] || null : null
+    return className ? ({ gerando: 'Gerando', gerandoprojeto: 'GerandoProjeto', projetoenviado: 'ProjetoEnviado', ajuste: 'Ajuste', aprovado: 'Aprovado', emproducao: 'EmProducao', entrega: 'Entrega', concluido: 'Concluido', perdido: 'Perdido' } as Record<string, Status>)[className] || null : null
   }
 
   function beginDrag(event: ReactPointerEvent<HTMLElement>, card: KanbanQuote) {
@@ -636,7 +645,7 @@ function leDecimal(valor: string): number | null {
 }
 
 /** Status em que o orcamento ja virou compromisso: editar alteraria venda faturada. */
-const STATUS_FECHADOS = ['Aprovado', 'Entregue', 'Devolvido', 'Faturado']
+const STATUS_FECHADOS = ['Aprovado', 'Em produção', 'Entrega', 'Concluído', 'Devolvido', 'Faturado']
 
 type BuilderItem = {
   key: string; productId: number | null; servicoId: number | null; servicoComponenteId: number | null
@@ -644,14 +653,13 @@ type BuilderItem = {
   isExternal: boolean; projetoItemId: number | null
   localId: number | null; localInstalacao: string | null
   unidadeMedida: UnidadeMedida; comprimento: number | null; largura: number | null
-  acrescimo: number; desconto: number
   descricaoExterna: string | null; fornecedorExterno: string | null
   fotoExternaUrl: string | null; personalizacao: string | null
   prazoValor: number | null; prazoUnidade: string | null
 }
 const itemVazio = {
   servicoId: null, servicoComponenteId: null, localId: null, localInstalacao: null,
-  unidadeMedida: 'un' as UnidadeMedida, comprimento: null, largura: null, acrescimo: 0, desconto: 0,
+  unidadeMedida: 'un' as UnidadeMedida, comprimento: null, largura: null,
   descricaoExterna: null, fornecedorExterno: null, fotoExternaUrl: null, personalizacao: null,
   prazoValor: null, prazoUnidade: null,
 }
@@ -673,7 +681,7 @@ function totalDoItem(item: BuilderItem): number {
   if (item.unidadeMedida === 'm2') base = Math.round((area ?? 0) * item.unitPrice)
   else if (item.unidadeMedida === 'linear') base = Math.round((item.comprimento ?? 0) * item.unitPrice)
   else base = item.quantity * item.unitPrice
-  return base + (item.acrescimo || 0) - (item.desconto || 0)
+  return base
 }
 
 /** Traduz o item que a API devolve para o formato do construtor, sem perder campo nenhum. */
@@ -692,8 +700,6 @@ function itemDaApi(item: QuoteItem, indice: number): BuilderItem {
     unidadeMedida: item.unidade_medida ?? 'un',
     comprimento: item.comprimento_m ?? null,
     largura: item.largura_m ?? null,
-    acrescimo: item.acrescimo_centavos ?? 0,
-    desconto: item.desconto_centavos ?? 0,
     localInstalacao: item.local_instalacao ?? null,
     descricaoExterna: item.descricao_externa ?? null,
     fornecedorExterno: item.fornecedor_externo ?? null,
@@ -710,8 +716,8 @@ type ValidationRow = { projetoItemId: number; nome: string; quantidade: number; 
  * em texto evita o que o usuário viu: botão morto sem explicação, ou 400 depois do clique.
  */
 function motivoSemPortal(quote: QuoteData): string | null {
-  if (!['Orçamento gerado', 'Ajuste solicitado'].includes(quote.status)) {
-    return `Disponível quando o orçamento estiver em Enviado ou Ajuste — hoje está em "${quote.status}".`
+  if (!['Projeto enviado', 'Ajuste solicitado'].includes(quote.status)) {
+    return `Disponível quando o orçamento estiver em Projeto enviado ou Ajuste — hoje está em "${quote.status}".`
   }
   if (!quote.cliente_email?.trim()) return 'O cliente não tem e-mail cadastrado; o link é enviado por e-mail.'
   return null
@@ -1274,8 +1280,6 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
       local_instalacao: item.localInstalacao,
       comprimento_m: item.comprimento,
       largura_m: item.largura,
-      acrescimo_centavos: item.acrescimo,
-      desconto_centavos: item.desconto,
       prazo_entrega_valor: item.prazoValor,
       prazo_entrega_unidade: item.prazoUnidade,
       projeto_item_id: item.projetoItemId,
@@ -1438,7 +1442,7 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
   }
 
   return <><PageHead eyebrow={quoteIdRota ? `ORC-${String(quoteIdRota).padStart(4, '0')} · EDIÇÃO` : quoteId ? `ORC-${String(quoteId).padStart(4, '0')} · RASCUNHO` : 'NOVO ORÇAMENTO · RASCUNHO'} title={`${selectedClientName} — orçamento`} actions={<><Badge>Gerando</Badge><Button variant="secondary" onClick={() => saveQuote()} loading={saving} disabled={Boolean(quoteIdRota) && !carregouParaEditar} title={quoteIdRota && !carregouParaEditar ? 'Aguardando o orçamento carregar.' : undefined}>{saving ? 'Salvando…' : quoteIdRota ? 'Salvar alterações' : 'Salvar rascunho'}</Button><Button onClick={regeneratePdf}>Gerar PDF e enviar</Button></>} />{error && <p className="form-error" role="alert">{error}</p>}{loading ? <article className="card" style={{ padding: 20 }}><Skeleton rows={4} label="Carregando clientes e catálogo" /></article> : <form onSubmit={saveQuote}><div className="builder"><div><article className="card fields">
-              <label>Cliente<Combobox ariaLabel="Cliente" placeholder="Selecione um cliente…" searchPlaceholder="Buscar cliente…" options={clientsList.map(client => ({ value: String(client.id), label: client.nome_fantasia, meta: client.cpf_cnpj || undefined }))} value={selectedClient === '' ? '' : String(selectedClient)} onChange={valor => setSelectedClient(valor ? Number(valor) : '')} /></label>
+              <label className="client-field">Cliente<Combobox ariaLabel="Cliente" placeholder="Selecione um cliente…" searchPlaceholder="Buscar cliente…" options={clientsList.map(client => ({ value: String(client.id), label: client.nome_fantasia, meta: client.cpf_cnpj || undefined }))} value={selectedClient === '' ? '' : String(selectedClient)} onChange={valor => setSelectedClient(valor ? Number(valor) : '')} /></label>
               <div className="campo-modalidade">
                 <span className="item-detalhe-rotulo">Modalidade</span>
                 <div className="segmented" role="group" aria-label="Modalidade da venda">
@@ -1470,7 +1474,7 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
                 <th><input type="checkbox" aria-label="Selecionar todos os itens" ref={marcarTodos} checked={items.length > 0 && selecionados.size === items.length} onChange={alternaTodos} /></th>
                 <th>CÓD.</th><th>LOCAL</th><th className="num">QTD</th><th>DESCRIÇÃO</th><th>TIPO</th>
                 <th className="num">COMP. (m)</th><th className="num">LARG. (m)</th><th className="num">M²</th>
-                <th className="num">ACRÉSC.</th><th className="num">DESC.</th><th className="num">TOTAL</th><th/>
+                <th className="num">TOTAL</th><th/>
               </tr></thead><tbody>{items.map((item, indice) => { const aberto = itemAberto === item.key; return <Fragment key={item.key}>
                <tr className={aberto ? 'editing' : ''}>
                 <td><input type="checkbox" aria-label={`Selecionar ${item.name}`} checked={selecionados.has(item.key)} onChange={() => alternaSelecao(item.key)} /></td>
@@ -1487,12 +1491,10 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
                 <td className="num">{item.unidadeMedida !== 'm2' ? <i className="celula-na" title="Não medido em m²">—</i>
                   : <input className="celula-num" type="text" inputMode="decimal" aria-label={`Largura de ${item.name}`} value={item.largura ?? ''} placeholder="0,00" onChange={e => atualizaItem(item.key, { largura: leDecimal(e.target.value) })} />}</td>
                 <td className="num">{item.unidadeMedida === 'm2' ? (areaDoItem(item) !== null ? areaDoItem(item)!.toFixed(2) : <i className="celula-na">—</i>) : <i className="celula-na">—</i>}</td>
-                <td className="num"><input className="celula-num" type="text" inputMode="decimal" aria-label={`Acréscimo de ${item.name}`} value={(item.acrescimo / 100).toFixed(2)} onChange={e => atualizaItem(item.key, { acrescimo: Math.round((leDecimal(e.target.value) ?? 0) * 100) })} /></td>
-                <td className="num"><input className="celula-num" type="text" inputMode="decimal" aria-label={`Desconto de ${item.name}`} value={(item.desconto / 100).toFixed(2)} onChange={e => atualizaItem(item.key, { desconto: Math.round((leDecimal(e.target.value) ?? 0) * 100) })} /></td>
                 <td className="num"><b>{money(totalDoItem(item))}</b></td>
                 <td><button type="button" className="item-remover" aria-label={`Remover ${item.name}`} onClick={() => removerItem(item)}>−</button></td>
               </tr>
-              {aberto && <tr className="linha-detalhe"><td colSpan={13}><div className="item-detalhe">
+              {aberto && <tr className="linha-detalhe"><td colSpan={11}><div className="item-detalhe">
                 <label>Unidade de medida<Combobox ariaLabel="Unidade de medida" options={UNIDADE_OPTIONS} value={item.unidadeMedida} onChange={valor => atualizaItem(item.key, { unidadeMedida: valor as UnidadeMedida })}/></label>
                 <label>Preço unitário ({UNIDADE_PRECO_ROTULO[item.unidadeMedida]})<input type="number" min="0" step="0.01" value={(item.unitPrice / 100).toFixed(2)} onChange={event => atualizaItem(item.key, { unitPrice: Math.round(Number(event.target.value || 0) * 100) })}/></label>
                 <label>Prazo de entrega<input type="number" min="0" step="1" value={item.prazoValor ?? ''} placeholder="0" onChange={event => atualizaItem(item.key, { prazoValor: event.target.value ? Number(event.target.value) : null })}/></label>
@@ -1518,7 +1520,7 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
                 </>}
               </div></td></tr>}
             </Fragment> })}
-            {!items.length && <tr className="linha-vazia"><td colSpan={13}>
+            {!items.length && <tr className="linha-vazia"><td colSpan={11}>
               <EmptyState title="Nenhum item no orçamento" description="Puxe do catálogo, crie um item livre ou importe de um projeto." action={<Button variant="secondary" onClick={() => { setNovoProduto(''); setItemModal('catalog') }}>Do catálogo</Button>} />
             </td></tr>}
             </tbody></table></div></article>

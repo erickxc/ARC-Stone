@@ -49,7 +49,7 @@ def test_voltar_status_cancela_lancamento_automatico_pendente(client, make_user,
     orcamento_id = _criar_orcamento_com_item(client, cliente.id, produto.id)
     client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Aprovado"})
 
-    voltou = client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Planejando"})
+    voltou = client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Gerando projeto"})
     assert voltou.status_code == 200, voltou.text
 
     _login(client, admin)
@@ -96,7 +96,7 @@ def test_lancamento_pago_nao_e_cancelado_ao_voltar_status(client, make_user, mak
     assert pago.status_code == 200, pago.text
 
     _login(client, vendedor)
-    client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Planejando"})
+    client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Gerando projeto"})
 
     _login(client, admin)
     lancamentos_depois = client.get("/financeiro/lancamentos", params={"tipo": "ENTRADA"}).json()

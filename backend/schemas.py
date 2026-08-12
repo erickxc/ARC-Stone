@@ -257,8 +257,6 @@ def calcular_total_linha(
     preco_unitario: int,
     area_m2: Optional[float],
     comprimento_m: Optional[float],
-    acrescimo_centavos: int = 0,
-    desconto_centavos: int = 0,
 ) -> int:
     """Total de uma linha do orçamento, em centavos.
 
@@ -280,7 +278,7 @@ def calcular_total_linha(
     else:
         base = Decimal(quantidade) * Decimal(preco_unitario)
     total = base.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    return int(total) + (acrescimo_centavos or 0) - (desconto_centavos or 0)
+    return int(total)
 
 
 class OrcamentoItemCreate(BaseModel):
@@ -296,8 +294,6 @@ class OrcamentoItemCreate(BaseModel):
     local_instalacao: Optional[str] = None  # legado; itens novos usam local_id
     comprimento_m: Optional[float] = Field(None, ge=0)
     largura_m: Optional[float] = Field(None, ge=0)
-    acrescimo_centavos: int = Field(0, ge=0)
-    desconto_centavos: int = Field(0, ge=0)
     is_externo: bool = False
     nome_externo: Optional[str] = None
     descricao_externa: Optional[str] = None
@@ -331,7 +327,7 @@ class OrcamentoItemCreate(BaseModel):
         return self
 
     def base_centavos(self) -> int:
-        """Valor da linha antes de acréscimo e desconto."""
+        """Valor da linha, em centavos."""
         area = (self.comprimento_m * self.largura_m) if (self.comprimento_m and self.largura_m) else None
         return calcular_total_linha(
             unidade_medida=self.unidade_medida,
@@ -340,18 +336,6 @@ class OrcamentoItemCreate(BaseModel):
             area_m2=area,
             comprimento_m=self.comprimento_m,
         )
-
-    @model_validator(mode="after")
-    def validar_desconto_nao_excede_linha(self):
-        """Desconto maior que a linha viraria total negativo, que entra no ledger
-        financeiro e no valor congelado da Venda como crédito inventado."""
-        teto = self.base_centavos() + self.acrescimo_centavos
-        if self.desconto_centavos > teto:
-            raise ValueError(
-                f"Desconto de R$ {self.desconto_centavos / 100:.2f} excede o valor da linha "
-                f"(R$ {teto / 100:.2f})."
-            )
-        return self
 
 
 class OrcamentoItemOut(BaseModel):
@@ -374,8 +358,6 @@ class OrcamentoItemOut(BaseModel):
     local_instalacao: Optional[str] = None
     comprimento_m: Optional[float] = None
     largura_m: Optional[float] = None
-    acrescimo_centavos: int = 0
-    desconto_centavos: int = 0
     is_externo: bool = False
     nome_externo: Optional[str] = None
     descricao_externa: Optional[str] = None
@@ -428,11 +410,9 @@ class OrcamentoCreate(BaseModel):
 
     @model_validator(mode="after")
     def validar_desconto_global(self):
-        """Mesma razão do desconto de linha: total negativo vira crédito inventado."""
-        total_itens = sum(
-            item.base_centavos() + item.acrescimo_centavos - item.desconto_centavos
-            for item in self.itens
-        )
+        """Desconto de fechamento maior que o total dos itens viraria total negativo,
+        que entra no ledger financeiro e no valor congelado da Venda como crédito inventado."""
+        total_itens = sum(item.base_centavos() for item in self.itens)
         if self.desconto_global_centavos > total_itens:
             raise ValueError(
                 f"Desconto de fechamento de R$ {self.desconto_global_centavos / 100:.2f} excede "

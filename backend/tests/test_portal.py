@@ -33,7 +33,7 @@ def _proposta_fake():
     return SimpleNamespace(
         id=42,
         tipo_orcamento="Peça",
-        status="Orçamento gerado",
+        status="Projeto enviado",
         cliente=SimpleNamespace(nome_fantasia="Cliente Teste"),
         itens=[item],
         anexos=[anexo],
@@ -73,7 +73,7 @@ def test_resposta_publica_e_lista_branca_sem_custo_ou_fornecedor():
 
 
 def test_status_publico_nao_expoe_kanban_interno():
-    assert STATUS_PUBLICO["Orçamento gerado"] == "Aguardando sua aprovação"
+    assert STATUS_PUBLICO["Projeto enviado"] == "Aguardando sua aprovação"
     assert STATUS_PUBLICO["Orçamento negado"] == "Encerrada"
 
 

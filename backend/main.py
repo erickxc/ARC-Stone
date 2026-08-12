@@ -262,12 +262,14 @@ def on_startup():
             ("codigo_item", "INTEGER"),
             ("comprimento_m", "NUMERIC(10,2)"), ("largura_m", "NUMERIC(10,2)"), ("area_m2", "NUMERIC(10,2)"),
             ("unidade_medida", "VARCHAR NOT NULL DEFAULT 'un'"),
-            ("acrescimo_centavos", "INTEGER NOT NULL DEFAULT 0"),
-            ("desconto_centavos", "INTEGER NOT NULL DEFAULT 0"),
             ("servico_componente_id", "INTEGER REFERENCES servico_componentes(id)"),
             ("grupo_id", "VARCHAR"),
         ]:
             conn.execute(text(f"ALTER TABLE orcamento_itens ADD COLUMN IF NOT EXISTS {coluna} {tipo}"))
+        # Marmoraria não desconta/acrescenta por linha, só no fechamento do orçamento
+        # (desconto_global_centavos): remove as colunas por item que existiram até aqui.
+        conn.execute(text("ALTER TABLE orcamento_itens DROP COLUMN IF EXISTS acrescimo_centavos"))
+        conn.execute(text("ALTER TABLE orcamento_itens DROP COLUMN IF EXISTS desconto_centavos"))
         # Itens legados não têm código: numera por orçamento, na ordem de inserção.
         conn.execute(text(
             "UPDATE orcamento_itens oi SET codigo_item = seq.rn FROM ("
@@ -293,6 +295,27 @@ def on_startup():
         # desenvolvimento: converte em vez de manter valores órfãos fora do novo Literal.
         conn.execute(text("UPDATE orcamentos SET tipo_orcamento = 'Peça' WHERE tipo_orcamento IN ('Venda', 'Locacao', 'Locação')"))
         conn.execute(text("UPDATE orcamentos SET tipo_orcamento = 'Obra' WHERE tipo_orcamento IN ('Producao', 'Produção')"))
+        # Funil de status renomeado/expandido: reaproveita os orçamentos já gravados com os nomes antigos.
+        conn.execute(text("UPDATE orcamentos SET status = 'Gerando projeto' WHERE status = 'Planejando'"))
+        conn.execute(text("UPDATE orcamentos SET status = 'Projeto enviado' WHERE status = 'Orçamento gerado'"))
+        conn.execute(text("UPDATE orcamentos SET status = 'Entrega' WHERE status = 'Entregue'"))
+        # Esteira de produção: funil expandido de 5 para 8 etapas. Built-in nunca é excluído
+        # (regra do CatalogoSimplesMixin) — renomeia/reordena as existentes para a mais
+        # parecida e insere só as que não tinham equivalente. Só roda em bancos que já
+        # tinham etapas antes desta mudança; banco novo nasce direto com as 8 via
+        # `_semear_catalogos`, então os UPDATEs abaixo não encontram nada pra alterar.
+        if conn.execute(text("SELECT EXISTS(SELECT 1 FROM etapas_producao)")).scalar():
+            conn.execute(text("UPDATE etapas_producao SET nome = 'Em Análise', ordem = 2 WHERE nome = 'Medição'"))
+            conn.execute(text("UPDATE etapas_producao SET ordem = 4 WHERE nome = 'Corte'"))
+            conn.execute(text("UPDATE etapas_producao SET ordem = 5 WHERE nome = 'Acabamento'"))
+            conn.execute(text("UPDATE etapas_producao SET nome = 'Entrega', ordem = 7 WHERE nome = 'Instalação'"))
+            conn.execute(text("UPDATE etapas_producao SET ordem = 8 WHERE nome = 'Concluído'"))
+            for nome_etapa, ordem_etapa in [("Projeto", 1), ("Aguardando material", 3), ("Ajustes", 6)]:
+                conn.execute(text(
+                    "INSERT INTO etapas_producao (nome, ordem, ativo, built_in, is_final) "
+                    "SELECT :nome, :ordem, true, true, false "
+                    "WHERE NOT EXISTS (SELECT 1 FROM etapas_producao WHERE nome = :nome)"
+                ), {"nome": nome_etapa, "ordem": ordem_etapa})
 
     db = database.SessionLocal()
     try:
@@ -363,8 +386,9 @@ def _semear_catalogos(db):
         # Sequência padrão de uma marmoraria. `ordem` é a sequência da esteira, não só
         # exibição; a última etapa fecha a ordem (is_final).
         padroes = [
-            ("Medição", False), ("Corte", False), ("Acabamento", False),
-            ("Instalação", False), ("Concluído", True),
+            ("Projeto", False), ("Em Análise", False), ("Aguardando material", False),
+            ("Corte", False), ("Acabamento", False), ("Ajustes", False),
+            ("Entrega", False), ("Concluído", True),
         ]
         db.add_all([
             EtapaProducao(nome=nome, ordem=i, ativo=True, built_in=True, is_final=final)

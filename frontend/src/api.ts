@@ -200,8 +200,6 @@ export interface QuoteItem {
   unidade_medida?: UnidadeMedida
   comprimento_m?: number | null
   largura_m?: number | null
-  acrescimo_centavos?: number
-  desconto_centavos?: number
   is_externo?: boolean
   nome_externo?: string | null
   descricao_externa?: string | null
