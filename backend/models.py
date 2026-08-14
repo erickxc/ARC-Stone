@@ -56,7 +56,10 @@ class Produto(Base):
     quantidade_estoque = Column(Integer, default=0, nullable=False)
     quantidade_retida = Column(Integer, default=0, nullable=False)
     preco_custo = Column(Integer, nullable=False) # em centavos
-    preco_venda = Column(Integer, nullable=False) # em centavos
+    preco_venda = Column(Integer, nullable=False) # em centavos — preço "reto" (acabamento base)
+    # Preço quando vendido com acabamento "trabalhado" (borda perfilada, acabamento extra).
+    # Nulo = a pedra só é vendida no acabamento reto.
+    preco_venda_trabalhado = Column(Integer, nullable=True) # em centavos
     fornecedor_id = Column(Integer, ForeignKey("fornecedores.id"), nullable=True)
     dimensionamento = Column(String, nullable=True) # Legado, manter para compatibilidade temporária
     comprimento = Column(Float, nullable=True)

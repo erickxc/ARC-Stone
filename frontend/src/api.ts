@@ -7,6 +7,9 @@ export interface Product {
   material: string | null
   quantidade_estoque: number
   preco_venda: number
+  /** Preço quando vendido "trabalhado" (borda perfilada etc). Nulo = só existe o reto. */
+  preco_venda_trabalhado: number | null
+  foto_url: string | null
   estoque_minimo: number
   is_catalogo: boolean
   ativo: boolean
@@ -817,7 +820,7 @@ export function consultarCep(cep: string) {
   return request<CepLookup>(`/clientes/cep/${cep.replace(/\D/g, '')}`)
 }
 
-export function createCatalogProduct(input: { nome: string; tipo: string; material?: string; preco_venda: number }) {
+export function createCatalogProduct(input: { nome: string; tipo: string; material?: string; preco_venda: number; preco_venda_trabalhado?: number | null; foto_url?: string | null }) {
   return request<Product>('/estoque/produtos', {
     method: 'POST',
     body: JSON.stringify({
@@ -831,7 +834,7 @@ export function createCatalogProduct(input: { nome: string; tipo: string; materi
   })
 }
 
-export function updateProduct(id: number, input: { nome?: string; tipo?: string | null; material?: string | null; preco_venda?: number; estoque_minimo?: number; ativo?: boolean }) {
+export function updateProduct(id: number, input: { nome?: string; tipo?: string | null; material?: string | null; preco_venda?: number; preco_venda_trabalhado?: number | null; foto_url?: string | null; estoque_minimo?: number; ativo?: boolean }) {
   return request<Product>(`/estoque/produtos/${id}`, { method: 'PUT', body: JSON.stringify(input) })
 }
 

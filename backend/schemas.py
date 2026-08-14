@@ -96,8 +96,9 @@ class ProdutoCreate(BaseModel):
     foto_url: Optional[str] = None
     quantidade_estoque: int = 0
     quantidade_retida: int = 0
-    preco_custo: int 
-    preco_venda: int 
+    preco_custo: int
+    preco_venda: int
+    preco_venda_trabalhado: Optional[int] = None
     fornecedor_id: Optional[int] = None
     dimensionamento: Optional[str] = None
     comprimento: Optional[float] = None
@@ -131,6 +132,7 @@ class ProdutoUpdate(BaseModel):
     quantidade_retida: Optional[int] = None
     preco_custo: Optional[int] = None
     preco_venda: Optional[int] = None
+    preco_venda_trabalhado: Optional[int] = None
     fornecedor_id: Optional[int] = None
     dimensionamento: Optional[str] = None
     comprimento: Optional[float] = None

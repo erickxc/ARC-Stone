@@ -316,6 +316,9 @@ def on_startup():
                     "SELECT :nome, :ordem, true, true, false "
                     "WHERE NOT EXISTS (SELECT 1 FROM etapas_producao WHERE nome = :nome)"
                 ), {"nome": nome_etapa, "ordem": ordem_etapa})
+        # Acabamento "trabalhado" é preço, não produto separado: uma pedra tem preco_venda
+        # (reto) e opcionalmente preco_venda_trabalhado, em vez de duas linhas no catálogo.
+        conn.execute(text("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS preco_venda_trabalhado INTEGER"))
 
     db = database.SessionLocal()
     try:

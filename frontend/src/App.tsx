@@ -1186,6 +1186,7 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
   const [quoteId, setQuoteId] = useState<number | null>(null)
   const [itemModal, setItemModal] = useState<'catalog'|'free'|'project'|'project-validate'|'servico'|null>(null)
   const [novoProduto, setNovoProduto] = useState('')
+  const [acabamento, setAcabamento] = useState<'reto' | 'trabalhado'>('reto')
   // Editando: enquanto o orçamento não carregar, salvar criaria um DUPLICADO em vez de atualizar.
   const [carregouParaEditar, setCarregouParaEditar] = useState(false)
   const [itemAberto, setItemAberto] = useState<string | null>(null)
@@ -1434,7 +1435,9 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
 
   function addCatalogItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget); const product = productsList.find(item => item.id === Number(form.get('produto_id'))); if (!product) return
-    setItems(current => [...current, { key: `product-${product.id}-${Date.now()}`, productId: product.id, name: product.nome, quantity: Number(form.get('quantidade') || 1), unitPrice: product.preco_venda, isExternal: false, projetoItemId: null, ...itemVazio }]); setItemModal(null)
+    const usarTrabalhado = form.get('acabamento') === 'trabalhado' && product.preco_venda_trabalhado != null
+    const preco = usarTrabalhado ? product.preco_venda_trabalhado! : product.preco_venda
+    setItems(current => [...current, { key: `product-${product.id}-${Date.now()}`, productId: product.id, name: product.nome, quantity: Number(form.get('quantidade') || 1), unitPrice: preco, isExternal: false, projetoItemId: null, ...itemVazio }]); setItemModal(null)
   }
 
   function addFreeItem(event: FormEvent<HTMLFormElement>) {
@@ -1535,7 +1538,7 @@ function Builder({ quoteId: quoteIdRota }: { quoteId?: number } = {}) {
               <label>Desconto de fechamento (R$)<input type="number" min="0" step="0.01" value={(descontoGlobal / 100).toFixed(2)} onChange={event => setDescontoGlobal(Math.round(Number(event.target.value || 0) * 100))} /></label>
               <p className="checkout-total"><span>{items.length} {items.length === 1 ? 'item' : 'itens'}</span><strong>{money(totalOrcamento)}</strong></p>
             </article>}
-          </div><aside><article className="card total-card"><p className="mono">TOTAL DA PROPOSTA</p><strong>{money(totalOrcamento)}</strong><dl><dt>Itens</dt><dd>{items.length}</dd><dt>Cliente</dt><dd>{selectedClientName}</dd><dt>Tipo</dt><dd>{quoteType}</dd>{descontoGlobal > 0 && <><dt>Desconto</dt><dd>−{money(descontoGlobal)}</dd></>}</dl></article><article className="card attachments"><p className="mono">ANEXOS</p><span>PDF gerado automaticamente ao salvar</span></article></aside></div></form>}{itemModal === 'catalog' && <Modal title="Adicionar do catálogo" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addCatalogItem}><label>Produto<Combobox name="produto_id" ariaLabel="Produto" placeholder="Selecione um produto…" searchPlaceholder="Buscar produto…" options={productsList.map(product => ({ value: String(product.id), label: product.nome, meta: product.material || undefined }))} value={novoProduto} onChange={setNovoProduto} /></label><label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}{itemModal === 'servico' && <Modal title="Adicionar serviço" close={() => setItemModal(null)}><div className="modal-form">
+          </div><aside><article className="card total-card"><p className="mono">TOTAL DA PROPOSTA</p><strong>{money(totalOrcamento)}</strong><dl><dt>Itens</dt><dd>{items.length}</dd><dt>Cliente</dt><dd>{selectedClientName}</dd><dt>Tipo</dt><dd>{quoteType}</dd>{descontoGlobal > 0 && <><dt>Desconto</dt><dd>−{money(descontoGlobal)}</dd></>}</dl></article><article className="card attachments"><p className="mono">ANEXOS</p><span>PDF gerado automaticamente ao salvar</span></article></aside></div></form>}{itemModal === 'catalog' && <Modal title="Adicionar do catálogo" close={() => setItemModal(null)}><form className="modal-form" onSubmit={addCatalogItem}><label>Produto<Combobox name="produto_id" ariaLabel="Produto" placeholder="Selecione um produto…" searchPlaceholder="Buscar produto…" options={productsList.map(product => ({ value: String(product.id), label: product.nome, meta: product.material || undefined }))} value={novoProduto} onChange={valor => { setNovoProduto(valor); setAcabamento('reto') }} /></label>{(() => { const produtoSelecionado = productsList.find(p => String(p.id) === novoProduto); if (!produtoSelecionado || produtoSelecionado.preco_venda_trabalhado == null) return null; return <div className="campo-modalidade"><span className="item-detalhe-rotulo">Acabamento</span><input type="hidden" name="acabamento" value={acabamento}/><div className="segmented" role="group" aria-label="Acabamento"><button type="button" className={acabamento === 'reto' ? 'active' : ''} onClick={() => setAcabamento('reto')}>Reto · {money(produtoSelecionado.preco_venda)}</button><button type="button" className={acabamento === 'trabalhado' ? 'active' : ''} onClick={() => setAcabamento('trabalhado')}>Trabalhado · {money(produtoSelecionado.preco_venda_trabalhado)}</button></div></div> })()}<label>Quantidade<input name="quantidade" type="number" min="1" step="1" defaultValue="1" required/></label><footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button><Button type="submit">Adicionar item</Button></footer></form></Modal>}{itemModal === 'servico' && <Modal title="Adicionar serviço" close={() => setItemModal(null)}><div className="modal-form">
       <label>Serviço<Combobox ariaLabel="Serviço" placeholder="Selecione um serviço…" searchPlaceholder="Buscar serviço…" options={servicosList.map(servico => ({ value: String(servico.id), label: servico.nome, meta: money(servico.preco_padrao) }))} value="" onChange={valor => { const escolhido = servicosList.find(s => s.id === Number(valor)); if (escolhido) { setServicoModal(escolhido); setItemModal(null) } }} /></label>
       {!servicosList.length && <p className="empty-state">Nenhum serviço ativo no catálogo.</p>}
       <footer><Button variant="secondary" onClick={() => setItemModal(null)}>Cancelar</Button></footer>
@@ -1969,6 +1972,9 @@ function Catalog() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [fotoUrl, setFotoUrl] = useState<string | null>(null)
+  const [fotoUrlEdit, setFotoUrlEdit] = useState<string | null>(null)
+  const [subindoFoto, setSubindoFoto] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -1978,6 +1984,17 @@ function Catalog() {
       .finally(() => { if (mounted) setLoading(false) })
     return () => { mounted = false }
   }, [])
+
+  async function enviaFotoMaterial(file: File | null | undefined, aplicar: (url: string) => void) {
+    if (!file) return
+    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
+    if (!UPLOAD_EXTENSOES.includes(ext)) { setError(`Imagem precisa ser ${UPLOAD_EXTENSOES.join(', ')} — recebido "${ext || 'sem extensão'}".`); return }
+    if (file.size > UPLOAD_TAMANHO_MAXIMO) { setError(`Imagem tem ${(file.size / 1024 / 1024).toFixed(1)} MB; o limite é 10 MB.`); return }
+    setSubindoFoto(true); setError('')
+    try { const { url } = await uploadArquivo(file); aplicar(url) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao enviar a imagem.') }
+    finally { setSubindoFoto(false) }
+  }
 
   const categories = ['Todos', ...Array.from(new Set(products.map(product => product.tipo).filter(Boolean) as string[]))]
   const filtered = products.filter(product =>
@@ -1991,14 +2008,18 @@ function Catalog() {
     setError('')
     const form = new FormData(event.currentTarget)
     try {
+      const precoTrabalhado = form.get('preco_venda_trabalhado')
       const created = await createCatalogProduct({
         nome: String(form.get('nome') || ''),
         tipo: String(form.get('tipo') || ''),
         material: String(form.get('material') || ''),
         preco_venda: Math.round(Number(form.get('preco_venda') || 0) * 100),
+        preco_venda_trabalhado: precoTrabalhado ? Math.round(Number(precoTrabalhado) * 100) : null,
+        foto_url: fotoUrl,
       })
       setProducts(current => [...current, created])
       setOpen(false)
+      setFotoUrl(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao salvar produto.')
     } finally {
@@ -2013,11 +2034,14 @@ function Catalog() {
     setError('')
     const form = new FormData(event.currentTarget)
     try {
+      const precoTrabalhado = form.get('preco_venda_trabalhado')
       const updated = await updateProduct(editing.id, {
         nome: String(form.get('nome') || ''),
         tipo: String(form.get('tipo') || '') || null,
         material: String(form.get('material') || '') || null,
         preco_venda: Math.round(Number(form.get('preco_venda') || 0) * 100),
+        preco_venda_trabalhado: precoTrabalhado ? Math.round(Number(precoTrabalhado) * 100) : null,
+        foto_url: fotoUrlEdit,
         estoque_minimo: Number(form.get('estoque_minimo') || 0),
       })
       setProducts(current => current.map(product => product.id === updated.id ? updated : product))
@@ -2029,7 +2053,7 @@ function Catalog() {
     }
   }
 
-  return <><PageHead eyebrow="GALPÃO · CATÁLOGO" title="Catálogo de produtos" subtitle={`${products.length} materiais vindos do estoque`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar produto, código ou material..."/><Button onClick={() => setOpen(true)}>+ Produto</Button></>}/>{error&&<p className="form-error" role="alert">{error}</p>}<div className="filter-row" role="group" aria-label="Filtrar categoria">{categories.map(item => <button key={item} className={category===item?'active':''} onClick={() => setCategory(item)}>{item}</button>)}</div>{loading?<article className="card" style={{ padding: 20 }}><Skeleton rows={4} label="Carregando catálogo" /></article>:<section className="product-grid">{filtered.map((product,index) => { const low = product.quantidade_estoque <= product.estoque_minimo; return <article className="card product-card" key={product.id}><div className={`material-swatch swatch-${index%6+1}`}><span>{product.tipo || 'Material'}</span></div><div className="product-copy"><p className="mono">CAT-{String(product.id).padStart(4,'0')}</p><h2>{product.nome}</h2><small>{product.material || 'Sem material informado'}</small><footer><b>{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(product.preco_venda/100)}</b><Badge tone={low?'warning':'success'}>{low?'Baixo estoque':'Disponível'}</Badge></footer><button className="text-action" onClick={() => setEditing(product)}>Editar</button></div></article> })}</section>}{!loading&&!filtered.length&&<article className="card"><EmptyState title="Nenhum produto encontrado" description="Ajuste a busca ou escolha outra categoria." action={<Button variant="secondary" onClick={() => { setQuery(''); setCategory('Todos') }}>Limpar filtros</Button>} /></article>}{open&&<Modal title="Novo produto" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitProduct}><label>Nome<input name="nome" autoFocus required placeholder="MDF Carvalho Natural"/></label><label>Categoria<input name="tipo" required placeholder="Painéis"/></label><label>Material<input name="material" placeholder="Carvalho natural"/></label><label>Preço de venda<input name="preco_venda" type="number" min="0" step="0.01" required placeholder="0,00"/></label>{error&&<p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving?'Salvando…':'Salvar produto'}</Button></footer></form></Modal>}{editing&&<Modal title={`Editar · ${editing.nome}`} close={() => setEditing(null)}><form className="modal-form" onSubmit={submitEdit}><label>Nome<input name="nome" defaultValue={editing.nome} autoFocus required/></label><label>Categoria<input name="tipo" defaultValue={editing.tipo || ''} required/></label><label>Material<input name="material" defaultValue={editing.material || ''}/></label><label>Preço de venda<input name="preco_venda" type="number" min="0" step="0.01" defaultValue={(editing.preco_venda/100).toFixed(2)} required/></label><label>Estoque mínimo<input name="estoque_minimo" type="number" min="0" step="1" defaultValue={editing.estoque_minimo}/></label>{error&&<p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={() => setEditing(null)}>Cancelar</Button><Button type="submit" loading={saving}>{saving?'Salvando…':'Salvar alterações'}</Button></footer></form></Modal>}</>
+  return <><PageHead eyebrow="GALPÃO · CATÁLOGO" title="Catálogo de produtos" subtitle={`${products.length} materiais vindos do estoque`} actions={<><input className="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar produto, código ou material..."/><Button onClick={() => { setFotoUrl(null); setOpen(true) }}>+ Produto</Button></>}/>{error&&<p className="form-error" role="alert">{error}</p>}<div className="filter-row" role="group" aria-label="Filtrar categoria">{categories.map(item => <button key={item} className={category===item?'active':''} onClick={() => setCategory(item)}>{item}</button>)}</div>{loading?<article className="card" style={{ padding: 20 }}><Skeleton rows={4} label="Carregando catálogo" /></article>:<section className="product-grid">{filtered.map((product,index) => { const low = product.quantidade_estoque <= product.estoque_minimo; return <article className="card product-card" key={product.id}>{product.foto_url ? <div className="material-swatch material-swatch-foto"><img src={quoteDownloadUrl(product.foto_url)} alt={product.nome}/></div> : <div className={`material-swatch swatch-${index%6+1}`}><span>{product.tipo || 'Material'}</span></div>}<div className="product-copy"><p className="mono">CAT-{String(product.id).padStart(4,'0')}</p><h2>{product.nome}</h2><small>{product.material || 'Sem material informado'}</small><footer><b>{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(product.preco_venda/100)}</b>{product.preco_venda_trabalhado != null && <em className="mono" title="Preço trabalhado">/ {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(product.preco_venda_trabalhado/100)} trab.</em>}<Badge tone={low?'warning':'success'}>{low?'Baixo estoque':'Disponível'}</Badge></footer><button className="text-action" onClick={() => { setFotoUrlEdit(product.foto_url); setEditing(product) }}>Editar</button></div></article> })}</section>}{!loading&&!filtered.length&&<article className="card"><EmptyState title="Nenhum produto encontrado" description="Ajuste a busca ou escolha outra categoria." action={<Button variant="secondary" onClick={() => { setQuery(''); setCategory('Todos') }}>Limpar filtros</Button>} /></article>}{open&&<Modal title="Novo produto" close={() => setOpen(false)}><form className="modal-form" onSubmit={submitProduct}><label>Nome<input name="nome" autoFocus required placeholder="MDF Carvalho Natural"/></label><label>Categoria<input name="tipo" required placeholder="Painéis"/></label><label>Material<input name="material" placeholder="Carvalho natural"/></label><label>Preço reto (R$/m²)<input name="preco_venda" type="number" min="0" step="0.01" required placeholder="0,00"/></label><label>Preço trabalhado (R$/m², opcional)<input name="preco_venda_trabalhado" type="number" min="0" step="0.01" placeholder="0,00"/></label><div className="item-detalhe-largo"><span className="item-detalhe-rotulo">Imagem do material</span><div className="dropzone" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void enviaFotoMaterial(event.dataTransfer.files?.[0], setFotoUrl) }}>{fotoUrl ? <><img src={quoteDownloadUrl(fotoUrl)} alt="Prévia do material"/><button type="button" className="text-action" onClick={() => setFotoUrl(null)}>Remover imagem</button></> : <p>{subindoFoto ? 'Enviando…' : 'Arraste a imagem aqui'}</p>}<label className="dropzone-escolher">{fotoUrl ? 'Trocar arquivo' : 'Escolher arquivo'}<input type="file" accept={UPLOAD_EXTENSOES.join(',')} onChange={event => { void enviaFotoMaterial(event.target.files?.[0], setFotoUrl); event.target.value = '' }}/></label></div></div>{error&&<p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button><Button type="submit" loading={saving}>{saving?'Salvando…':'Salvar produto'}</Button></footer></form></Modal>}{editing&&<Modal title={`Editar · ${editing.nome}`} close={() => setEditing(null)}><form className="modal-form" onSubmit={submitEdit}><label>Nome<input name="nome" defaultValue={editing.nome} autoFocus required/></label><label>Categoria<input name="tipo" defaultValue={editing.tipo || ''} required/></label><label>Material<input name="material" defaultValue={editing.material || ''}/></label><label>Preço reto (R$/m²)<input name="preco_venda" type="number" min="0" step="0.01" defaultValue={(editing.preco_venda/100).toFixed(2)} required/></label><label>Preço trabalhado (R$/m², opcional)<input name="preco_venda_trabalhado" type="number" min="0" step="0.01" defaultValue={editing.preco_venda_trabalhado != null ? (editing.preco_venda_trabalhado/100).toFixed(2) : ''} placeholder="0,00"/></label><label>Estoque mínimo<input name="estoque_minimo" type="number" min="0" step="1" defaultValue={editing.estoque_minimo}/></label><div className="item-detalhe-largo"><span className="item-detalhe-rotulo">Imagem do material</span><div className="dropzone" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void enviaFotoMaterial(event.dataTransfer.files?.[0], setFotoUrlEdit) }}>{fotoUrlEdit ? <><img src={quoteDownloadUrl(fotoUrlEdit)} alt="Prévia do material"/><button type="button" className="text-action" onClick={() => setFotoUrlEdit(null)}>Remover imagem</button></> : <p>{subindoFoto ? 'Enviando…' : 'Arraste a imagem aqui'}</p>}<label className="dropzone-escolher">{fotoUrlEdit ? 'Trocar arquivo' : 'Escolher arquivo'}<input type="file" accept={UPLOAD_EXTENSOES.join(',')} onChange={event => { void enviaFotoMaterial(event.target.files?.[0], setFotoUrlEdit); event.target.value = '' }}/></label></div></div>{error&&<p className="form-error" role="alert">{error}</p>}<footer><Button variant="secondary" onClick={() => setEditing(null)}>Cancelar</Button><Button type="submit" loading={saving}>{saving?'Salvando…':'Salvar alterações'}</Button></footer></form></Modal>}</>
 }
 
 function Suppliers() {
