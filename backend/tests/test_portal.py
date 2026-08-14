@@ -12,6 +12,7 @@ def _proposta_fake():
     produto = SimpleNamespace(nome="Mesa", foto_url="https://cdn.example.com/mesa.jpg", preco_custo=999)
     item = SimpleNamespace(
         produto=produto,
+        tipo_peca=None,
         nome_externo=None,
         descricao_externa="Mesa sob medida",
         personalizacao_aplicada=None,

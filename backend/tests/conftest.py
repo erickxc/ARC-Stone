@@ -145,6 +145,24 @@ def make_product(db_session):
     return _make
 
 
+@pytest.fixture()
+def make_tipo_peca(db_session):
+    def _make(**overrides):
+        tipo_peca = models.TipoPeca(
+            nome=overrides.pop("nome", None) or f"Bancada {uuid.uuid4().hex[:6]}",
+            ordem=overrides.pop("ordem", 1),
+            ativo=overrides.pop("ativo", True),
+            built_in=overrides.pop("built_in", False),
+            **overrides,
+        )
+        db_session.add(tipo_peca)
+        db_session.commit()
+        db_session.refresh(tipo_peca)
+        return tipo_peca
+
+    return _make
+
+
 def login_client(client: TestClient, email: str, password: str) -> TestClient:
     """Loga via /auth/login e devolve o mesmo TestClient com os cookies de sessão setados."""
     resp = client.post("/auth/login", data={"username": email, "password": password})

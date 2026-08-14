@@ -164,6 +164,11 @@ registrar_catalogo(
     "Local",
 )
 registrar_catalogo(
+    "tipos-peca", models.TipoPeca,
+    schemas.TipoPecaOut, schemas.TipoPecaCreate, schemas.TipoPecaUpdate,
+    "Tipo de peça",
+)
+registrar_catalogo(
     "etapas-producao", models.EtapaProducao,
     schemas.EtapaProducaoOut, schemas.EtapaProducaoCreate, schemas.EtapaProducaoUpdate,
     "Etapa de produção",

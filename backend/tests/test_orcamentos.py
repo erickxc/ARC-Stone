@@ -119,17 +119,18 @@ def test_status_invalido_rejeitado(client, make_user, make_client):
     assert resp.status_code == 400
 
 
-def test_aprovar_sem_estoque_suficiente_bloqueia(client, make_user, make_client, make_product):
+def test_aprovar_sem_estoque_suficiente_bloqueia(client, make_user, make_client, make_product, make_tipo_peca):
     """Regressão do achado adversarial D: aprovar não pode reter mais do que existe disponível."""
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product(quantidade_estoque=2, quantidade_retida=0)
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
 
     criado = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Peça",
         "condicoes_pagamento_selecionadas": "à vista",
-        "itens": [{"produto_id": produto.id, "quantidade": 5, "preco_unitario_aplicado": 1000}],
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 5, "preco_unitario_aplicado": 1000}],
     })
     assert criado.status_code == 201, criado.text
     orcamento_id = criado.json()["id"]
@@ -139,16 +140,17 @@ def test_aprovar_sem_estoque_suficiente_bloqueia(client, make_user, make_client,
     assert "estoque" in resp.json()["detail"].lower()
 
 
-def test_aprovar_com_estoque_suficiente_retem_a_quantidade_certa(client, make_user, make_client, make_product, db_session):
+def test_aprovar_com_estoque_suficiente_retem_a_quantidade_certa(client, make_user, make_client, make_product, make_tipo_peca, db_session):
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product(quantidade_estoque=10, quantidade_retida=0)
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
 
     criado = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Peça",
         "condicoes_pagamento_selecionadas": "à vista",
-        "itens": [{"produto_id": produto.id, "quantidade": 3, "preco_unitario_aplicado": 1000}],
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 3, "preco_unitario_aplicado": 1000}],
     })
     orcamento_id = criado.json()["id"]
 
@@ -249,14 +251,15 @@ def test_resetar_config_exige_admin(client, make_user):
     assert client.post("/orcamentos/config/reset").status_code == 403
 
 
-def _aprovar_orcamento(client, cliente, make_product):
+def _aprovar_orcamento(client, cliente, make_product, make_tipo_peca):
     """Cria um orçamento com estoque suficiente, aprova e retorna o id — pré-condição
     comum dos testes de conversão em venda (ARC Stone)."""
     produto = make_product(quantidade_estoque=10, quantidade_retida=0)
+    tipo_peca = make_tipo_peca()
     criado = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Peça",
         "condicoes_pagamento_selecionadas": "à vista",
-        "itens": [{"produto_id": produto.id, "quantidade": 2, "preco_unitario_aplicado": 1500}],
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 2, "preco_unitario_aplicado": 1500}],
     })
     assert criado.status_code == 201, criado.text
     orcamento_id = criado.json()["id"]
@@ -276,11 +279,11 @@ def test_converter_venda_exige_status_aprovado(client, make_user, make_client):
     assert "aprovado" in resp.json()["detail"].lower()
 
 
-def test_converter_venda_com_orcamento_aprovado(client, make_user, make_client, make_product):
+def test_converter_venda_com_orcamento_aprovado(client, make_user, make_client, make_product, make_tipo_peca):
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     _login(client, vendedor)
-    orcamento_id = _aprovar_orcamento(client, cliente, make_product)
+    orcamento_id = _aprovar_orcamento(client, cliente, make_product, make_tipo_peca)
 
     resp = client.post(f"/orcamentos/{orcamento_id}/converter-venda", json=_pagamento(client))
     assert resp.status_code == 201, resp.text
@@ -292,13 +295,13 @@ def test_converter_venda_com_orcamento_aprovado(client, make_user, make_client, 
     assert any(v["orcamento_id"] == orcamento_id for v in historico)
 
 
-def test_converter_venda_duas_vezes_e_idempotente(client, make_user, make_client, make_product):
+def test_converter_venda_duas_vezes_e_idempotente(client, make_user, make_client, make_product, make_tipo_peca):
     """Retry apos timeout nao pode virar erro nem duplicar a venda: a segunda chamada
     devolve exatamente a mesma Venda."""
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     _login(client, vendedor)
-    orcamento_id = _aprovar_orcamento(client, cliente, make_product)
+    orcamento_id = _aprovar_orcamento(client, cliente, make_product, make_tipo_peca)
 
     primeira = client.post(f"/orcamentos/{orcamento_id}/converter-venda", json=_pagamento(client))
     assert primeira.status_code == 201
@@ -310,12 +313,12 @@ def test_converter_venda_duas_vezes_e_idempotente(client, make_user, make_client
     assert len(vendas) == 1
 
 
-def test_converter_venda_de_outro_vendedor_negado(client, make_user, make_client, make_product):
+def test_converter_venda_de_outro_vendedor_negado(client, make_user, make_client, make_product, make_tipo_peca):
     dono = make_user(role="vendedor")
     outro = make_user(role="vendedor")
     cliente = make_client(dono)
     _login(client, dono)
-    orcamento_id = _aprovar_orcamento(client, cliente, make_product)
+    orcamento_id = _aprovar_orcamento(client, cliente, make_product, make_tipo_peca)
 
     _login(client, outro)
     resp = client.post(f"/orcamentos/{orcamento_id}/converter-venda", json=_pagamento(client))

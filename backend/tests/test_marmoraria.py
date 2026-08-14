@@ -36,6 +36,19 @@ def test_total_por_unidade_usa_quantidade():
                                 area_m2=None, comprimento_m=None) == 36000
 
 
+def test_total_por_area_multiplica_pela_quantidade():
+    # 7 rodapés de 0,28x0,10 = 0,028 m² cada, a R$ 100,00/m² -> 7 x 2,80 = R$ 19,60.
+    # Confirmado contra a planilha real do cliente (aba "Conferência": M2 = COMP*LARG*QTDE).
+    assert calcular_total_linha("m2", quantidade=7, preco_unitario=10000,
+                                area_m2=0.028, comprimento_m=None) == 1960
+
+
+def test_total_linear_multiplica_pela_quantidade():
+    # 3 saias de 2,0 m a R$ 80,00/m -> 3 x R$ 160,00 = R$ 480,00
+    assert calcular_total_linha("linear", quantidade=3, preco_unitario=8000,
+                                area_m2=None, comprimento_m=2.0) == 48000
+
+
 def test_arredonda_uma_vez_no_fim():
     # 1,33 m² × R$ 100,015/m² daria fração de centavo; arredonda meio-para-cima no total.
     assert calcular_total_linha("m2", quantidade=1, preco_unitario=10001,
@@ -44,32 +57,34 @@ def test_arredonda_uma_vez_no_fim():
 
 # --- Validação de medidas ------------------------------------------------------
 
-def test_item_em_m2_exige_comprimento_e_largura(client, make_user, make_client, make_product):
+def test_item_em_m2_exige_comprimento_e_largura(client, make_user, make_client, make_product, make_tipo_peca):
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product()
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
 
     resp = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Obra",
-        "itens": [{"produto_id": produto.id, "quantidade": 1,
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 1,
                    "preco_unitario_aplicado": 10000, "unidade_medida": "m2",
                    "comprimento_m": 2.0}],  # largura faltando
     })
     assert resp.status_code == 422
 
 
-def test_area_e_calculada_no_backend(client, make_user, make_client, make_product):
+def test_area_e_calculada_no_backend(client, make_user, make_client, make_product, make_tipo_peca):
     """area_m2 nunca vem do cliente: o PUT é substituição total, e aceitar do payload
     permitiria gravar área inconsistente com as medidas."""
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product()
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
 
     criado = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Obra",
-        "itens": [{"produto_id": produto.id, "quantidade": 1,
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 1,
                    "preco_unitario_aplicado": 30000, "unidade_medida": "m2",
                    "comprimento_m": 2.5, "largura_m": 0.6}],
     })
@@ -80,16 +95,17 @@ def test_area_e_calculada_no_backend(client, make_user, make_client, make_produc
     assert item["codigo_item"] == 1
 
 
-def test_desconto_global_abate_do_total(client, make_user, make_client, make_product):
+def test_desconto_global_abate_do_total(client, make_user, make_client, make_product, make_tipo_peca):
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product()
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
 
     criado = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Peça",
         "desconto_global_centavos": 5000,
-        "itens": [{"produto_id": produto.id, "quantidade": 2,
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 2,
                    "preco_unitario_aplicado": 10000, "unidade_medida": "un"}],
     })
     assert criado.status_code == 201, criado.text
@@ -116,15 +132,16 @@ def test_peca_nao_aceita_servico(client, make_user, make_client, db_session):
     assert "serviço" in resp.text.lower()
 
 
-def test_externo_so_aceita_item_externo(client, make_user, make_client, make_product):
+def test_externo_so_aceita_item_externo(client, make_user, make_client, make_product, make_tipo_peca):
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product()
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
 
     resp = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Externo",
-        "itens": [{"produto_id": produto.id, "quantidade": 1, "preco_unitario_aplicado": 10000}],
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 1, "preco_unitario_aplicado": 10000}],
     })
     assert resp.status_code == 422
 
@@ -161,30 +178,32 @@ def test_componentes_do_servico_crud(client, make_user, db_session):
 
 # --- Modalidade / venda direta -------------------------------------------------
 
-def test_venda_direta_exige_pagamento(client, make_user, make_client, make_product):
+def test_venda_direta_exige_pagamento(client, make_user, make_client, make_product, make_tipo_peca):
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product()
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
 
     resp = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Peça", "modalidade": "venda_direta",
-        "itens": [{"produto_id": produto.id, "quantidade": 1, "preco_unitario_aplicado": 10000}],
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 1, "preco_unitario_aplicado": 10000}],
     })
     assert resp.status_code == 422
     assert "pagamento" in resp.text.lower()
 
 
-def test_venda_direta_cria_orcamento_e_venda_na_mesma_transacao(client, make_user, make_client, make_product):
+def test_venda_direta_cria_orcamento_e_venda_na_mesma_transacao(client, make_user, make_client, make_product, make_tipo_peca):
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product()
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
 
     criado = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Peça", "modalidade": "venda_direta",
         "pagamento": _pagamento_simples(client),
-        "itens": [{"produto_id": produto.id, "quantidade": 2,
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 2,
                    "preco_unitario_aplicado": 10000, "unidade_medida": "un"}],
     })
     assert criado.status_code == 201, criado.text
@@ -200,15 +219,16 @@ def test_venda_direta_cria_orcamento_e_venda_na_mesma_transacao(client, make_use
     assert vendas[0]["tipo_pagamento_nome"] is not None
 
 
-def test_orcamento_formal_nao_cria_venda(client, make_user, make_client, make_product):
+def test_orcamento_formal_nao_cria_venda(client, make_user, make_client, make_product, make_tipo_peca):
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product()
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
 
     criado = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Peça",
-        "itens": [{"produto_id": produto.id, "quantidade": 1, "preco_unitario_aplicado": 10000}],
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 1, "preco_unitario_aplicado": 10000}],
     })
     assert criado.status_code == 201
     assert criado.json()["modalidade"] == "orcamento_formal"
@@ -219,17 +239,18 @@ def test_orcamento_formal_nao_cria_venda(client, make_user, make_client, make_pr
     assert vendas == []
 
 
-def test_pagamento_em_cartao_exige_forma(client, make_user, make_client, make_product):
+def test_pagamento_em_cartao_exige_forma(client, make_user, make_client, make_product, make_tipo_peca):
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product()
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
 
     cartao = next(t for t in client.get("/catalogos/tipos-pagamento").json() if t["exige_forma"])
     resp = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Peça", "modalidade": "venda_direta",
         "pagamento": {"tipo_pagamento_id": cartao["id"]},  # sem forma
-        "itens": [{"produto_id": produto.id, "quantidade": 1, "preco_unitario_aplicado": 10000}],
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 1, "preco_unitario_aplicado": 10000}],
     })
     assert resp.status_code == 400
     assert "forma" in resp.json()["detail"].lower()

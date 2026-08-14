@@ -13,11 +13,11 @@ def _pagamento(client):
     return {"tipo_pagamento_id": next(t for t in tipos if not t["exige_forma"])["id"]}
 
 
-def _venda_direta(client, cliente, produto):
+def _venda_direta(client, cliente, produto, tipo_peca):
     resp = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Peça", "modalidade": "venda_direta",
         "pagamento": _pagamento(client),
-        "itens": [{"produto_id": produto.id, "quantidade": 1,
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 1,
                    "preco_unitario_aplicado": 50000, "unidade_medida": "un"}]})
     assert resp.status_code == 201, resp.text
     return resp.json()
@@ -32,13 +32,14 @@ def test_etapas_padrao_semeadas(client, make_user):
     assert all(e["built_in"] for e in etapas)
 
 
-def test_venda_abre_ordem_de_producao(client, make_user, make_client, make_product):
+def test_venda_abre_ordem_de_producao(client, make_user, make_client, make_product, make_tipo_peca):
     """Vendeu, tem que produzir: a ordem nasce junto, na primeira etapa."""
     admin = make_user(role="admin")
     cliente = make_client(admin)
     produto = make_product(quantidade_estoque=10, quantidade_retida=0)
+    tipo_peca = make_tipo_peca()
     _login(client, admin)
-    _venda_direta(client, cliente, produto)
+    _venda_direta(client, cliente, produto, tipo_peca)
 
     ordens = client.get("/producao/ordens").json()
     assert ordens, "venda deveria ter aberto uma ordem de produção"
@@ -50,12 +51,13 @@ def test_venda_abre_ordem_de_producao(client, make_user, make_client, make_produ
     assert produto.nome in (ordem["resumo_itens"] or "")
 
 
-def test_mover_entre_etapas_registra_historico(client, make_user, make_client, make_product):
+def test_mover_entre_etapas_registra_historico(client, make_user, make_client, make_product, make_tipo_peca):
     admin = make_user(role="admin")
     cliente = make_client(admin)
     produto = make_product(quantidade_estoque=10, quantidade_retida=0)
+    tipo_peca = make_tipo_peca()
     _login(client, admin)
-    _venda_direta(client, cliente, produto)
+    _venda_direta(client, cliente, produto, tipo_peca)
     ordem_id = client.get("/producao/ordens").json()[0]["id"]
 
     etapas = client.get("/catalogos/etapas-producao").json()
@@ -70,12 +72,13 @@ def test_mover_entre_etapas_registra_historico(client, make_user, make_client, m
     assert detalhe["historico"][-1]["observacao"] == "Chapa separada"
 
 
-def test_etapa_final_conclui_e_sai_da_esteira(client, make_user, make_client, make_product):
+def test_etapa_final_conclui_e_sai_da_esteira(client, make_user, make_client, make_product, make_tipo_peca):
     admin = make_user(role="admin")
     cliente = make_client(admin)
     produto = make_product(quantidade_estoque=10, quantidade_retida=0)
+    tipo_peca = make_tipo_peca()
     _login(client, admin)
-    _venda_direta(client, cliente, produto)
+    _venda_direta(client, cliente, produto, tipo_peca)
     ordem_id = client.get("/producao/ordens").json()[0]["id"]
 
     final = next(e for e in client.get("/catalogos/etapas-producao").json() if e["is_final"])
@@ -89,13 +92,14 @@ def test_etapa_final_conclui_e_sai_da_esteira(client, make_user, make_client, ma
     assert ordem_id in todas
 
 
-def test_voltar_etapa_reabre_a_ordem(client, make_user, make_client, make_product):
+def test_voltar_etapa_reabre_a_ordem(client, make_user, make_client, make_product, make_tipo_peca):
     """Peça que quebra no corte refaz o caminho — voltar precisa reabrir a ordem."""
     admin = make_user(role="admin")
     cliente = make_client(admin)
     produto = make_product(quantidade_estoque=10, quantidade_retida=0)
+    tipo_peca = make_tipo_peca()
     _login(client, admin)
-    _venda_direta(client, cliente, produto)
+    _venda_direta(client, cliente, produto, tipo_peca)
     ordem_id = client.get("/producao/ordens").json()[0]["id"]
 
     etapas = client.get("/catalogos/etapas-producao").json()
@@ -109,14 +113,15 @@ def test_voltar_etapa_reabre_a_ordem(client, make_user, make_client, make_produc
     assert resp.json()["concluida_em"] is None, "voltar de uma etapa final precisa reabrir"
 
 
-def test_vendedor_nao_move_ordem_mas_ve_a_propria(client, make_user, make_client, make_product):
+def test_vendedor_nao_move_ordem_mas_ve_a_propria(client, make_user, make_client, make_product, make_tipo_peca):
     admin = make_user(role="admin")
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product(quantidade_estoque=10, quantidade_retida=0)
+    tipo_peca = make_tipo_peca()
 
     _login(client, vendedor)
-    _venda_direta(client, cliente, produto)
+    _venda_direta(client, cliente, produto, tipo_peca)
     minhas = client.get("/producao/ordens").json()
     assert len(minhas) == 1, "vendedor deve enxergar a produção da própria venda"
     ordem_id = minhas[0]["id"]
@@ -132,12 +137,13 @@ def test_vendedor_nao_move_ordem_mas_ve_a_propria(client, make_user, make_client
     _login(client, admin)
 
 
-def test_mover_para_etapa_inativa_recusado(client, make_user, make_client, make_product):
+def test_mover_para_etapa_inativa_recusado(client, make_user, make_client, make_product, make_tipo_peca):
     admin = make_user(role="admin")
     cliente = make_client(admin)
     produto = make_product(quantidade_estoque=10, quantidade_retida=0)
+    tipo_peca = make_tipo_peca()
     _login(client, admin)
-    _venda_direta(client, cliente, produto)
+    _venda_direta(client, cliente, produto, tipo_peca)
     ordem_id = client.get("/producao/ordens").json()[0]["id"]
 
     etapas = client.get("/catalogos/etapas-producao").json()

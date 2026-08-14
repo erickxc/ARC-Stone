@@ -42,6 +42,7 @@ def _carregar_proposta(db: Session, orcamento_id: int) -> models.Orcamento:
             joinedload(models.Orcamento.cliente),
             joinedload(models.Orcamento.vendedor),
             selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.produto),
+            selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.tipo_peca),
             selectinload(models.Orcamento.anexos),
         )
         .filter(models.Orcamento.id == orcamento_id)
@@ -108,7 +109,8 @@ def _publicar_proposta(proposta: models.Orcamento, organizacao_nome: str | None 
     itens = []
     for item in proposta.itens:
         produto = item.produto
-        nome = produto.nome if produto else (item.nome_externo or "Item")
+        tipo_peca = item.tipo_peca
+        nome = (tipo_peca.nome if produto and tipo_peca else None) or (produto.nome if produto else None) or (item.nome_externo or "Item")
         descricao = item.descricao_externa or item.personalizacao_aplicada
         preco_unitario = item.preco_unitario_aplicado
         itens.append(

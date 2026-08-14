@@ -319,6 +319,10 @@ def on_startup():
         # Acabamento "trabalhado" é preço, não produto separado: uma pedra tem preco_venda
         # (reto) e opcionalmente preco_venda_trabalhado, em vez de duas linhas no catálogo.
         conn.execute(text("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS preco_venda_trabalhado INTEGER"))
+        # Discriminação livre (texto) trocada por catálogo rígido de tipo de peça (Bancada,
+        # Soleira, Peitoril, Rodapé...) — pedido explícito do cliente, não texto livre.
+        conn.execute(text("ALTER TABLE orcamento_itens DROP COLUMN IF EXISTS discriminacao"))
+        conn.execute(text("ALTER TABLE orcamento_itens ADD COLUMN IF NOT EXISTS tipo_peca_id INTEGER REFERENCES tipos_peca(id)"))
 
     db = database.SessionLocal()
     try:
@@ -356,7 +360,7 @@ def _semear_catalogos(db):
     o usuário desativou nem duplicar a cada start. Tudo entra com `built_in=True` — pode
     ser desativado e reordenado na tela de Configurações, nunca excluído.
     """
-    from models import TipoPagamento, FormaPagamento, Local, MotivoPerdaAvaria
+    from models import TipoPagamento, FormaPagamento, Local, MotivoPerdaAvaria, TipoPeca
 
     if db.query(TipoPagamento).count() == 0:
         # Só Cartão se desdobra em Crédito/Débito; os demais tipos não têm segunda etapa.
@@ -396,6 +400,20 @@ def _semear_catalogos(db):
         db.add_all([
             EtapaProducao(nome=nome, ordem=i, ativo=True, built_in=True, is_final=final)
             for i, (nome, final) in enumerate(padroes, start=1)
+        ])
+        db.commit()
+
+    if db.query(TipoPeca).count() == 0:
+        # Vocabulário confirmado pelo cliente + termos reais de planilha de orçamento de
+        # marmoraria (referência: orçamento Marcos Bellotti). Catálogo rígido — eixo
+        # independente do material (Produto) e do serviço (Servico).
+        padroes = [
+            "Bancada", "Soleira", "Peitoril", "Rodapé", "Ilharga", "Front",
+            "Saia", "Black Splash", "Cuba Esculpida", "Tampa", "Soco", "Lavatório",
+        ]
+        db.add_all([
+            TipoPeca(nome=nome, ordem=i, ativo=True, built_in=True)
+            for i, nome in enumerate(padroes, start=1)
         ])
         db.commit()
 

@@ -264,8 +264,10 @@ def calcular_total_linha(
 
     O que `preco_unitario` significa depende da unidade da peça, e é isso que difere uma
     marmoraria de um catálogo comum:
-      - m2      → R$/m², multiplicado pela área (bancada, pedra)
-      - linear  → R$/metro, multiplicado pelo comprimento (saia, rodabase, soleira)
+      - m2      → R$/m², multiplicado pela área de UMA peça × quantidade (7 rodapés de
+                  0,28×0,10 = 7 × 0,028 m², não 1 × 0,028 — confirmado contra a planilha
+                  real do cliente, que tem uma aba só de conferência pra isso)
+      - linear  → R$/metro, multiplicado pelo comprimento de UMA peça × quantidade
       - un      → R$/unidade, multiplicado pela quantidade (cuba, peça avulsa, item externo)
 
     Sobre arredondamento: a área é quantizada a 2 casas antes de chegar aqui — é o
@@ -274,9 +276,9 @@ def calcular_total_linha(
     do Python usa banker's rounding e divergiria em valores terminados em 5).
     """
     if unidade_medida == "m2":
-        base = Decimal(str(area_m2 or 0)) * Decimal(preco_unitario)
+        base = Decimal(str(area_m2 or 0)) * Decimal(quantidade) * Decimal(preco_unitario)
     elif unidade_medida == "linear":
-        base = Decimal(str(comprimento_m or 0)) * Decimal(preco_unitario)
+        base = Decimal(str(comprimento_m or 0)) * Decimal(quantidade) * Decimal(preco_unitario)
     else:
         base = Decimal(quantidade) * Decimal(preco_unitario)
     total = base.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
@@ -285,6 +287,9 @@ def calcular_total_linha(
 
 class OrcamentoItemCreate(BaseModel):
     produto_id: Optional[int] = None
+    # O que a peça é (Bancada, Soleira, Peitoril...) — catálogo TipoPeca, obrigatório junto
+    # com produto_id (material). Ver comentário no model.
+    tipo_peca_id: Optional[int] = None
     servico_id: Optional[int] = None
     servico_componente_id: Optional[int] = None
     # gt/ge obrigatórios: sem eles um item com quantidade ou preço negativo gera total
@@ -318,6 +323,8 @@ class OrcamentoItemCreate(BaseModel):
         ])
         if tipos_preenchidos != 1:
             raise ValueError("Cada item deve referenciar exatamente um entre produto, serviço ou item externo.")
+        if self.produto_id and not self.tipo_peca_id:
+            raise ValueError("Item de material exige o tipo de peça (Bancada, Soleira, Peitoril...).")
         return self
 
     @model_validator(mode="after")
@@ -373,6 +380,9 @@ class OrcamentoItemOut(BaseModel):
     area_m2: Optional[float] = None
     grupo_id: Optional[str] = None
     nome: Optional[str] = None
+    tipo_peca_id: Optional[int] = None
+    tipo_peca_nome: Optional[str] = None  # o que a peça é (Bancada, Soleira...)
+    material_nome: Optional[str] = None  # material do produto (Prime, Quartzo...), pra exibir junto do tipo de peça
     foto_url: Optional[str] = None
     local_nome: Optional[str] = None  # evita que o frontend perca o dado se o local for desativado
     # Derivado do trio produto/servico/externo — a tabela do orçamento exibe como coluna.
@@ -704,6 +714,23 @@ class LocalUpdate(BaseModel):
     ativo: Optional[bool] = None
 
 class LocalOut(BaseModel):
+    id: int
+    nome: str
+    ativo: bool
+    ordem: int
+    built_in: bool
+    class Config:
+        from_attributes = True
+
+
+class TipoPecaCreate(BaseModel):
+    nome: str = NOME_CATALOGO
+
+class TipoPecaUpdate(BaseModel):
+    nome: Optional[str] = Field(None, min_length=1, max_length=120, pattern=r"^[^<>]*$")
+    ativo: Optional[bool] = None
+
+class TipoPecaOut(BaseModel):
     id: int
     nome: str
     ativo: bool

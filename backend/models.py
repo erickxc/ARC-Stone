@@ -227,6 +227,11 @@ class OrcamentoItem(Base):
     # Item do projeto importado que originou esta linha (proveniência), quando houver
     projeto_item_id = Column(Integer, ForeignKey("projeto_itens.id"), nullable=True)
 
+    # O que a peça É (Bancada, Soleira, Peitoril, Rodapé...) — catálogo próprio (TipoPeca),
+    # eixo independente do material (produto_id): a mesma "Bancada" existe em qualquer
+    # material do catálogo.
+    tipo_peca_id = Column(Integer, ForeignKey("tipos_peca.id"), nullable=True)
+
     # Item de serviço (catálogo de serviços), alternativa a produto_id — exatamente um dos
     # dois (ou is_externo) deve estar preenchido, validado em schemas.OrcamentoItemCreate.
     servico_id = Column(Integer, ForeignKey("servicos.id"), nullable=True)
@@ -239,6 +244,7 @@ class OrcamentoItem(Base):
 
     orcamento = relationship("Orcamento", back_populates="itens")
     produto = relationship("Produto")
+    tipo_peca = relationship("TipoPeca")
     servico = relationship("Servico")
     servico_componente = relationship("ServicoComponente")
     local = relationship("Local")
@@ -338,6 +344,14 @@ class FormaPagamento(CatalogoSimplesMixin, Base):
 class Local(CatalogoSimplesMixin, Base):
     """Local de instalação do item (Banheiro, Cozinha, Área externa...)."""
     __tablename__ = "locais"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+
+class TipoPeca(CatalogoSimplesMixin, Base):
+    """O que a peça é (Bancada, Soleira, Peitoril, Rodapé, Ilharga...) — eixo independente
+    do material (Produto): a mesma Bancada existe em qualquer pedra do catálogo."""
+    __tablename__ = "tipos_peca"
 
     id = Column(Integer, primary_key=True, index=True)
 

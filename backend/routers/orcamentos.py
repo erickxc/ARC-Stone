@@ -53,10 +53,15 @@ def _enrich_orcamento(orc, detail: bool = False):
         item.total_centavos = _total_item(item)
         valor_total += item.total_centavos
         produto = getattr(item, 'produto', None)
+        tipo_peca = getattr(item, 'tipo_peca', None)
         servico = getattr(item, 'servico', None)
         componente = getattr(item, 'servico_componente', None)
         if produto:
-            item.nome = produto.nome
+            # Tipo de peça (Bancada, Soleira, Peitoril...) manda no nome de exibição — o
+            # material vira detalhe secundário, não some do dado.
+            item.nome = tipo_peca.nome if tipo_peca else produto.nome
+            item.tipo_peca_nome = tipo_peca.nome if tipo_peca else None
+            item.material_nome = produto.material
             item.foto_url = produto.foto_url
             item.tipo_item = 'produto'
         elif servico:
@@ -287,9 +292,11 @@ def _build_pdf_data(orc, db=None):
         }
         # Lê do produto/serviço pré-carregado
         produto = getattr(item, 'produto', None)
+        tipo_peca = getattr(item, 'tipo_peca', None)
         servico = getattr(item, 'servico', None)
         if produto:
-            item_dict['nome'] = produto.nome
+            item_dict['nome'] = tipo_peca.nome if tipo_peca else produto.nome
+            item_dict['material_nome'] = produto.material
             item_dict['foto_url'] = produto.foto_url
         elif servico:
             item_dict['nome'] = servico.nome
@@ -548,6 +555,7 @@ def listar_orcamentos(db: Session = Depends(get_db), current_user: models.Usuari
             joinedload(models.Orcamento.cliente),
             joinedload(models.Orcamento.vendedor),
             selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.produto),
+            selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.tipo_peca),
         selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico),
         selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico_componente),
         selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.local)
@@ -557,6 +565,7 @@ def listar_orcamentos(db: Session = Depends(get_db), current_user: models.Usuari
             joinedload(models.Orcamento.cliente),
             joinedload(models.Orcamento.vendedor),
             selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.produto),
+            selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.tipo_peca),
         selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico),
         selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico_componente),
         selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.local)
@@ -606,6 +615,7 @@ def obter_orcamento(orcamento_id: int, db: Session = Depends(get_db), current_us
         joinedload(models.Orcamento.cliente),
         joinedload(models.Orcamento.vendedor),
         selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.produto),
+            selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.tipo_peca),
         selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico),
         selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico_componente),
         selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.local)
@@ -1129,6 +1139,7 @@ def regenerar_pdf(orcamento_id: int, db: Session = Depends(get_db), current_user
         joinedload(models.Orcamento.cliente),
         joinedload(models.Orcamento.vendedor),
         selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.produto),
+            selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.tipo_peca),
         selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico),
         selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.servico_componente),
         selectinload(models.Orcamento.itens).joinedload(models.OrcamentoItem.local)

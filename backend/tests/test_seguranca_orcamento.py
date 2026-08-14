@@ -16,28 +16,30 @@ def _pagamento(client):
     return {"tipo_pagamento_id": next(t for t in tipos if not t["exige_forma"])["id"]}
 
 
-def test_valores_negativos_rejeitados(client, make_user, make_client, make_product):
+def test_valores_negativos_rejeitados(client, make_user, make_client, make_product, make_tipo_peca):
     """Preço/quantidade negativos geravam total negativo, que virava crédito inventado
     no ledger financeiro e no valor congelado da Venda."""
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product()
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
 
     for patch in [{"quantidade": -5}, {"quantidade": 0}, {"preco_unitario_aplicado": -100}]:
-        item = {"produto_id": produto.id, "quantidade": 1, "preco_unitario_aplicado": 10000,
+        item = {"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 1, "preco_unitario_aplicado": 10000,
                 "unidade_medida": "un", **patch}
         resp = client.post("/orcamentos/", json={
             "cliente_id": cliente.id, "tipo_orcamento": "Peça", "itens": [item]})
         assert resp.status_code == 422, f"{patch} deveria ser rejeitado, veio {resp.status_code}"
 
 
-def test_desconto_nao_pode_exceder_o_valor(client, make_user, make_client, make_product):
+def test_desconto_nao_pode_exceder_o_valor(client, make_user, make_client, make_product, make_tipo_peca):
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product()
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
-    item = {"produto_id": produto.id, "quantidade": 1, "preco_unitario_aplicado": 10000, "unidade_medida": "un"}
+    item = {"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 1, "preco_unitario_aplicado": 10000, "unidade_medida": "un"}
 
     # Desconto de fechamento maior que a soma das linhas.
     resp = client.post("/orcamentos/", json={
@@ -53,33 +55,35 @@ def test_desconto_nao_pode_exceder_o_valor(client, make_user, make_client, make_
     assert resp.json()["valor_total"] == 0
 
 
-def test_venda_direta_valida_estoque(client, make_user, make_client, make_product):
+def test_venda_direta_valida_estoque(client, make_user, make_client, make_product, make_tipo_peca):
     """Venda direta aprova de fato — precisa do mesmo gate de estoque da aprovação
     manual, senão registra venda de peça que não existe."""
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product(quantidade_estoque=2, quantidade_retida=0)
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
 
     resp = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Peça", "modalidade": "venda_direta",
         "pagamento": _pagamento(client),
-        "itens": [{"produto_id": produto.id, "quantidade": 99,
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 99,
                    "preco_unitario_aplicado": 10000, "unidade_medida": "un"}]})
     assert resp.status_code == 400
     assert "estoque insuficiente" in resp.json()["detail"].lower()
 
 
-def test_venda_direta_retem_estoque_e_gera_titulo(client, make_user, make_client, make_product, db_session):
+def test_venda_direta_retem_estoque_e_gera_titulo(client, make_user, make_client, make_product, make_tipo_peca, db_session):
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product(quantidade_estoque=10, quantidade_retida=0)
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
 
     resp = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Peça", "modalidade": "venda_direta",
         "pagamento": _pagamento(client),
-        "itens": [{"produto_id": produto.id, "quantidade": 3,
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 3,
                    "preco_unitario_aplicado": 10000, "unidade_medida": "un"}]})
     assert resp.status_code == 201, resp.text
     orcamento_id = resp.json()["id"]
@@ -94,30 +98,31 @@ def test_venda_direta_retem_estoque_e_gera_titulo(client, make_user, make_client
     assert titulos[0].valor == 30000
 
 
-def test_orcamento_ja_vendido_nao_pode_ser_editado(client, make_user, make_client, make_product):
+def test_orcamento_ja_vendido_nao_pode_ser_editado(client, make_user, make_client, make_product, make_tipo_peca):
     """Editar apagaria os itens sem estornar a retenção de estoque, e a Venda já tem o
     valor congelado — passaria a divergir do orçamento que a originou."""
     vendedor = make_user(role="vendedor")
     cliente = make_client(vendedor)
     produto = make_product(quantidade_estoque=10, quantidade_retida=0)
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
 
     criado = client.post("/orcamentos/", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Peça", "modalidade": "venda_direta",
         "pagamento": _pagamento(client),
-        "itens": [{"produto_id": produto.id, "quantidade": 1,
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 1,
                    "preco_unitario_aplicado": 10000, "unidade_medida": "un"}]})
     assert criado.status_code == 201
     orcamento_id = criado.json()["id"]
 
     resp = client.put(f"/orcamentos/{orcamento_id}", json={
         "cliente_id": cliente.id, "tipo_orcamento": "Peça",
-        "itens": [{"produto_id": produto.id, "quantidade": 999,
+        "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 999,
                    "preco_unitario_aplicado": 1, "unidade_medida": "un"}]})
     assert resp.status_code == 400
 
 
-def test_pagamento_inativo_nao_fecha_venda(client, make_user, make_client, make_product):
+def test_pagamento_inativo_nao_fecha_venda(client, make_user, make_client, make_product, make_tipo_peca):
     admin = make_user(role="admin")
     _login(client, admin)
     tipos = client.get("/catalogos/tipos-pagamento").json()
@@ -126,10 +131,11 @@ def test_pagamento_inativo_nao_fecha_venda(client, make_user, make_client, make_
     try:
         cliente = make_client(admin)
         produto = make_product()
+        tipo_peca = make_tipo_peca()
         resp = client.post("/orcamentos/", json={
             "cliente_id": cliente.id, "tipo_orcamento": "Peça", "modalidade": "venda_direta",
             "pagamento": {"tipo_pagamento_id": alvo["id"]},
-            "itens": [{"produto_id": produto.id, "quantidade": 1,
+            "itens": [{"produto_id": produto.id, "tipo_peca_id": tipo_peca.id, "quantidade": 1,
                        "preco_unitario_aplicado": 10000, "unidade_medida": "un"}]})
         assert resp.status_code == 404
         assert "inativo" in resp.json()["detail"].lower()

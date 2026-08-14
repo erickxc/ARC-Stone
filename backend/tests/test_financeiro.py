@@ -9,24 +9,25 @@ def _login(client, user):
     return client
 
 
-def _criar_orcamento_com_item(client, cliente_id, produto_id, quantidade=2, preco=5000):
+def _criar_orcamento_com_item(client, cliente_id, produto_id, tipo_peca_id, quantidade=2, preco=5000):
     resp = client.post("/orcamentos/", json={
         "cliente_id": cliente_id,
         "tipo_orcamento": "Peça",
         "condicoes_pagamento_selecionadas": "[\"Pix\"]",
-        "itens": [{"produto_id": produto_id, "quantidade": quantidade, "preco_unitario_aplicado": preco}],
+        "itens": [{"produto_id": produto_id, "tipo_peca_id": tipo_peca_id, "quantidade": quantidade, "preco_unitario_aplicado": preco}],
     })
     assert resp.status_code == 201, resp.text
     return resp.json()["id"]
 
 
-def test_aprovar_orcamento_gera_lancamento_automatico(client, make_user, make_client, make_product):
+def test_aprovar_orcamento_gera_lancamento_automatico(client, make_user, make_client, make_product, make_tipo_peca):
     vendedor = make_user(role="vendedor")
     admin = make_user(role="admin")
     cliente = make_client(vendedor)
     produto = make_product(quantidade_estoque=10)
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
-    orcamento_id = _criar_orcamento_com_item(client, cliente.id, produto.id, quantidade=2, preco=5000)
+    orcamento_id = _criar_orcamento_com_item(client, cliente.id, produto.id, tipo_peca.id, quantidade=2, preco=5000)
 
     aprovado = client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Aprovado"})
     assert aprovado.status_code == 200, aprovado.text
@@ -40,13 +41,14 @@ def test_aprovar_orcamento_gera_lancamento_automatico(client, make_user, make_cl
     assert gerado["automatico"] is True
 
 
-def test_voltar_status_cancela_lancamento_automatico_pendente(client, make_user, make_client, make_product):
+def test_voltar_status_cancela_lancamento_automatico_pendente(client, make_user, make_client, make_product, make_tipo_peca):
     vendedor = make_user(role="vendedor")
     admin = make_user(role="admin")
     cliente = make_client(vendedor)
     produto = make_product(quantidade_estoque=10)
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
-    orcamento_id = _criar_orcamento_com_item(client, cliente.id, produto.id)
+    orcamento_id = _criar_orcamento_com_item(client, cliente.id, produto.id, tipo_peca.id)
     client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Aprovado"})
 
     voltou = client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Gerando projeto"})
@@ -57,13 +59,14 @@ def test_voltar_status_cancela_lancamento_automatico_pendente(client, make_user,
     assert not any(l["orcamento_id"] == orcamento_id for l in lancamentos)
 
 
-def test_excluir_orcamento_com_lancamento_pago_nao_quebra_por_fk(client, make_user, make_client, make_product):
+def test_excluir_orcamento_com_lancamento_pago_nao_quebra_por_fk(client, make_user, make_client, make_product, make_tipo_peca):
     vendedor = make_user(role="vendedor")
     admin = make_user(role="admin")
     cliente = make_client(vendedor)
     produto = make_product(quantidade_estoque=10)
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
-    orcamento_id = _criar_orcamento_com_item(client, cliente.id, produto.id)
+    orcamento_id = _criar_orcamento_com_item(client, cliente.id, produto.id, tipo_peca.id)
     client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Aprovado"})
 
     _login(client, admin)
@@ -80,13 +83,14 @@ def test_excluir_orcamento_com_lancamento_pago_nao_quebra_por_fk(client, make_us
     assert ainda_existe["status"] == "pago"
 
 
-def test_lancamento_pago_nao_e_cancelado_ao_voltar_status(client, make_user, make_client, make_product):
+def test_lancamento_pago_nao_e_cancelado_ao_voltar_status(client, make_user, make_client, make_product, make_tipo_peca):
     vendedor = make_user(role="vendedor")
     admin = make_user(role="admin")
     cliente = make_client(vendedor)
     produto = make_product(quantidade_estoque=10)
+    tipo_peca = make_tipo_peca()
     _login(client, vendedor)
-    orcamento_id = _criar_orcamento_com_item(client, cliente.id, produto.id)
+    orcamento_id = _criar_orcamento_com_item(client, cliente.id, produto.id, tipo_peca.id)
     client.put(f"/orcamentos/{orcamento_id}/status", params={"novo_status": "Aprovado"})
 
     _login(client, admin)

@@ -127,6 +127,7 @@ export interface ItemCatalogo {
 
 export type PaymentCondition = ItemCatalogo
 export type Local = ItemCatalogo
+export type TipoPeca = ItemCatalogo
 export type MotivoPerda = ItemCatalogo & { slug: string }
 export interface TipoPagamento extends ItemCatalogo { exige_forma: boolean }
 export interface FormaPagamento extends ItemCatalogo { tipo_pagamento_id: number }
@@ -197,6 +198,8 @@ export interface QuoteItem {
   quantidade: number
   preco_unitario_aplicado: number
   servico_componente_id?: number | null
+  /** O que a peça é (Bancada, Soleira, Peitoril...) — catálogo TipoPeca, independente do material. */
+  tipo_peca_id?: number | null
   local_id?: number | null
   local_instalacao?: string | null
   /** Decide a formula do total: m2 usa area, linear usa comprimento, un usa quantidade. */
@@ -219,6 +222,8 @@ export interface QuoteItem {
   area_m2?: number | null
   grupo_id?: string | null
   local_nome?: string | null
+  tipo_peca_nome?: string | null
+  material_nome?: string | null
   tipo_item?: 'servico' | 'produto' | 'externo' | null
   total_centavos?: number | null
 }
@@ -749,6 +754,7 @@ function criarAcoesCatalogo<T extends ItemCatalogo>(caminho: string): AcoesCatal
 export const catalogoCondicoesPagamento = criarAcoesCatalogo<PaymentCondition>('condicoes-pagamento')
 export const catalogoTiposPagamento = criarAcoesCatalogo<TipoPagamento>('tipos-pagamento')
 export const catalogoLocais = criarAcoesCatalogo<Local>('locais')
+export const catalogoTiposPeca = criarAcoesCatalogo<TipoPeca>('tipos-peca')
 export const catalogoMotivosPerda = criarAcoesCatalogo<MotivoPerda>('motivos-perda')
 export const catalogoEtapasProducao = criarAcoesCatalogo<EtapaProducao>('etapas-producao')
 

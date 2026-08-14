@@ -281,7 +281,11 @@ def build_items_table(itens, styles, desconto_global_centavos: int = 0):
         descricao = esc(item.get('descricao_externa', '') if item.get('is_externo') else '')
         local_inst = esc(item.get('local_instalacao', ''))
 
+        material_nome = esc(item.get('material_nome', '') or '')
+
         display_name = nome
+        if material_nome:
+            display_name += f'<br/><font size="7" color="#888">{material_nome}</font>'
         if descricao:
             display_name += f'<br/><font size="6" color="#888">{descricao}</font>'
         if local_inst:
@@ -481,9 +485,9 @@ def generate_orcamento_pdf(orcamento_data: dict) -> str:
     elements.extend(build_client_section(orcamento_data, styles))
     
     # 3. Tabela de itens + totais
-    items_elements, total = build_items_table(
-        orcamento_data.get('itens', []), styles,
-        orcamento_data.get('desconto_global_centavos', 0) or 0,
+    items_elements, total = build_items_table(
+        orcamento_data.get('itens', []), styles,
+        orcamento_data.get('desconto_global_centavos', 0) or 0,
     )
     elements.extend(items_elements)
     
